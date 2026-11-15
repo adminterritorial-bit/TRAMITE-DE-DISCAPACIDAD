@@ -1,3 +1,5 @@
+**Decisión vigente: mantener Spark sin facturación.** El despliegue Blaze descrito históricamente queda suspendido. No habilitar Secret Manager, TTL ni Cloud Functions. Véase [ruta Spark](SPARK.md). El portal continúa en demo mientras se valida el reemplazo del backend.
+
 # Puesta en marcha del piloto (no producción)
  
 ## 1. Firebase

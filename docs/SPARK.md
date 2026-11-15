@@ -1,0 +1,9 @@
+# Ruta sin facturación (Spark)
+
+Decisión: no activar facturación. Se conserva Firebase Authentication, Firestore, App Check, frontend de GitHub Pages y las dos implementaciones Apps Script existentes bajo Salud. Cloud Functions y Secret Manager quedan fuera del despliegue vigente. El flujo Blaze está archivado en código con su job desactivado.
+
+## Prueba de viabilidad, sin escribir datos
+En el script de Recepción existente añadir el archivo Firestore.gs de apps-script/pruebas y ampliar su manifiesto con los scopes datastore y script.external_request (mantener Drive y Mail). Ejecutar testFirestoreConnection exclusivamente desde el editor con la cuenta de Salud. No es necesario modificar la implementación publicada para la prueba. HTTP 200 confirma lectura por REST; 401/403 requieren revisar scopes, IAM y API habilitada. No habilitar facturación si se solicita. La prueba no registra el token ni el contenido de documentos.
+
+## Diseño objetivo (pendiente de implementación y pruebas)
+Adaptar la capa de servidor a Apps Script con OAuth de Google para Firestore REST e IAM de mínimo privilegio, y validación del ID token Firebase por servidor, cuenta activa, rol, propiedad, revocación y App Check. Las claves HMAC siguen en Script Properties; nunca en el cliente. Las reglas Firestore siguen denegando acceso directo de clientes. Verificar transporte y CORS, concurrencia, cuotas, descargas/archivado y auditoría antes de activar. Evitar TTL de pago y planificar limpieza controlada. Mantener datos ficticios únicamente y demo desconectada mientras se valida. No publicar un endpoint privilegiado sin validación completa. No se han ejecutado estas pruebas en servicios reales. La propuesta no garantiza disponibilidad ni costo futuro más allá de las cuotas de los servicios institucionales ya contratados.
