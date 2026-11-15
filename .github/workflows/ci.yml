@@ -3,6 +3,7 @@ on:
   push:
     branches: [main, 'feat/**']
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -46,3 +47,29 @@ jobs:
           name: portal-preview
           path: screenshots/
           if-no-files-found: ignore
+  publish-demo:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [static, browser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public build never connects to Firebase
+        run: |
+          grep -F "mode:'demo'" public/config.js
+          test -z "$(find public -type f \( -name '*.pem' -o -name '*.key' -o -name '.env*' \))"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - uses: actions/deploy-pages@v4
+        id: deployment

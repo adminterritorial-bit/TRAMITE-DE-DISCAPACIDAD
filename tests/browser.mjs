@@ -32,7 +32,7 @@ try {
  await page.screenshot({path:'screenshots/04-expediente.png',fullPage:true});
  assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
  await page.setViewportSize({width:390,height:844});await page.reload({waitUntil:'networkidle'});
- assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'desbordamiento horizontal móvil');
+ const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&!e.closest('.nav')}).map(e=>[e.tagName,e.className,Math.round(e.getBoundingClientRect().right)]).slice(0,15)}));assert.ok(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));
  await page.screenshot({path:'screenshots/05-movil.png',fullPage:true});
  await page.locator('#contrast').click();assert.equal(await page.locator('#contrast').getAttribute('aria-pressed'),'true');
  await page.screenshot({path:'screenshots/06-contraste.png',fullPage:true});
