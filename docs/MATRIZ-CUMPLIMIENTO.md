@@ -1,0 +1,23 @@
+# Matriz de cumplimiento y pruebas
+
+El estado refleja evidencia de la aplicación en piloto. Cada responsable es una función institucional propuesta para validación.
+
+| Norma y requisito | Aplicabilidad | Control y evidencia | Resultado y criterio pendiente | Responsable |
+| --- | --- | --- | --- | --- |
+| Ley 2345/2023, art. 4 · identidad territorial | Portal y documentos | PNG original, hash verificado, plantilla accesible, evidencia municipal | Escudo integrado. Confirmar MIV y segundo emblema antes de habilitarlo | Comunicaciones |
+| Ley 1581/2012, arts. 4–6 · finalidad y datos sensibles | Diseño y eventual tratamiento de salud | Perfil y PDF de prueba comprobados en servidor; autorización sensible deshabilitada | Probado en código. Definir base jurídica y autorizar puesta en servicio | Jurídica y Salud |
+| Ley 1581/2012, arts. 8, 14 y 15 · derechos de titulares | Roles y atención | Solicitud, asignación, respuesta y consulta propia; prueba en `tests/institutional.test.mjs` | Separación probada. Verificar canal, proceso, días hábiles y plazos institucionales | Protección de Datos |
+| Ley 1581/2012, arts. 9 y 12 y Decreto 1074/2015 · información, decisión y prueba | Comunicaciones y piloto | Aviso, términos, decisión opcional y evento de servidor con versión, hash y UID | Rechazo de versión antigua probado. Revisar textos y activar aprobación documental formal | Jurídica |
+| Resolución 1519/2020, art. 3 y Anexo 1 · WCAG 2.1 AA y objetivo WCAG 2.2 AA | Vistas públicas y autenticadas | Axe, reflujo, navegación con teclado, diálogo, contraste, reducción de movimiento, HTML imprimible | Pruebas automatizadas selectivas. Auditoría manual con tecnología de asistencia pendiente | TIC y accesibilidad |
+| Ley 1712/2014 y Res. 1519/2020 Anexo 2 · transparencia | Enlace desde el portal | Sede municipal y centro legal público; se evita duplicar contenidos oficiales | Revisar clasificación de esta ventanilla y política de publicación | Transparencia |
+| Res. 1519/2020, Anexo 3 · seguridad digital | Portal y backend | Access control, App Check, evidencia, pruebas y guías de seguridad | Controles de código verificados; validar HTTPS, permisos y autenticación real institucional | TIC |
+| Res. 1519/2020, Anexo 4 · datos abiertos | Alcance público limitado | Los expedientes y metadatos privados nunca forman parte de proyecciones públicas | Verificar si la entidad autorizara indicadores agregados | Transparencia y Salud |
+| Res. 2893/2020 · sedes y ventanillas | Por determinar con la entidad | Sitemap público, acceso institucional y vínculos validados de sede | Pendiente confirmar aplicación de cabecera GOV.CO y registro oficial | TIC y Comunicaciones |
+| Decreto 1078/2015 mod. Decreto 767/2022, Ley 2052/2020 y Decreto 620/2020 · Gobierno Digital y servicios ciudadanos | Operación e interoperabilidad | Autenticación existente, acceso por cuenta y orientación pública | Validar trámite, SUIT, enrutamiento, radicación e interoperabilidad oficial | Gobierno Digital y Salud |
+| Res. 500/2021, Res. 2277/2025 y Decreto 338/2022 · MSPI | Operación | Inventario, riesgos, acceso mínimo, incidentes, continuidad y revisión de pruebas | Validar MFA, roles, capacidad, monitoreo, recuperación y evidencias en entorno institucional | TIC y Seguridad |
+| Ley 594/2000, Decreto 1080/2015, Acuerdo AGN 001/2024 · archivo | Expedientes y custodia | Hashes, carpeta privada, bitácora y procedimiento de respaldo | Validar TRD/CCD, índice electrónico, transferencia a SGDEA y restauración | Archivo y Salud |
+| Ley 527/1999 y CPACA · mensajes y actuaciones | Acuse de prueba | Constancia accesible y correo informativo opcional | Integrar radicación y evidencia oficial antes de conferir efectos jurídicos | Jurídica y Ventanilla |
+| MIPG · seguimiento Gobierno Digital y gestión documental | Evidencia institucional | Matriz, repositorio, CI y documentación de operación | Incorporar evidencias al seguimiento institucional y FURAG, según aplicación | Planeación y TIC |
+| Certificación de discapacidad y RLCPD · competencia sectorial | Activación institucional | El piloto conserva un flujo ficticio con documentos sin validez | Verificar norma vigente, requisitos, reserva e integración con prestadores competentes | Secretaría de Salud |
+
+Fuentes normativas y alcance en [IDENTIDAD-UX-Y-CUMPLIMIENTO.md](IDENTIDAD-UX-Y-CUMPLIMIENTO.md). Evidencia de pruebas en los flujos de GitHub Actions y la carpeta `tests/`.

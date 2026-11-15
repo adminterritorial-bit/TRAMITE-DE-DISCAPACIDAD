@@ -80,7 +80,21 @@ function savePdf_(folder,f){
 const SPARK_BUILD_='spark-unified-2.0';
 const SPARK_PORTAL_='https://adminterritorial-bit.github.io/TRAMITE-DE-DISCAPACIDAD/pilot.html';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
-function doGet(){return output_({ok:true,build:SPARK_BUILD_,enabled:PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')==='true'});}
+function doGet(e){
+ const enabled=PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')==='true';
+ if(e?.parameter?.content==='public'&&enabled){
+  try{
+   const cache=CacheService.getScriptCache(),key='institutional-public-v1';
+   const previous=cache.get(key);
+   const publicData=previous?JSON.parse(previous):{ok:true,notices:instNotices_('public'),policies:instPublished_()};
+   if(!previous&&JSON.stringify(publicData).length<90000)cache.put(key,JSON.stringify(publicData),30);
+   publicData.notices=publicData.notices.filter(x=>x.end>Date.now());
+   return output_(publicData);
+  }
+  catch(_){return output_({ok:false,error:'firestore_unavailable'});}
+ }
+ return output_({ok:true,build:SPARK_BUILD_,enabled});
+}
 function doPost(e){return spHandle_(e);}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
 const SPARK_REST_='https://firestore.googleapis.com/v1/'+SPARK_DB_;
@@ -116,7 +130,7 @@ function spRest_(suffix,method,data,allowMissing){
  return JSON.parse(res.getContentText());
 }
 function spName_(collection,id){
- if(!['requests','audit','rateLimits'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
+ if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
  return SPARK_DB_+'/'+collection+'/'+id;
 }
 function spRead_(collection,id){
@@ -172,12 +186,27 @@ function spJournal_(folder,name,send,quota){
  var marker=requireRestricted_(folder.createFile(name,JSON.stringify({sent:false}),MimeType.PLAIN_TEXT));
  send();marker.setContent(JSON.stringify({sent:true}));return true;
 }
-function spAck_(folder,radicado,email){
+
+function spMail_(to,subject,message){
+ const label='Alcaldía Municipal de San Pedro · Secretaría de Salud';
+ const options={to,subject,body:label+'\n\n'+message+'\n\n'+SPARK_PORTAL_};
+ function escaped(text){return text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ try{
+  const response=UrlFetchApp.fetch(SPARK_PORTAL_.replace(/pilot\.html$/,'assets/brand/alcaldia-san-pedro.png'),{muteHttpExceptions:true});
+  if(response.getResponseCode()===200&&digest_(response.getBlob().getBytes())==='acb2538438b975a6daf640a6c8e277edbc90807a8cbb97ec59320f5234855072'){
+   options.inlineImages={alcaldia:response.getBlob().setName('alcaldia-san-pedro.png')};
+   options.htmlBody='<img src="cid:alcaldia" alt="" width="192" height="108"><h1>'+escaped(label)+'</h1><p>'+escaped(message)+'</p><p><a href="'+SPARK_PORTAL_+'">Consultar en el portal</a></p>';
+  }
+ }catch(_){}
+ MailApp.sendEmail(options);
+}
+
+function spAck_(folder,radicado,email,notify){
  if(!isValidEmail_(email)||!isValidEmail_(prop_('HEALTH_EMAIL')))throw Error('invalid_email');
  return spJournal_(folder,'ack.json',()=>{
-  MailApp.sendEmail({to:email,subject:'Acuse de prueba '+radicado,body:'Se recibió su solicitud ficticia '+radicado+'. No constituye radicación oficial. Consulte '+SPARK_PORTAL_});
-  MailApp.sendEmail({to:prop_('HEALTH_EMAIL'),subject:'Nueva solicitud de prueba '+radicado,body:'Expediente ficticio '+radicado+'. Consulte '+SPARK_PORTAL_});
- },2);
+  if(notify)spMail_(email,'Acuse de prueba '+radicado,'Se recibió su solicitud ficticia '+radicado+'.');
+  spMail_(prop_('HEALTH_EMAIL'),'Nueva solicitud de prueba '+radicado,'Expediente ficticio '+radicado+'.');
+ },notify?2:1);
 }
 function spSubmit_(u,d){
  if(d.consent!==true||d.synthetic!==true||d.noticeVersion!=='pilot-v1'||typeof d.key!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(d.key))throw Error('invalid_request');
@@ -187,8 +216,9 @@ function spSubmit_(u,d){
  if(files.reduce((s,f)=>s+f.size,0)>8*1024*1024)throw Error('invalid_fixture');
  var id=spHash_(u.uid+':'+d.key),radicado='SP-PIL-'+id.slice(0,16).toUpperCase(),prior=spRead_('requests',id);
  if(prior){if(spData_(prior.fields).ownerUid!==u.uid||!spRecord_(prior,false))throw Error('forbidden');return spRecord_(prior,false);}
+ const evidence=instEvidence_(u,id,d.legalDecisions);
  spLimit_(u,'create',3);
- spCommit_([spPut_('requests',id,{ownerUid:u.uid,email:u.email,name:'Persona de prueba',documentType:'CC',documentNumber:'TEST001',phone:'',zone:d.zone,representation:d.representation,support:'',consent:true,synthetic:true,noticeVersion:'pilot-v1',radicado,status:'saving',ackStatus:'not_sent'},null,['createdAt','updatedAt']),spAudit_(id,u.uid,'created')]);
+ spCommit_([...evidence.writes,spPut_('requests',id,{ownerUid:u.uid,email:u.email,name:'Persona de prueba',documentType:'CC',documentNumber:'TEST001',phone:'',zone:d.zone,representation:d.representation,support:'',consent:true,synthetic:true,noticeVersion:'pilot-v1',radicado,status:'saving',ackStatus:'not_sent',notifyByEmail:evidence.notify},null,['createdAt','updatedAt']),spAudit_(id,u.uid,'created')]);
  var folder;
  try{
   folder=folder_(root_(),id);
@@ -200,7 +230,7 @@ function spSubmit_(u,d){
   return spRecord_(spRead_('requests',id),false);
  }
  var ackStatus='review';
- try{ackStatus=spAck_(folder,radicado,u.email)?'sent':'pending';}catch(_){}
+ try{ackStatus=spAck_(folder,radicado,u.email,evidence.notify)?'sent':'pending';}catch(_){}
  spUpdate_(spRead_('requests',id),id,u.uid,{ackStatus},'ack:'+ackStatus);
  return spRecord_(spRead_('requests',id),false);
 }
@@ -212,8 +242,210 @@ function spDownload_(id,f,kind){
  var bytes=file.getBlob().getBytes();if(digest_(bytes)!==f.sha)throw Error('invalid_fixture');
  return {base64:Utilities.base64Encode(bytes)};
 }
+
+const INST_ACTIONS_=['institutionalForm','institutionalPublic','institutionalAdmin','institutionalHistory','noticeSave','noticeChange','policySave','policyChange','evidenceList','rightsCreate','rightsMine','rightsInbox','rightsUpdate'];
+const INST_POLICIES_=['processing','privacy','terms','storage','accessibility','sensitive'];
+const INST_RIGHTS_=['access','update','rectification','suppression','proof','revocation'];
+const INST_REFERENCE_=/^[a-f0-9-]{36}$/i;
+function instText_(value,max){
+ if(typeof value!=='string'||!value.trim()||value.length>max||/[<>\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value))throw Error('invalid_request');
+ return value.trim();
+}
+function instEnum_(value,choices){
+ if(!choices.includes(value))throw Error('invalid_request');
+ return value;
+}
+function instDate_(value){
+ if(!Number.isSafeInteger(value)||value<946684800000||value>4102444800000)throw Error('invalid_request');
+ return value;
+}
+function instPermission_(u,property){
+ return ['admin','supervisor'].includes(u?.role)&&String(PropertiesService.getScriptProperties().getProperty(property)||'').split(',').map(x=>x.trim()).includes(u.uid);
+}
+function instManager_(u){
+ if(!['admin','supervisor'].includes(u?.role))throw Error('forbidden');
+}
+function instRecent_(u){
+ if(!Number.isFinite(u.authTime)||Date.now()/1000-u.authTime>900)throw Error('recent_login_required');
+}
+function instLog_(entity,u,entry){
+ return spPut_('institutionalVersions',Utilities.getUuid(),{entity,actorUid:u.uid,snapshot:entry},null,['at']);
+}
+function instRead_(collection,id){
+ const doc=spRead_(collection,id);
+ return {doc,data:doc?spData_(doc.fields):null};
+}
+function instNotices_(audience,now=Date.now()){
+ const audiences=audience==='staff'?['staff','public']:audience==='citizen'?['citizen','public']:['public'];
+ const entries=instRead_('institutional','notices').data?.items||[];
+ return entries.map(x=>x.live).filter(x=>x&&audiences.includes(x.audience)&&x.start<=now&&x.end>now)
+ .sort((a,b)=>b.priority-a.priority||a.start-b.start)
+ .map(({id,title,body,start,end,priority,severity,audience,channel,frequency,service,version})=>({id,title,body,start,end,priority,severity,audience,channel,frequency,service,version}));
+}
+function instNotice_(u,action,d){
+ instManager_(u);instRecent_(u);spLimit_(u,'notices',50);
+ const {doc,data}=instRead_('institutional','notices'),items=data?.items||[];
+ const index=d.id?items.findIndex(x=>x.id===d.id):-1;
+ const current=items[index];
+ if(d.id&&(!current||current.version!==d.version))throw Error('content_version_changed');
+ let next;
+ if(action==='noticeSave'){
+  if(!current&&items.length>=40)throw Error('rate_limit');
+  const start=instDate_(d.start),end=instDate_(d.end);
+  if((d.channel==='modal'&&d.frequency==='always'&&d.severity!=='urgent')||end<=start||!Number.isSafeInteger(d.priority)||d.priority<0||d.priority>100)throw Error('invalid_request');
+  const id=current?.id||Utilities.getUuid(),version=(current?.version||0)+1;
+  const draft={id,version,title:instText_(d.title,100),body:instText_(d.body,1500),start,end,priority:d.priority,
+   severity:instEnum_(d.severity,['info','warning','urgent']),audience:instEnum_(d.audience,['public','citizen','staff']),
+   channel:instEnum_(d.channel,['banner','modal','inbox']),frequency:instEnum_(d.frequency,['session','always']),
+   service:instEnum_(d.service,['all','discapacidad']),actorUid:u.uid};
+  next={id,version,state:'draft',draft,live:current?.live||null};
+ }else{
+  if(!current)throw Error('not_found');
+  if(d.state==='published'&&current.state==='draft'&&current.draft.end>Date.now()){
+   next={...current,version:current.version+1,state:'published',live:current.draft};
+  }else if(d.state==='withdrawn'&&current.live){
+   next={...current,version:current.version+1,state:'withdrawn',live:null};
+  }else throw Error('invalid_transition');
+ }
+ if(index<0)items.push(next);else items[index]=next;
+ spCommit_([spPut_('institutional','notices',{items},doc,['updatedAt']),instLog_('notice-'+next.id,u,next)]);
+ if(typeof CacheService!=='undefined')CacheService.getScriptCache().remove('institutional-public-v1');
+ return next;
+}
+function instPolicy_(u,action,d){
+ instManager_(u);instRecent_(u);spLimit_(u,'policy',50);
+ const kind=instEnum_(d.kind,INST_POLICIES_),id='policy-'+kind;
+ const {doc,data}=instRead_('institutional',id);
+ const version=data?.version||0;
+ if(d.version!==version)throw Error('content_version_changed');
+ let next;
+ if(action==='policySave'){
+  const title=instText_(d.title,120),body=instText_(d.body,16000);
+  const hash=spHash_(JSON.stringify([kind,title,body]));
+  next={kind,version:version+1,state:'draft',draft:{title,body,hash,authorUid:u.uid},published:data?.published||null};
+ }else if(d.state==='review'&&data?.state==='draft'){
+  next={...data,state:'review',version:version+1};
+ }else if(d.state==='approved'&&data?.state==='review'){
+  if(!instPermission_(u,'LEGAL_REVIEWERS')||u.uid===data.draft.authorUid)throw Error('forbidden');
+  next={...data,state:'approved',version:version+1,draft:{...data.draft,reviewerUid:u.uid,
+   reference:instText_(d.reference,160),effective:instDate_(d.effective),approvedAt:Date.now()}};
+ }else if(d.state==='published'&&data?.state==='approved'&&data.draft.effective<=Date.now()){
+  if(kind==='sensitive')throw Error('pilot_disabled');
+  const {title,body,hash,effective}=data.draft;
+  next={...data,state:'published',version:version+1,published:{id,kind,title,body,hash,effective,version:version+1}};
+ }else if(d.state==='withdrawn'&&data?.published){
+  next={...data,state:'withdrawn',version:version+1,published:null};
+ }else throw Error('invalid_transition');
+ spCommit_([spPut_('institutional',id,next,doc,['updatedAt']),instLog_(id,u,next)]);
+ if(typeof CacheService!=='undefined')CacheService.getScriptCache().remove('institutional-public-v1');
+ return next;
+}
+function instPublished_(){
+ return INST_POLICIES_.map(kind=>instRead_('institutional','policy-'+kind).data?.published).filter(x=>x&&x.effective<=Date.now());
+}
+const INST_PILOT_STATEMENTS_=[
+ ['privacy','notice','Conocimiento del aviso del piloto','Comprendo que se usa mi cuenta verificada para operar una prueba con datos y PDF ficticios.'],
+ ['terms','terms','Aceptación de condiciones de prueba','Acepto participar exclusivamente con el perfil y los documentos ficticios proporcionados.'],
+ ['electronic','electronic_notice','Comunicaciones electrónicas opcionales','Autorizo que el acuse y los avisos de esta prueba lleguen a mi correo verificado.']
+];
+function instForm_(){
+ const guards=[];
+ const documents=INST_PILOT_STATEMENTS_.map(([kind,act,title,body])=>{
+  const id='policy-'+kind;
+  const policy=kind==='electronic'?null:instRead_('institutional',id);
+  if(policy)guards.push({verify:spName_('institutional',id),currentDocument:policy.doc?{updateTime:policy.doc.updateTime}:{exists:false}});
+  const published=policy?.data?.published;
+  if(published&&published.effective<=Date.now())return {...published,act,required:true};
+  return {id,version:1,hash:spHash_(JSON.stringify([kind,title,body])),title,body,act,required:act!=='electronic_notice'};
+ });
+ return {documents,guards};
+}
+function instEvidence_(u,id,decisions){
+ const {documents,guards}=instForm_();
+ if(!Array.isArray(decisions)||decisions.length!==documents.length)throw Error('legal_decision_required');
+ let notify=false;
+ const writes=documents.flatMap(item=>{
+  const decision=decisions.find(d=>d?.id===item.id&&d.act===item.act);
+  if(!decision)throw Error('legal_decision_required');
+  if(decision.version!==item.version||decision.hash!==item.hash)throw Error('legal_version_changed');
+  const valid=item.act==='notice'?['acknowledged']:item.act==='terms'?['accepted']:['granted','declined','unselected'];
+  if(!valid.includes(decision.decision))throw Error('legal_decision_required');
+  if(decision.decision==='unselected')return [];
+  if(item.act==='electronic_notice')notify=decision.decision==='granted';
+  const key=spHash_(id+':'+item.act);
+  return spPut_('legalEvidence',key,{ownerUid:u.uid,requestId:id,documentId:item.id,version:item.version,
+   hash:item.hash,act:item.act,decision:decision.decision,service:'discapacidad',purpose:'piloto_sintetico'},null,['at']);
+ });
+ return {writes:[...guards,...writes],notify};
+}
+function instRights_(u,action,d){
+ const manage=action==='rightsInbox'||action==='rightsUpdate';
+ if(manage&&!instPermission_(u,'DATA_RIGHTS_OFFICERS'))throw Error('forbidden');
+ if(action==='rightsMine'||action==='rightsInbox'){
+  spLimit_(u,'rightsList',60);
+  return {items:spQuery_('rightsCases',manage?null:'ownerUid',u.uid,'createdAt',30).map(x=>{
+   const item=spData_(x.fields);
+   if(!manage)delete item.ownerUid;
+   return item;
+  })};
+ }
+ if(action==='rightsCreate'){
+  const kind=instEnum_(d.kind,INST_RIGHTS_);
+  if(!INST_REFERENCE_.test(d.key||''))throw Error('invalid_request');
+  const id=spHash_(u.uid+':rights:'+d.key),p=instRead_('rightsCases',id);
+  if(p.data)return {id,state:p.data.state};
+  spLimit_(u,'rightsCreate',5);
+  const configured=Number(PropertiesService.getScriptProperties().getProperty('RIGHTS_DUE_CALENDAR_DAYS'));
+  const dueAt=Number.isSafeInteger(configured)&&configured>0&&configured<=90?Date.now()+configured*86400000:null;
+  const next={id,kind,ownerUid:u.uid,version:1,state:'received',dueAt,assigneeUid:null,answer:null};
+  spCommit_([spPut_('rightsCases',id,next,null,['createdAt','updatedAt']),spAudit_(id,u.uid,'rights:created')]);
+  return {id,state:next.state};
+ }
+ instRecent_(u);
+ if(!/^[a-f0-9]{64}$/.test(d.id||''))throw Error('invalid_request');
+ const {doc,data}=instRead_('rightsCases',d.id);
+ if(!data)throw Error('not_found');
+ if(data.version!==d.version)throw Error('content_version_changed');
+ let update;
+ if(data.state==='received'&&d.state==='assigned')update={state:'assigned',assigneeUid:u.uid};
+ else if(data.state==='assigned'&&data.assigneeUid===u.uid&&d.state==='answered')update={state:'answered',answer:instText_(d.answer,1800)};
+ else throw Error('invalid_transition');
+ spLimit_(u,'rightsUpdate',40);
+ spCommit_([spPut_('rightsCases',d.id,{...update,version:data.version+1},doc,['updatedAt']),spAudit_(d.id,u.uid,'rights:'+update.state)]);
+ return {id:d.id,state:update.state};
+}
+function instDispatch_(u,action,d){
+ if(action==='institutionalForm'){
+  spLimit_(u,'legalForm',120);
+  return {documents:instForm_().documents};
+ }
+ if(action==='institutionalPublic'){
+  spLimit_(u,'content',100);
+  return {notices:instNotices_(u.role?'staff':'citizen'),policies:instPublished_()};
+ }
+ if(action==='institutionalAdmin'){
+  instManager_(u);spLimit_(u,'contentAdmin',100);
+  return {notices:instRead_('institutional','notices').data?.items||[],
+   policies:INST_POLICIES_.map(kind=>instRead_('institutional','policy-'+kind).data).filter(Boolean),
+   reviewer:instPermission_(u,'LEGAL_REVIEWERS'),rights:instPermission_(u,'DATA_RIGHTS_OFFICERS')};
+ }
+ if(action==='institutionalHistory'){
+  instManager_(u);spLimit_(u,'contentHistory',70);
+  if(!/^(?:policy-(?:processing|privacy|terms|storage|accessibility|sensitive)|notice-[a-f0-9-]{36})$/.test(d.entity||''))throw Error('invalid_request');
+  return {items:spQuery_('institutionalVersions','entity',d.entity,'at',40).map(x=>spData_(x.fields))};
+ }
+ if(action==='evidenceList'){
+  spLimit_(u,'evidenceList',100);
+  return {items:spQuery_('legalEvidence','ownerUid',u.uid,'at',60).map(x=>spData_(x.fields))};
+ }
+ if(action==='noticeSave'||action==='noticeChange')return instNotice_(u,action,d);
+ if(action==='policySave'||action==='policyChange')return instPolicy_(u,action,d);
+ return instRights_(u,action,d);
+}
+
 function spDispatch_(u,action,d){
- if(action==='sessionAccess')return {role:u.role,canManage:!!u.role,canDeliver:u.role==='supervisor',build:SPARK_BUILD_};
+ if(INST_ACTIONS_.includes(action))return instDispatch_(u,action,d);
+ if(action==='sessionAccess')return {role:u.role,canManage:!!u.role,canDeliver:u.role==='supervisor',institutional:true,build:SPARK_BUILD_};
  if(action==='submitRequest')return spSubmit_(u,d);
  if(action==='myRequests'){spLimit_(u,'list',100);return {items:spQuery_('requests','ownerUid',u.uid,'createdAt',50).filter(x=>spData_(x.fields).ownerUid===u.uid).map(x=>spRecord_(x,false)).filter(Boolean)};}
  if(action==='adminList'){spRequireAdmin_(u);spLimit_(u,'adminList',100);return {items:spQuery_('requests',null,null,'createdAt',50).map(x=>spRecord_(x,true)).filter(Boolean),role:u.role};}
@@ -258,7 +490,7 @@ function spDispatch_(u,action,d){
   var cert=null,status='delivery_review';
   try{
    var folder=existingFolder_(root_(),d.id);cert=savePdf_(folder,f);
-   var sent=spJournal_(folder,'delivery-'+f.sha+'.json',()=>MailApp.sendEmail({to:entry.email,subject:'Documento de prueba '+entry.radicado,body:'Tiene un documento ficticio disponible. No es un certificado oficial. Consulte '+SPARK_PORTAL_}),1);
+   var sent=entry.notifyByEmail!==false&&spJournal_(folder,'delivery-'+f.sha+'.json',()=>spMail_(entry.email,'Documento de prueba '+entry.radicado,'Tiene un documento ficticio disponible, sin validez de certificado oficial.'),1);
    status=sent?'sent':'archived';
   }catch(_){}
   var update={status};if(cert)update.certificate=cert;
@@ -281,11 +513,11 @@ function spHandle_(e){
   stage='app_check';sparkVerifyApp_(p.appCheck);
   stage='identity';var u=sparkIdentity_(p.idToken,false);
   stage='operation';var req=JSON.parse(p.payload);
-  if(!req||!['sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
-  lock=LockService.getScriptLock();lock.waitLock(15000);
+  if(!req||![...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
+  if(!INST_ACTIONS_.includes(req.action)){lock=LockService.getScriptLock();lock.waitLock(15000);}
   return output_({ok:true,build:SPARK_BUILD_,data:spDispatch_(u,req.action,req.data)});
  }catch(err){
-  var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token'];
+  var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','legal_decision_required','legal_version_changed','content_version_changed','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token'];
   return output_({ok:false,build:SPARK_BUILD_,stage,error:safe.includes(err.message)?err.message:'operation_failed'});
  }finally{if(lock&&lock.hasLock())lock.releaseLock();}
 }

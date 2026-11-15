@@ -18,6 +18,9 @@ jobs:
         run: |
           node --check functions/index.js
           node --check public/app.js
+          node --input-type=module --check < public/institutional.js
+          node scripts/prepare-spark.mjs
+          node --check < build/spark-release/Codigo.gs
           node --check public/config.js
           node --check < apps-script/Common.gs
           node --check < apps-script/recepcion/Code.gs
@@ -94,6 +97,7 @@ jobs:
       - name: Verify main portal remains demo; isolated diagnostic only
         run: |
           grep -F "mode:'demo'" public/config.js
+          test ! -e public/assets/brand/san-pedro-marca.png
           test -z "$(find public -type f \( -name '*.pem' -o -name '*.key' -o -name '.env*' \))"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

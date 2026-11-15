@@ -20,7 +20,7 @@ function request(c,action='sessionAccess',data={}){
  const args={parameter,parameters:Object.fromEntries(Object.entries(parameter).map(([k,v])=>[k,[v]])),postData:{length:100}};
  return JSON.parse(c.sandbox.doPost(args).value);
 }
-test('operational router authenticates before returning session capabilities',()=>{const c=context();assert.deepEqual(request(c),{ok:true,build:'spark-unified-2.0',data:{role:'supervisor',canManage:true,canDeliver:true,build:'spark-unified-2.0'}});assert.deepEqual(c.calls,['app','identity']);});
+test('operational router authenticates before returning session capabilities',()=>{const c=context();assert.deepEqual(request(c),{ok:true,build:'spark-unified-2.0',data:{role:'supervisor',canManage:true,canDeliver:true,institutional:true,build:'spark-unified-2.0'}});assert.deepEqual(c.calls,['app','identity']);});
 test('disabled pilot returns explicit error without authentication',()=>{const c=context({enabled:false});assert.deepEqual(request(c),{ok:false,build:'spark-unified-2.0',stage:'configuration',error:'pilot_disabled'});assert.deepEqual(c.calls,[]);});
 test('invalid App Check and invalid identity fail closed',()=>{for(const [cfg,stage] of [[{validApp:false},'app_check'],[{validUser:false},'identity']])assert.deepEqual(request(context(cfg)),{ok:false,build:'spark-unified-2.0',stage,error:'operation_failed'});});
 test('unknown command and nonfixture are rejected before Firestore mutation',()=>{assert.deepEqual(request(context(),'unknown'),{ok:false,build:'spark-unified-2.0',stage:'operation',error:'invalid_request'});assert.deepEqual(request(context(),'submitRequest',{}),{ok:false,build:'spark-unified-2.0',stage:'operation',error:'invalid_request'});});
