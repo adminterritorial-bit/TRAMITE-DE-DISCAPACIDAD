@@ -25,7 +25,7 @@ function sparkVerifyApp_(token) {
   const p=sparkClaims_(token);
   const result=sparkJson_('https://firebaseappcheck.googleapis.com/v1beta/projects/'+SPARK_NUMBER_+':verifyAppCheckToken',{
     method:'post',contentType:'application/json',
-    headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken()},
+    headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken(),'x-goog-user-project':SPARK_PROJECT_},
     payload:JSON.stringify({appCheckToken:token})
   });
   if (result.alreadyConsumed === true || p.sub !== SPARK_APP_ || !Array.isArray(p.aud) || p.aud.indexOf('projects/'+SPARK_NUMBER_)<0 || p.iss !== 'https://firebaseappcheck.googleapis.com/'+SPARK_NUMBER_ || !Number.isFinite(p.exp) || p.exp <= Date.now()/1000) throw Error('invalid_app');
@@ -47,7 +47,7 @@ function sparkIdentity_(idToken, adminRequired) {
 // Test the privileged App Check verification path without consuming a genuine token.
 function testSparkAppCheck() {
   const r=UrlFetchApp.fetch('https://firebaseappcheck.googleapis.com/v1beta/projects/'+SPARK_NUMBER_+':verifyAppCheckToken',{
-    method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken()},
+    method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken(),'x-goog-user-project':SPARK_PROJECT_},
     payload:JSON.stringify({appCheckToken:'invalid-probe'}),muteHttpExceptions:true
   });
   let diagnostic={};try{const e=JSON.parse(r.getContentText()).error||{};diagnostic={status:e.status||'',message:String(e.message||'').slice(0,300),reasons:(e.details||[]).map(x=>x.reason).filter(Boolean)};}catch(_){}

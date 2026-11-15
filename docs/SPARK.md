@@ -15,3 +15,7 @@ Prueba REST reportada por Salud: HTTP 200. Se añade SparkAuth.gs como component
 ### Diagnóstico OAuth
 
 La prueba institucional devolvió HTTP 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT. El manifiesto Spark utiliza cloud-platform, alternativa oficialmente admitida por verifyAppCheckToken. Guardar y volver a autorizar con Salud; comprobar que el token nuevo incluya el alcance. Este alcance no concede roles IAM por sí mismo ni activa facturación. Si persiste, revisar consentimiento y restricciones de Workspace; si falta firebaseappcheck.appCheckTokens.verify, revisar IAM. El rechazo intencional de un token inválido no acredita todavía que un token genuino sea aceptado.
+
+### Proyecto consumidor de App Check
+
+El segundo diagnóstico reportó SERVICE_DISABLED en 983102853857 (proyecto consumidor del OAuth de Apps Script), no en el proyecto institucional 91732599743. Se especifica x-goog-user-project: tramite-discapacidad en ambas llamadas a verifyAppCheckToken para probar el proyecto consumidor correcto sin vincular ni modificar el proyecto predeterminado. Requiere API habilitada en el proyecto institucional y permiso serviceusage.services.use. Mantener Spark; no activar facturación. Pendiente prueba real.
