@@ -4,6 +4,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret, defineBoolean, defineString } from 'firebase-functions/params';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { fixtureAllowed, profileAllowed, citizenMayDownload } from './pilot-safety.js';
 initializeApp();
 const db=getFirestore();
 const pilot=defineBoolean('ENABLE_PILOT',{default:false});
@@ -29,7 +30,10 @@ export const submitRequest=onCall(opts,async r=>{
  const name=str(d.name,120),documentType=str(d.documentType,6),documentNumber=str(d.documentNumber,25),phone=str(d.phone,25,0),zone=str(d.zone,80),representation=str(d.representation,20),support=str(d.support||'',300,0);
  if(!['CC','TI','RC','CE','PA','OTRO'].includes(documentType)||! /^[A-Za-z0-9-]{3,25}$/.test(documentNumber)||!['propia','apoyo'].includes(representation))fail('invalid-argument');
  if(!Array.isArray(d.files)||d.files.length<1||d.files.length>2)fail('invalid-argument','Adjunte los soportes PDF.');
- const files=d.files.map((f,i)=>pdf(f,i===0?'historia':'apoyo'));if(files.reduce((a,f)=>a+f.size,0)>8*1024*1024)fail('invalid-argument','Máximo 8 MB en total.');
+ const files=d.files.map((f,i)=>pdf(f,i===0?'historia':'apoyo'));
+ if (!profileAllowed({name,documentType,documentNumber,phone,zone,representation,support}) || !files.every(fixtureAllowed)) {
+   fail('invalid-argument','Usa el perfil y los PDF de prueba proporcionados en el portal.');
+ }
  const requestId=hash(u.uid+':'+key),ref=db.doc('requests/'+requestId),radicado='SP-PIL-'+requestId.slice(0,16).toUpperCase();
  const prior=await ref.get();if(prior.exists)return {id:requestId,radicado,status:prior.data().status};
  await throttle(u.uid,'submit',3);
@@ -38,12 +42,21 @@ export const submitRequest=onCall(opts,async r=>{
  try{const saved=await bridge('archive','save',{requestId,files});await db.runTransaction(async t=>{t.update(ref,{files:saved.files,status:'received',updatedAt:FieldValue.serverTimestamp()});audit(t,requestId,u.uid,'received');});try{const ack=await bridge('archive','ack',{requestId,radicado,email:u.email,portal:portal.value()});await ref.update({ackStatus:ack.sent?'sent':'pending'});}catch{await ref.update({ackStatus:'review'}).catch(()=>{});}return {id:requestId,radicado,status:'received'};}catch{await ref.update({status:'storage_review',updatedAt:FieldValue.serverTimestamp()});return {id:requestId,radicado,status:'storage_review'};}
 });
 export const myRequests=onCall(opts,async r=>{const u=await identity(r);await throttle(u.uid,'list',150);const s=await db.collection('requests').where('ownerUid','==',u.uid).orderBy('createdAt','desc').limit(100).get();return {items:s.docs.map(x=>record(x,false))}});
-export const adminList=onCall(opts,async r=>{const u=await identity(r,true);await throttle(u.uid,'adminList',300);const s=await db.collection('requests').orderBy('createdAt','desc').limit(100).get();return {items:s.docs.map(x=>record(x,true))}});
+export const adminList=onCall(opts,async r=>{const u=await identity(r,true);await throttle(u.uid,'adminList',300);const s=await db.collection('requests').orderBy('createdAt','desc').limit(100).get();return {items:s.docs.map(x=>record(x,true)),role:u.role}});
+export const adminHistory=onCall(opts,async r=>{
+ const u=await identity(r,true),requestId=id(r.data?.id);
+ await throttle(u.uid,'adminHistory',300);
+ const events=await db.collection('audit').where('requestId','==',requestId).orderBy('at','desc').limit(50).get();
+ return {items:events.docs.map(doc=>{
+   const event=doc.data();
+   return {action:event.action,actorUid:event.actorUid,at:event.at?.toMillis()||0};
+ })};
+});
 export const setStatus=onCall(opts,async r=>{const u=await identity(r,true),d=r.data||{},ref=db.doc('requests/'+id(d.id));const allowed={received:['reviewing'],reviewing:['needs_documents','awaiting_certificate'],needs_documents:['reviewing']};await db.runTransaction(async t=>{const s=await t.get(ref);if(!s.exists)fail('not-found');if(!allowed[s.data().status]?.includes(d.status))fail('failed-precondition','Transición no permitida.');t.update(ref,{status:d.status,updatedAt:FieldValue.serverTimestamp()});audit(t,ref.id,u.uid,'status:'+d.status)});return {ok:true}});
-export const downloadFile=onCall(opts,async r=>{const u=await identity(r),d=r.data||{},requestId=id(d.id),s=await db.doc('requests/'+requestId).get();if(!s.exists)fail('not-found');const entry=s.data();let f;if(d.kind==='certificate'&&entry.ownerUid===u.uid&&entry.certificate&&['sent','delivery_review','archived'].includes(entry.status)){f=entry.certificate;}else{await identity(r,true);f=d.kind==='certificate'?entry.certificate:entry.files?.find(x=>x.kind===d.kind);}if(!f||typeof f.fileId!=='string')fail('not-found');await throttle(u.uid,'download',100);const result=await bridge('archive','read',{requestId,fileId:f.fileId,sha:f.sha});await db.collection('audit').add({requestId,actorUid:u.uid,action:'download:'+d.kind,at:FieldValue.serverTimestamp()});return result;});
+export const downloadFile=onCall(opts,async r=>{const u=await identity(r),d=r.data||{},requestId=id(d.id),s=await db.doc('requests/'+requestId).get();const entry=s.data();let f;if(citizenMayDownload(entry,u.uid,d.kind)){f=entry.certificate;}else{try{await identity(r,true);}catch(e){if(e.code==='permission-denied')fail('not-found');throw e;}if(!entry)fail('not-found');f=d.kind==='certificate'?entry.certificate:entry.files?.find(x=>x.kind===d.kind);}if(!f||typeof f.fileId!=='string')fail('not-found');await throttle(u.uid,'download',100);const result=await bridge('archive','read',{requestId,fileId:f.fileId,sha:f.sha});await db.collection('audit').add({requestId,actorUid:u.uid,action:'download:'+d.kind,at:FieldValue.serverTimestamp()});return result;});
 export const sendCertificate=onCall(opts,async r=>{
  const u=await identity(r,true);if(u.role!=='supervisor')fail('permission-denied');if(Date.now()/1000-Number(r.auth.token.auth_time)>900)fail('unauthenticated','Vuelva a iniciar sesión para efectuar el envío.');
- const d=r.data||{},ref=db.doc('requests/'+id(d.id)),file=pdf(d.file,'certificate');if(d.confirm!==true)fail('invalid-argument','Confirme la revisión del certificado oficial.');
+ const d=r.data||{},ref=db.doc('requests/'+id(d.id)),file=pdf(d.file,'certificate');if(d.confirm!==true||!fixtureAllowed(file))fail('invalid-argument','Confirma la revisión y usa el certificado ficticio del piloto.');
  await throttle(u.uid,'send',30);const entry=await db.runTransaction(async t=>{const s=await t.get(ref);if(!s.exists)fail('not-found');const q=s.data();if(q.status!=='awaiting_certificate'||!q.consent)fail('failed-precondition','El expediente no está listo o el envío ya se intentó.');t.update(ref,{status:'sending',updatedAt:FieldValue.serverTimestamp()});audit(t,ref.id,u.uid,'delivery_requested');return q;});
  try{const sent=await bridge('delivery','deliver',{requestId:ref.id,radicado:entry.radicado,email:entry.email,portal:portal.value(),file});await db.runTransaction(async t=>{t.update(ref,{certificate:sent.certificate,status:sent.sent?'sent':'archived',updatedAt:FieldValue.serverTimestamp()});audit(t,ref.id,u.uid,sent.sent?'notification_sent':'archived');});return {status:sent.sent?'sent':'archived'};}catch{await ref.update({status:'delivery_review',updatedAt:FieldValue.serverTimestamp()});return {status:'delivery_review'};}
 });

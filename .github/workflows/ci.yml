@@ -22,8 +22,12 @@ jobs:
           node --check < apps-script/Common.gs
           node --check < apps-script/recepcion/Code.gs
           node --check < apps-script/entrega/Code.gs
-      - name: Static security contracts
+      - name: Unit tests and security contracts
         run: node --test tests/*.test.mjs
+      - name: Audit locked dependencies
+        run: |
+          npm ci --prefix functions --ignore-scripts
+          npm --prefix functions audit --omit=dev --audit-level=moderate
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 7
@@ -34,7 +38,7 @@ jobs:
           node-version: '22'
       - name: Install test browser
         run: |
-          npm install --no-save --ignore-scripts playwright@1.56.1
+          npm install --no-save --ignore-scripts playwright@1.56.1 @axe-core/playwright@4.14.0
           npx playwright install --with-deps chromium
       - name: Test citizen and admin demo
         run: |

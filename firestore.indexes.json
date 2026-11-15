@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "audit",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "requestId", "order": "ASCENDING"},
+        {"fieldPath": "at", "order": "DESCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "requests",
       "queryScope": "COLLECTION",
       "fields": [

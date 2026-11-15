@@ -44,8 +44,8 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       - name: Install dependencies and verify syntax
         run: |
-          npm install --prefix functions --ignore-scripts
+          npm ci --prefix functions --ignore-scripts
           npm --prefix functions run check
-          npm --prefix functions audit --omit=dev --audit-level=high
+          npm --prefix functions audit --omit=dev --audit-level=moderate
       - name: Deploy closed pilot
         run: npx --yes firebase-tools@15.22.1 deploy --only firestore:rules,firestore:indexes,functions,hosting --project tramite-discapacidad --non-interactive
