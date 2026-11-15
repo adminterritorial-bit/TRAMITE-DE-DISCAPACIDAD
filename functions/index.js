@@ -22,7 +22,7 @@ async function identity(r,admin=false){if(!pilot.value())fail('failed-preconditi
 async function throttle(uid,action,max){const day=new Date().toISOString().slice(0,10),ref=db.doc('rateLimits/'+hash(uid+':'+action+':'+day));await db.runTransaction(async t=>{const old=(await t.get(ref)).data()?.count||0;if(old>=max)fail('resource-exhausted','Límite temporal alcanzado.');t.set(ref,{count:old+1,expiresAt:new Date(Date.now()+48*3600000)});});}
 async function bridge(which,action,data){const url=(which==='archive'?archiveUrl:deliveryUrl).value(),key=(which==='archive'?archiveKey:deliveryKey).value();if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)||key.length<43)fail();const body=JSON.stringify({action,data}),ts=Date.now(),nonce=randomUUID(),mac=createHmac('sha256',key).update(ts+'.'+nonce+'.'+body).digest('hex');const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ts,nonce,body,mac}),redirect:'follow',signal:AbortSignal.timeout(90000)});if(!response.ok)throw Error('bridge');const result=await response.json();if(result.ok!==true)throw Error('bridge');return result.data;}
 function audit(t,requestId,uid,action){t.create(db.collection('audit').doc(),{requestId,actorUid:uid,action,at:FieldValue.serverTimestamp()});}
-function record(s,admin){const d=s.data();return {id:s.id,radicado:d.radicado,status:d.status,createdAt:d.createdAt?.toMillis()||0,updatedAt:d.updatedAt?.toMillis()||0,...(admin?{name:d.name,email:d.email,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support||'',files:d.files||[],certificate:d.certificate||null}: {certificateAvailable:!!d.certificate&&['sent','delivery_review','archived'].includes(d.status)})};}
+function record(s,admin){const d=s.data();return {id:s.id,radicado:d.radicado,status:d.status,createdAt:d.createdAt?.toMillis()||0,updatedAt:d.updatedAt?.toMillis()||0,correctionKind:d.status==='needs_documents'?d.correction?.kind||null:null,...(admin?{name:d.name,email:d.email,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support||'',files:d.files||[],certificate:d.certificate||null}: {certificateAvailable:!!d.certificate&&['sent','delivery_review','archived'].includes(d.status)})};}
 export const submitRequest=onCall(opts,async r=>{
  const u=await identity(r),d=r.data||{};
  const key=str(d.key,36);if(!/^[a-f0-9-]{36}$/i.test(key))fail('invalid-argument');
@@ -52,7 +52,48 @@ export const adminHistory=onCall(opts,async r=>{
    return {action:event.action,actorUid:event.actorUid,at:event.at?.toMillis()||0};
  })};
 });
-export const setStatus=onCall(opts,async r=>{const u=await identity(r,true),d=r.data||{},ref=db.doc('requests/'+id(d.id));const allowed={received:['reviewing'],reviewing:['needs_documents','awaiting_certificate'],needs_documents:['reviewing']};await db.runTransaction(async t=>{const s=await t.get(ref);if(!s.exists)fail('not-found');if(!allowed[s.data().status]?.includes(d.status))fail('failed-precondition','Transición no permitida.');t.update(ref,{status:d.status,updatedAt:FieldValue.serverTimestamp()});audit(t,ref.id,u.uid,'status:'+d.status)});return {ok:true}});
+export const setStatus=onCall(opts,async r=>{
+ const u=await identity(r,true),d=r.data||{},ref=db.doc('requests/'+id(d.id));
+ const allowed={received:['reviewing'],reviewing:['needs_documents','awaiting_certificate'],needs_documents:['reviewing']};
+ const isCorrection=d.status==='needs_documents';
+ if(isCorrection&&!['historia','apoyo'].includes(d.documentKind))fail('invalid-argument','Selecciona el soporte para subsanar.');
+ const correction=isCorrection?{kind:d.documentKind,id:randomUUID()}:FieldValue.delete();
+ await db.runTransaction(async t=>{
+   const s=await t.get(ref);
+   if(!s.exists)fail('not-found');
+   if(!allowed[s.data().status]?.includes(d.status))fail('failed-precondition','Transición no permitida.');
+   t.update(ref,{status:d.status,correction,updatedAt:FieldValue.serverTimestamp()});
+   audit(t,ref.id,u.uid,isCorrection?'correction_requested:'+d.documentKind:'status:'+d.status);
+ });
+ return {ok:true};
+});
+export const submitCorrection=onCall(opts,async r=>{
+ const u=await identity(r),d=r.data||{},ref=db.doc('requests/'+id(d.id));
+ const entry=(await ref.get()).data();
+ if(entry?.ownerUid!==u.uid)fail('not-found');
+ if(entry.status!=='needs_documents'||!entry.correction?.kind)fail('failed-precondition','No hay una subsanación pendiente.');
+ const file=pdf(d.file,entry.correction.kind);
+ if(!fixtureAllowed(file))fail('invalid-argument','Usa el soporte de prueba indicado.');
+ await throttle(u.uid,'correction',10);
+ let saved;
+ try{
+   const result=await bridge('archive','save',{requestId:ref.id,files:[file]});
+   saved=result.files?.[0];
+   if(saved?.kind!==file.kind||saved.sha!==file.sha||typeof saved.fileId!=='string')throw Error('archive');
+ }catch{fail('unavailable','No se pudo archivar el soporte. Inténtalo de nuevo.');}
+ await db.runTransaction(async t=>{
+   const current=(await t.get(ref)).data();
+   if(current?.ownerUid!==u.uid)fail('not-found');
+   if(current.status!=='needs_documents'||current.correction?.id!==entry.correction.id){
+     fail('failed-precondition','La subsanación cambió. Actualiza el seguimiento.');
+   }
+   const files=(current.files||[]).filter(item=>item.kind!==saved.kind);
+   files.push({kind:saved.kind,sha:saved.sha,size:file.size,fileId:saved.fileId});
+   t.update(ref,{files,status:'reviewing',correction:FieldValue.delete(),updatedAt:FieldValue.serverTimestamp()});
+   audit(t,ref.id,u.uid,'correction_received:'+file.kind);
+ });
+ return {status:'reviewing'};
+});
 export const downloadFile=onCall(opts,async r=>{const u=await identity(r),d=r.data||{},requestId=id(d.id),s=await db.doc('requests/'+requestId).get();const entry=s.data();let f;if(citizenMayDownload(entry,u.uid,d.kind)){f=entry.certificate;}else{try{await identity(r,true);}catch(e){if(e.code==='permission-denied')fail('not-found');throw e;}if(!entry)fail('not-found');f=d.kind==='certificate'?entry.certificate:entry.files?.find(x=>x.kind===d.kind);}if(!f||typeof f.fileId!=='string')fail('not-found');await throttle(u.uid,'download',100);const result=await bridge('archive','read',{requestId,fileId:f.fileId,sha:f.sha});await db.collection('audit').add({requestId,actorUid:u.uid,action:'download:'+d.kind,at:FieldValue.serverTimestamp()});return result;});
 export const sendCertificate=onCall(opts,async r=>{
  const u=await identity(r,true);if(u.role!=='supervisor')fail('permission-denied');if(Date.now()/1000-Number(r.auth.token.auth_time)>900)fail('unauthenticated','Vuelva a iniciar sesión para efectuar el envío.');

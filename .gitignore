@@ -8,6 +8,8 @@ node_modules/
 *serviceAccount*.json
 .clasp.json
 firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 
 gha-creds-*.json
 screenshots/
