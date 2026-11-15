@@ -92,6 +92,14 @@ test('closed pilot enforces Firestore rules, ownership, roles, and its document 
   await denied(call('adminHistory',other,request),'permission-denied');
   await denied(call('setStatus',operator,{...request,status:'awaiting_certificate'}),'failed-precondition');
   await call('setStatus',operator,{...request,status:'reviewing'});
+  await denied(call('setStatus',operator,{...request,status:'needs_documents',documentKind:'arbitrary'}),'invalid-argument');
+  await call('setStatus',operator,{...request,status:'needs_documents',documentKind:'apoyo'});
+  assert.equal((await call('myRequests',owner)).items[0].correctionKind,'apoyo');
+  await denied(call('submitCorrection',other,{...request,file:fixture('apoyo')}),'not-found');
+  await denied(call('submitCorrection',owner,{...request,file:fixture('historia')}),'invalid-argument');
+  assert.equal((await call('submitCorrection',owner,{...request,file:fixture('apoyo')})).status,'reviewing');
+  assert.equal((await call('myRequests',owner)).items[0].correctionKind,null);
+  assert.deepEqual(operations,['save','ack','save']);
   await call('setStatus',operator,{...request,status:'awaiting_certificate'});
   const delivery = {...request,file:fixture('certificate'),confirm:true};
   await denied(call('sendCertificate',operator,delivery),'permission-denied');

@@ -39,6 +39,12 @@ try {
  assert.equal(await page.locator('#adminList .record').count(),1);
  await page.screenshot({path:'screenshots/03-panel-salud.png',fullPage:true});
  await page.locator('#statusFilter').selectOption('');
+ await page.locator('#adminList .record').filter({hasText:'DEMO-0001'}).click();
+ await page.getByRole('button',{name:'Iniciar revisión'}).click();
+ await page.getByLabel('Soporte para subsanar').selectOption('apoyo');
+ await page.getByRole('button',{name:'Solicitar subsanación'}).click();
+ await page.getByText('Pendiente de subsanar el anexo de apoyo.').waitFor();
+ await checkAccessibility('Subsanación');
  await page.locator('#adminList .record').filter({hasText:'DEMO-0002'}).click();
  await page.locator('#details input[type=checkbox]').check();
  await page.getByRole('button',{name:'Archivar y notificar por correo'}).click();
