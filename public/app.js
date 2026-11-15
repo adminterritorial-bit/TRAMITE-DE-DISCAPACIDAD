@@ -130,10 +130,11 @@ const citizenLogin=button('Ingresar con Google',async()=>login(false),'primary')
 $('authCitizen').querySelector('h2').textContent='Acceso al piloto cerrado';
 $('authCitizen').querySelector('p').textContent='Inicia sesión con una cuenta Google previamente habilitada para esta prueba.';
 $('authCitizen').insertBefore(citizenLogin,$('authMessage'));
-const healthResponse=await fetch(api.endpoint,{credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(20000)});
+const healthResponse=await fetch(api.endpoint+'?v=2.0',{credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(20000)});
 if(!healthResponse.ok)throw Error('Recepción HTTP '+healthResponse.status);
 const health=await healthResponse.json();
-if(health.build!=='spark-unified-2.0'||health.enabled!==true)throw Error('Recepción no está en versión 2.0 activa. Verifica la implementación y SPARK_PILOT_ENABLED.');
+if(health.build!=='spark-unified-2.0')throw Error('Recepción aún utiliza una versión anterior. No se han enviado archivos.');
+if(health.enabled!==true)throw Error('El piloto de Recepción está desactivado (SPARK_PILOT_ENABLED).');
 async function login(admin){try{const p=new auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account',...(admin?{hd:'sanpedro-valle.gov.co'}:{})});await auth.signInWithPopup(au,p);}catch(err){msg(admin?'loginError':'authMessage','No se pudo iniciar sesión: '+(err.code||'verifica la cuenta'));}}
 $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);$('signout').onclick=()=>auth.signOut(au);
 auth.onAuthStateChanged(au,async u=>{
