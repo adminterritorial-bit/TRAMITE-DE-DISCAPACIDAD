@@ -1,9 +1,11 @@
 import {writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
+import {config} from '../public/config.js';
 const e=process.env;
-for(const k of ['FIREBASE_WEB_CONFIG','APP_CHECK_SITE_KEY','PILOT_PORTAL_URL','WIF_PROVIDER','DEPLOY_ACCOUNT'])assert.ok(e[k]?.trim(),'Missing deployment configuration: '+k);
-const a=JSON.parse(e.FIREBASE_WEB_CONFIG);
+for(const k of ['APP_CHECK_SITE_KEY','PILOT_PORTAL_URL','WIF_PROVIDER','DEPLOY_ACCOUNT'])assert.ok(e[k]?.trim(),'Missing deployment configuration: '+k);
+const a=config.firebase;
 assert.equal(a.projectId,'tramite-discapacidad');
+assert.equal(a.appId,'1:91732599743:web:1bb34f5a1cb708b673770a');
 assert.ok(a.apiKey&&a.appId&&a.authDomain,'Incomplete Firebase public web config');
 assert.match(a.authDomain,/^[a-z0-9.-]+$/i);
 const url=new URL(e.PILOT_PORTAL_URL);assert.equal(url.protocol,'https:');assert.equal(url.pathname,'/');
