@@ -212,7 +212,7 @@ function spSubmit_(u,d){
  return spRecord_(spRead_('requests',id),false);
 }
 function spDispatch_(u,action,d){
- if(action==='sessionAccess')return {role:u.role,canManage:!!u.role};
+ if(action==='sessionAccess')return {role:u.role,canManage:!!u.role,build:'spark-pilot-1.1'};
  if(action==='submitRequest')return spSubmit_(u,d);
  if(action==='myRequests'){spLimit_(u,'list',100);return {items:spQuery_('requests','ownerUid',u.uid,'createdAt',50).map(x=>spRecord_(x,false)).filter(Boolean)};}
  spRequireAdmin_(u);

@@ -6,6 +6,8 @@ const $=id=>document.getElementById(id);
 const app=initializeApp(config.firebase,'spark-operational');
 const auth=getAuth(app),check=initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(config.appCheckSiteKey),isTokenAutoRefreshEnabled:false});
 const expected='80ac944b3abbd5dc1e884c7911acfd6b4c75395c5da4e41bc2077a9908800612';
+const receptionUrl='https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
+$('endpoint').value=receptionUrl;
 let target=null,user=null,role=null,busy=false,requestKey=null;
 const status=s=>$('status').textContent=s;
 const controls=()=>{for(const id of ['submit','mine','refresh','logout'])$(id).disabled=busy||!user;$('login').disabled=busy||!!user;$('endpoint').disabled=busy||!!user;$('admin').hidden=!role;};
@@ -23,7 +25,10 @@ async function api(action,data={}){
  const response=await fetch(target,{method:'POST',body:new URLSearchParams({probe:'spark-pilot-v1',appCheck,idToken,payload:JSON.stringify({action,data})}),credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(90000)});
  if(!response.ok)throw Error('HTTP '+response.status);
  const r=await response.json();
- if(r.ok!==true)throw Error(r.error||'No se pudo completar la operación.');
+ if(r.ok!==true){
+  if(!r.error && !r.stage)throw Error('La recepción respondió con el formato anterior. Comprueba la versión publicada de Apps Script; no es un error de contraseña.');
+  throw Error(r.error||('Validación rechazada: '+r.stage));
+ }
  return r.data;
 }
 const names={saving:'Guardando',received:'Recibida',reviewing:'En revisión',awaiting_certificate:'Pendiente de certificado',storage_review:'Revisión de almacenamiento'};
@@ -66,4 +71,4 @@ $('submit').onclick=()=>run(async()=>{
  await api('submitRequest',{key:requestKey,base64:btoa(s),synthetic:true,consent:true,noticeVersion:'pilot-v1'});
  requestKey=null;$('consent').checked=false;await loadMine();if(role)await loadAdmin();
 });
-try{await setPersistence(auth,inMemoryPersistence);controls();status('Introduce la URL de Recepción e inicia sesión.');}catch(_){status('No se pudo inicializar la sesión.');}
+try{await setPersistence(auth,inMemoryPersistence);controls();status('Inicia sesión. La URL de Recepción ya está configurada.');}catch(_){status('No se pudo inicializar la sesión.');}
