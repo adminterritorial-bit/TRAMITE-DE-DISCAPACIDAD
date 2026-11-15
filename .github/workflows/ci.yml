@@ -22,6 +22,9 @@ jobs:
           node --check < apps-script/Common.gs
           node --check < apps-script/recepcion/Code.gs
           node --check < apps-script/entrega/Code.gs
+          node --check < apps-script/spark/SparkAuth.gs
+          node --check < apps-script/spark/ReceptionProbe.gs
+          node --check public/spark-probe.js
       - name: Unit tests and security contracts
         run: node --test tests/*.test.mjs
       - name: Audit locked dependencies
@@ -85,7 +88,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Verify public build never connects to Firebase
+      - name: Verify main portal remains demo; isolated diagnostic only
         run: |
           grep -F "mode:'demo'" public/config.js
           test -z "$(find public -type f \( -name '*.pem' -o -name '*.key' -o -name '.env*' \))"

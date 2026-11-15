@@ -19,3 +19,6 @@ La prueba institucional devolvió HTTP 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT. El m
 ### Proyecto consumidor de App Check
 
 El segundo diagnóstico reportó SERVICE_DISABLED en 983102853857 (proyecto consumidor del OAuth de Apps Script), no en el proyecto institucional 91732599743. Se especifica x-goog-user-project: tramite-discapacidad en ambas llamadas a verifyAppCheckToken para probar el proyecto consumidor correcto sin vincular ni modificar el proyecto predeterminado. Requiere API habilitada en el proyecto institucional y permiso serviceusage.services.use. Mantener Spark; no activar facturación. Pendiente prueba real.
+
+## Diagnóstico de tokens auténticos
+El 403 Firebase App Check token is invalid confirma que el token falso fue rechazado sin error de IAM. La página aislada spark-probe.html inicia sesión con Salud y obtiene un token de uso limitado; no muestra ni conserva credenciales. Copiar ReceptionProbe.gs reemplazando solo Código.gs de Recepción (conservar SparkAuth.gs y Firestore.gs), actualizar la implementación existente, no crear URL nueva. La prueba devuelve solamente resultado lógico y rol, y no modifica Firestore, Drive ni correo. La URL original se verifica mediante una huella SHA-256 antes de enviar tokens por POST. El portal principal permanece local/demo. Quitar el diagnóstico tras validar. Pendiente ejecución real y comprobación de CI.
