@@ -8,7 +8,7 @@ try {
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  const page=await context.newPage();
  async function checkAccessibility(view){
-  const {violations}=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+  const {violations}=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
   assert.deepEqual(violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[],view);
  }
  const errors=[], remote=[];
@@ -51,8 +51,34 @@ try {
  await page.getByRole('button',{name:'Archivar y notificar por correo'}).click();
  await page.locator('#details .chip').filter({hasText:'Notificación enviada'}).waitFor();
  await page.screenshot({path:'screenshots/04-expediente.png',fullPage:true});
+ await page.getByText('Menú institucional',{exact:true}).click();
+ await page.getByRole('navigation',{name:'Módulos de Salud'}).getByRole('button',{name:'Avisos'}).click();
+ await page.getByRole('button',{name:'Crear aviso'}).click();
+ await page.getByLabel('Título',{exact:true}).fill('Horario de prueba');
+ await page.getByLabel('Mensaje',{exact:true}).fill('Consulte el canal municipal.');
+ const colombiaInput=t=>new Date(t-5*3600000).toISOString().slice(0,16);
+ await page.getByLabel('Inicio en hora de Colombia').fill(colombiaInput(Date.now()-3600000));
+ await page.getByLabel('Fin en hora de Colombia').fill(colombiaInput(Date.now()+3600000));
+ await page.getByLabel('Canal',{exact:true}).selectOption('modal');
+ await checkAccessibility('Editor de avisos');
+ await page.getByRole('button',{name:'Previsualizar'}).click();
+ await page.getByRole('button',{name:'Guardar borrador'}).click();
+ await page.getByRole('button',{name:'Publicar o programar'}).click();
+ await page.locator('.navbtn[data-view=citizen]').click();
+ const popup=page.getByRole('dialog',{name:'Horario de prueba'});
+ await popup.waitFor();
+ await page.keyboard.press('Escape');
+ assert.equal(await popup.isVisible(),false);
+ await page.locator('.navbtn[data-view=legal]').click();
+ await page.getByRole('heading',{name:'Política de tratamiento de datos personales'}).waitFor();
+ await checkAccessibility('Centro legal');
+ await page.screenshot({path:'screenshots/07-centro-legal.png',fullPage:true});
+ await page.locator('.navbtn[data-view=communications]').click();
+ await page.getByRole('heading',{name:'Horario de prueba'}).waitFor();
  assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
- for(const width of [768,390,320]){
+ await page.locator('.navbtn[data-view=citizen]').click();
+ await page.emulateMedia({reducedMotion:'reduce'});
+ for(const width of [1024,768,390,360,320]){
   await page.setViewportSize({width,height:900});await page.reload({waitUntil:'networkidle'});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desbordamiento a '+width+' px');
  }

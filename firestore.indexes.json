@@ -1,6 +1,21 @@
 {
   "indexes": [
     {
+      "collectionGroup": "institutionalVersions",
+      "queryScope": "COLLECTION",
+      "fields": [{"fieldPath":"entity","order":"ASCENDING"},{"fieldPath":"at","order":"DESCENDING"}]
+    },
+    {
+      "collectionGroup": "legalEvidence",
+      "queryScope": "COLLECTION",
+      "fields": [{"fieldPath":"ownerUid","order":"ASCENDING"},{"fieldPath":"at","order":"DESCENDING"}]
+    },
+    {
+      "collectionGroup": "rightsCases",
+      "queryScope": "COLLECTION",
+      "fields": [{"fieldPath":"ownerUid","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]
+    },
+    {
       "collectionGroup": "audit",
       "queryScope": "COLLECTION",
       "fields": [
