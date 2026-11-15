@@ -2,10 +2,11 @@
 
 ## Resultado comprobado el 15 de noviembre de 2026
 
-- La demostración de GitHub Pages respondió con HTTP 200. El último workflow de la versión inicial en main terminó correctamente.
+- La demostración publicada en GitHub Pages respondió con HTTP 200 y mostró el nuevo filtro de estados. El despliegue de main terminó correctamente. [Ejecución de GitHub Actions](https://github.com/adminterritorial-bit/TRAMITE-DE-DISCAPACIDAD/actions/runs/43763978830).
 - Firebase Hosting respondió con HTTP 404. La consulta de aplicaciones de `tramite-discapacidad` devolvió HTTP 403 con la sesión local de Firebase.
 - La auditoría de las dependencias de Functions reportó cero vulnerabilidades tras actualizar Firebase Admin y Firebase Functions y fijar el árbol con un lockfile.
 - La suite automatizada verifica el perfil de prueba, los PDF aprobados, el acceso ciudadano a certificados, los contratos de seguridad y la integración de ambos scripts con dobles de Drive y correo. No se enviaron correos ni se almacenaron expedientes en servicios institucionales durante estas pruebas.
+- Los emuladores de Authentication y Firestore verificaron reglas de acceso directo, separación entre titulares, roles, autenticación reciente para la entrega, retiro de acceso e historial. El puente hacia Apps Script se sustituyó por un doble local en esta prueba.
 - Chromium completó la solicitud, el acuse, el seguimiento y la gestión administrativa de la demostración. Se comprobó el filtro de estados, el diseño a 1440, 768, 390 y 320 px y reglas automatizadas de WCAG 2.1 AA en las vistas recorridas.
 
 ## Verificación pendiente en servicios institucionales
