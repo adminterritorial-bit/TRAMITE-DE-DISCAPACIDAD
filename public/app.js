@@ -16,17 +16,45 @@ $('scale').addEventListener('click',()=>{let on=document.documentElement.classLi
 function phase(n){stage=n;all('.step').forEach(e=>hide(e,Number(e.dataset.step)!==n));all('.steps li').forEach((e,i)=>{e.classList.toggle('current',i===n);e.classList.toggle('complete',i<n);if(i===n)e.setAttribute('aria-current','step');else e.removeAttribute('aria-current')});msg('stepLabel','Paso '+(n+1)+' de 3');$('progress').setAttribute('aria-valuenow',String(n+1));$('progress').firstElementChild.style.width=(n+1)*100/3+'%';hide($('back'),n===0);hide($('next'),n===2);hide($('submit'),n!==2);msg('formError');if(n===2)review();}
 function validStep(n){const parent=form.querySelector('[data-step="'+n+'"]');for(const i of all('input,select,textarea',parent)){if(demo&&i.type==='file')continue;if(!i.reportValidity())return false;}if(n===1){const f=[form.history.files[0],form.extra.files[0]].filter(Boolean);if(f.some(x=>x.size>5*1024*1024||!x.name.toLowerCase().endsWith('.pdf'))||f.reduce((s,x)=>s+x.size,0)>8*1024*1024){msg('formError','Selecciona PDF de hasta 5 MB por archivo y 8 MB en total.');return false}}return true;}
 function review(){const d=$('review');d.replaceChildren();[['Nombre',form.elements.name.value],['Identificación',form.documentType.value+' '+form.documentNumber.value],['Residencia',form.zone.value],['Correo',user?.email||'prueba@example.invalid'],['Historia clínica',form.history.files[0]?.name||'Soporte simulado'],['Apoyo',form.extra.files[0]?.name||'No adjunto']].forEach(([k,v])=>{const pair=node('div');append(pair,node('dt',k),node('dd',v));d.append(pair)});}
-$('next').onclick=()=>{if(validStep(stage))phase(stage+1)};
+$('next').onclick=async()=>{
+ if(!validStep(stage))return;
+ if(stage!==1||demo){phase(stage+1);return;}
+ const b=$('next');b.disabled=true;msg('formError');
+ try{await fixtureFile(form.history.files[0],'historia');if(form.extra.files[0])await fixtureFile(form.extra.files[0],'apoyo');phase(2);}
+ catch(e){displayError('formError',e);}
+ finally{b.disabled=false;}
+};
 $('back').onclick=()=>phase(stage-1);
 function fileData(f){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('No se pudo leer el archivo.'));reader.onload=()=>resolve({base64:String(reader.result).split(',')[1]});reader.readAsDataURL(f)})}
 async function fixtureFile(file,kind){
  if(!file||file.size>5*1024*1024)throw Error('Selecciona el PDF de prueba proporcionado en el portal.');
  const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
  const sha=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
- if(sha!==fixtureHashes[kind])throw Error('Este piloto solo acepta los PDF de prueba proporcionados en el portal.');
+ if(sha!==fixtureHashes[kind])throw Error('Este PDF no se envió. Para probar el sistema, usa el documento ficticio incorporado. No adjuntes documentos personales.');
  return fileData(file);
 }
 function fixtureLink(kind,text){const link=node('a',text);link.href='./pilot-fixtures/'+kind+'.pdf';link.download=kind+'-prueba.pdf';return link;}
+
+// Populate the actual file input with the bundled, verified synthetic PDF.
+// No user document is uploaded or replaced without an explicit click.
+function fixtureAttach(kind,input,label,onReady){
+ const b=button(label,async()=>{
+  b.disabled=true;const previous=b.textContent;b.textContent='Preparando PDF…';
+  try{
+   const response=await fetch('./pilot-fixtures/'+kind+'.pdf',{cache:'no-store'});
+   if(!response.ok)throw Error('No se pudo cargar el PDF de prueba.');
+   const file=new File([await response.blob()],kind+'-prueba.pdf',{type:'application/pdf'});
+   await fixtureFile(file,kind);
+   const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;
+   input.dispatchEvent(new Event('change',{bubbles:true}));
+   if(onReady)onReady();
+   b.textContent='PDF de prueba adjuntado';
+  }catch(e){b.textContent=previous;const target=input.closest('#details')?'adminError':input.closest('#trackingList')?'trackingError':'formError';displayError(target,e);}
+  finally{b.disabled=false;}
+ },'secondary');
+ return b;
+}
+
 async function invoke(name,data={}){
  if(!api||!user)throw Error('Inicia sesión con una cuenta habilitada.');
  const idToken=await user.getIdToken(),appCheck=(await api.check.getLimitedUseToken(api.appCheck)).token;
@@ -37,9 +65,9 @@ async function invoke(name,data={}){
  if(r.ok!==true)throw Error('Operación rechazada: '+(r.error||'sin detalle')+' · '+(r.stage||'backend'));
  return r.data;
 }
-form.addEventListener('submit',async e=>{e.preventDefault();if(stage!==2||!validStep(2))return;const b=$('submit');b.disabled=true;msg('formError');try{let result;if(demo){result={id:crypto.randomUUID(),radicado:'DEMO-'+Date.now(),status:'received'};demoItems.unshift({...result,name:'Persona de prueba',createdAt:Date.now(),files:[]});}else{if(!user||!authorized)throw Error('Verifica tu cuenta habilitada.');const d=Object.fromEntries(new FormData(form));const files=[await fixtureFile(form.history.files[0],'historia')];if(form.extra.files[0])files.push(await fixtureFile(form.extra.files[0],'apoyo'));requestKey??=crypto.randomUUID();result=await invoke('submitRequest',{key:requestKey,name:d.name,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support,files,consent:true,synthetic:true,noticeVersion:'pilot-v1'});}
+form.addEventListener('submit',async e=>{e.preventDefault();if(stage!==2||!validStep(2))return;const b=$('submit');b.disabled=true;const submitLabel=b.textContent;b.textContent='Enviando solicitud…';msg('formError');try{let result;if(demo){result={id:crypto.randomUUID(),radicado:'DEMO-'+Date.now(),status:'received'};demoItems.unshift({...result,name:'Persona de prueba',createdAt:Date.now(),files:[]});}else{if(!user||!authorized)throw Error('Verifica tu cuenta habilitada.');const d=Object.fromEntries(new FormData(form));const files=[await fixtureFile(form.history.files[0],'historia')];if(form.extra.files[0])files.push(await fixtureFile(form.extra.files[0],'apoyo'));requestKey??=crypto.randomUUID();result=await invoke('submitRequest',{key:requestKey,name:d.name,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support,files,consent:true,synthetic:true,noticeVersion:'pilot-v1'});}
 hide(form);hide($('receipt'),false);msg('receiptId',result.radicado);msg('receiptTitle',result.status==='received'?'Solicitud de prueba registrada':'Solicitud pendiente de verificación');msg('receiptText',demo?'Demostración local. No se enviaron datos ni se creó ningún expediente oficial.':(result.status==='received'?'Puedes consultar el estado desde tu correo verificado. No es un radicado oficial.':'Salud debe verificar el almacenamiento antes de continuar.'));resetProfile();requestKey=null;
-}catch(err){displayError('formError',err)}finally{b.disabled=false}});
+}catch(err){displayError('formError',err)}finally{b.disabled=false;b.textContent=submitLabel}});
 function badge(s){return node('span',statusNames[s]||s,'chip')}
 function date(t){return t?new Intl.DateTimeFormat('es-CO',{dateStyle:'medium',timeStyle:'short'}).format(new Date(t)):'Sin fecha'}
 async function download(id,kind){const f=await invoke('downloadFile',{id,kind});const a=document.createElement('a'),bytes=Uint8Array.from(atob(f.base64),v=>v.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.href=url;a.download=kind+'.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
@@ -54,7 +82,7 @@ function correctionForm(item){
   catch(e){displayError('trackingError',e);}
   finally{send.disabled=false;}
  },'primary');
- append(wrapper,node('p','Salud solicita actualizar el '+documentNames[kind]+'.'),fixtureLink(kind,'Descargar el PDF requerido'),label,send);
+ append(wrapper,node('p','Salud solicita actualizar el '+documentNames[kind]+'.'),fixtureAttach(kind,file,'Adjuntar PDF ficticio'),fixtureLink(kind,'Descargar el PDF requerido'),label,send);
  return wrapper;
 }
 async function loadTracking(){const session=user;const target=$('trackingList');target.replaceChildren();msg('trackingError');try{let data;if(demo){msg('trackingInfo','Vista de prueba local; no utiliza expedientes reales.');data=demoItems;}else if(!user||!authorized){msg('trackingInfo','Primero verifica tu correo en Solicitud ciudadana.');return}else{msg('trackingInfo','Solicitudes asociadas a tu correo verificado.');data=(await invoke('myRequests')).items;if(user!==session)return;}if(!data.length){target.append(node('p','Aún no hay solicitudes.','muted'));return}for(const item of data){const card=node('div',undefined,'record');append(card,node('strong',item.radicado),node('small',date(item.createdAt)),badge(item.status));if(item.correctionKind&&!demo)card.append(correctionForm(item));if(item.certificateAvailable&&!demo)card.append(button('Descargar certificado',async()=>{try{await download(item.id,'certificate')}catch(e){displayError('trackingError',e)}}));target.append(card)}}catch(e){displayError('trackingError',e)}}
@@ -99,7 +127,7 @@ function details(item){selected=item.id;const target=$('details');target.replace
  });
  append(actions,label,request);
 }if(item.status==='needs_documents'&&item.correctionKind)actions.append(node('p','Pendiente de subsanar el '+documentNames[item.correctionKind]+'.'));
-if(item.status==='awaiting_certificate'&&(demo||adminRole==='supervisor')){const title=node('h2','Entrega del certificado de prueba'),label=node('label','Seleccionar PDF de prueba'),file=node('input');file.type='file';file.accept='.pdf,application/pdf';label.append(file);const confirm=node('label',undefined,'check'),check=node('input');check.type='checkbox';append(confirm,check,node('span','Verifiqué que el documento corresponde a la persona y al expediente.'));const send=button('Archivar y notificar por correo',async()=>{msg('adminError');try{if(!check.checked||(!demo&&!file.files[0]))throw Error('Selecciona el certificado y confirma la revisión.');if(demo){item.status='sent';await loadAdmin();return;}if(file.files[0].size>5*1024*1024)throw Error('El archivo supera 5 MB.');send.disabled=true;const result=await invoke('sendCertificate',{id:item.id,file:await fixtureFile(file.files[0],'certificate'),confirm:true});await loadAdmin();if(result.status!=='sent')msg('adminError','Requiere revisión de entrega. No reenvíe automáticamente.');}catch(e){displayError('adminError',e)}finally{send.disabled=false}},'primary');append(actions,title,fixtureLink('certificate','Descargar PDF de certificado ficticio'),label,confirm,send)}if(['storage_review','delivery_review','sending','saving','archived'].includes(item.status))actions.append(node('p','Este expediente requiere conciliación manual. No repita el envío sin revisar.','muted'));target.append(actions);if(!demo){const history=node('div');target.append(node('h2','Historial de actuaciones'),history);history.append(node('p','Cargando actuaciones…','muted'));void loadHistory(item,history);}}
+if(item.status==='awaiting_certificate'&&(demo||adminRole==='supervisor')){const title=node('h2','Entrega del certificado de prueba'),label=node('label','Seleccionar PDF de prueba'),file=node('input');file.type='file';file.accept='.pdf,application/pdf';label.append(file);const confirm=node('label',undefined,'check'),check=node('input');check.type='checkbox';append(confirm,check,node('span','Verifiqué que el documento corresponde a la persona y al expediente.'));const send=button('Archivar y notificar por correo',async()=>{msg('adminError');try{if(!check.checked||(!demo&&!file.files[0]))throw Error('Selecciona el certificado y confirma la revisión.');if(demo){item.status='sent';await loadAdmin();return;}if(file.files[0].size>5*1024*1024)throw Error('El archivo supera 5 MB.');send.disabled=true;const result=await invoke('sendCertificate',{id:item.id,file:await fixtureFile(file.files[0],'certificate'),confirm:true});await loadAdmin();if(result.status!=='sent')msg('adminError','Requiere revisión de entrega. No reenvíe automáticamente.');}catch(e){displayError('adminError',e)}finally{send.disabled=false}},'primary');append(actions,title,...(demo?[]:[fixtureAttach('certificate',file,'Adjuntar certificado ficticio')]),fixtureLink('certificate','Descargar PDF de certificado ficticio'),label,confirm,send)}if(['storage_review','delivery_review','sending','saving','archived'].includes(item.status))actions.append(node('p','Este expediente requiere conciliación manual. No repita el envío sin revisar.','muted'));target.append(actions);if(!demo){const history=node('div');target.append(node('h2','Historial de actuaciones'),history);history.append(node('p','Cargando actuaciones…','muted'));void loadHistory(item,history);}}
 function resetProfile(){
  form.reset();
  form.elements.name.value='Persona de prueba';
@@ -118,7 +146,11 @@ async function syncAccess(session){
 }
 async function init(){resetProfile();if(demo){$('institutionalAccess').textContent='Demostración del panel de Salud';$('googleLogin').textContent='Ver panel de demostración';$('googleLogin').onclick=loadAdmin;return}for (const field of ['name','documentNumber','phone','support']) form.elements[field].readOnly=true;
  for (const option of form.documentType.options) option.disabled=option.value!=='CC';
- $('fixtureFiles').append(fixtureLink('historia','Descargar soporte de prueba'),node('span',' · '),fixtureLink('apoyo','Descargar anexo de prueba'));
+ const fixturePanel=$('fixtureFiles');fixturePanel.replaceChildren();
+ const attach=fixtureAttach('historia',form.history,'Adjuntar PDF ficticio obligatorio',()=>msg('formError'));
+ const attachExtra=fixtureAttach('apoyo',form.extra,'Adjuntar anexo ficticio (opcional)',()=>msg('formError'));
+ fixturePanel.append(node('strong','Documentos de prueba disponibles'),node('span','Haz clic para adjuntarlos directamente. No necesitas descargar ni buscar archivos.'),attach,attachExtra,fixtureLink('historia','Descargar PDF ficticio'));
+ fixturePanel.classList.add('fixture-panel');
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;try{
 const version='11.10.0';const [app,auth,check]=await Promise.all([import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app-check.js')]);

@@ -37,3 +37,6 @@ Conservar Firebase Spark, cuenta Salud, Drive, permisos, SparkAuth.gs, manifiest
 
 ### Publicación unificada
 CI 43773094021: navegador y emulador exitosos; estático falló porque una prueba histórica prohibía todas las URLs Apps Script en navegador. Se autoriza únicamente el endpoint público exacto, se mantiene prohibición de credenciales HMAC y de compartir Drive públicamente, y se comprueban ambos controles del nuevo router. Se mantiene el mismo backend, sin migrar ni habilitar facturación. Se distingue versión anterior de piloto desactivado. Usar únicamente pilot.html; no volver a utilizar spark-pilot.html ni spark-probe.html. Falta desplegar UnifiedBackend.gs en la implementación existente y validar integralmente en Salud.
+
+### Experiencia de adjuntos
+Se confirmó acceso al formulario del portal unificado. La interfaz rechazó localmente un PDF distinto al ficticio antes de invocar el backend; no es un fallo de OAuth. Se incorporan acciones de adjuntar PDF y certificado ficticios con un clic, validación anticipada, y estado de envío. Se conservan las restricciones de datos ficticios tanto en cliente como en servidor. No requiere reimplementar Apps Script.
