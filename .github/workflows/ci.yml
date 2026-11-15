@@ -26,6 +26,7 @@ jobs:
           node --check < apps-script/spark/ReceptionProbe.gs
           node --check public/spark-probe.js
           node --check < apps-script/spark/ReceptionPilot.gs
+          node --check < apps-script/spark/UnifiedBackend.gs
           node --check public/spark-pilot.js
       - name: Unit tests and security contracts
         run: node --test tests/*.test.mjs
