@@ -23,3 +23,26 @@ jobs:
           node --check < apps-script/entrega/Code.gs
       - name: Static security contracts
         run: node --test tests/*.test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test citizen and admin demo
+        run: |
+          python3 -m http.server 8080 --directory public > /tmp/portal.log 2>&1 &
+          node tests/browser.mjs
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-preview
+          path: screenshots/
+          if-no-files-found: ignore
