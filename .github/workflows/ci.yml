@@ -1,0 +1,75 @@
+name: Pilot checks
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check functions/index.js
+          node --check public/app.js
+          node --check public/config.js
+          node --check < apps-script/Common.gs
+          node --check < apps-script/recepcion/Code.gs
+          node --check < apps-script/entrega/Code.gs
+      - name: Static security contracts
+        run: node --test tests/*.test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test citizen and admin demo
+        run: |
+          python3 -m http.server 8080 --directory public > /tmp/portal.log 2>&1 &
+          node tests/browser.mjs
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-preview
+          path: screenshots/
+          if-no-files-found: ignore
+  publish-demo:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [static, browser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public build never connects to Firebase
+        run: |
+          grep -F "mode:'demo'" public/config.js
+          test -z "$(find public -type f \( -name '*.pem' -o -name '*.key' -o -name '.env*' \))"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - uses: actions/deploy-pages@v4
+        id: deployment

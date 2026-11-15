@@ -1,0 +1,13 @@
+import {writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const e=process.env;
+for(const k of ['FIREBASE_WEB_CONFIG','APP_CHECK_SITE_KEY','PILOT_PORTAL_URL','WIF_PROVIDER','DEPLOY_ACCOUNT'])assert.ok(e[k]?.trim(),'Missing deployment configuration: '+k);
+const a=JSON.parse(e.FIREBASE_WEB_CONFIG);
+assert.equal(a.projectId,'tramite-discapacidad');
+assert.ok(a.apiKey&&a.appId&&a.authDomain,'Incomplete Firebase public web config');
+assert.match(a.authDomain,/^[a-z0-9.-]+$/i);
+const url=new URL(e.PILOT_PORTAL_URL);assert.equal(url.protocol,'https:');assert.equal(url.pathname,'/');
+assert.ok(!url.search&&!url.hash&&!url.username&&!url.password);
+const firebase=Object.fromEntries(Object.entries(a).filter(([k])=>['apiKey','authDomain','projectId','appId','storageBucket','messagingSenderId','measurementId'].includes(k)));
+writeFileSync('public/config.js','export const config = '+JSON.stringify({mode:'pilot',firebase,appCheckSiteKey:e.APP_CHECK_SITE_KEY,region:'us-central1'})+';\n');
+writeFileSync('functions/.env','ENABLE_PILOT=true\nPORTAL_URL='+url.href+'\n');
