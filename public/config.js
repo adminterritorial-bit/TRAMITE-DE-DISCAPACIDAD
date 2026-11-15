@@ -11,6 +11,6 @@ export const config = {
     messagingSenderId:"91732599743",
     appId:"1:91732599743:web:1bb34f5a1cb708b673770a"
   },
-  appCheckSiteKey:'',
+  appCheckSiteKey:'6Lc9ECIuAAAAACSiEJgol0qC6LjzeunULCI4K2xb',
   region:'us-central1'
 };

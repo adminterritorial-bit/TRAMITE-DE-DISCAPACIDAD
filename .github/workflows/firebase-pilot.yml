@@ -21,7 +21,6 @@ jobs:
       contents: read
       id-token: write
     env:
-      APP_CHECK_SITE_KEY: ${{ vars.APP_CHECK_SITE_KEY }}
       PILOT_PORTAL_URL: ${{ vars.PILOT_PORTAL_URL }}
       WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
       DEPLOY_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
