@@ -1,0 +1,8 @@
+{
+  "timeZone": "America/Bogota",
+  "runtimeVersion": "V8",
+  "exceptionLogging": "NONE",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/drive"
+  ]
+}

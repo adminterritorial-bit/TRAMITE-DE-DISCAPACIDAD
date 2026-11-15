@@ -1,0 +1,10 @@
+node_modules/
+.firebaserc.local
+.firebase/
+.env*
+!.env.example
+*.key
+*.pem
+*serviceAccount*.json
+.clasp.json
+firebase-debug.log*
