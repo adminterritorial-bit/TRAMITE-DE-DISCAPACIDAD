@@ -12,6 +12,8 @@ Para el piloto se registran el conocimiento del aviso, la aceptación de las con
 
 El tratamiento sensible está inhabilitado. Una futura modalidad requiere fundamentación validada y, cuando corresponda, autorización previa, expresa y separada, con alcance y finalidad. La autorización para comunicaciones de la prueba no representa autorización de datos sensibles ni notificación administrativa.
 
+El recorrido del navegador verifica las casillas inicialmente desmarcadas, la decisión voluntaria omitida, la versión remitida al servidor y la descarga de la constancia. La prueba sustituye Firebase Authentication y el transporte de Apps Script por dobles controlados.
+
 ## Titulares y almacenamiento
 
 El portal admite solicitudes sintéticas de acceso, actualización, rectificación, supresión, prueba de autorización y revocación sin campos libres para datos del solicitante. El responsable asignado en `DATA_RIGHTS_OFFICERS` reclama y responde el caso con trazabilidad. `RIGHTS_DUE_CALENDAR_DAYS` es opcional y corresponde a una meta operativa validada institucionalmente. Los términos legales, ajustes, verificaciones, ampliaciones y vencimientos de una petición real se gestionan por los canales oficiales. No se elimina documentación de manera automática.

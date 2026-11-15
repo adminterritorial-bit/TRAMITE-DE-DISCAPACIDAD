@@ -53,6 +53,7 @@ jobs:
         run: |
           python3 -m http.server 8080 --directory public > /tmp/portal.log 2>&1 &
           node tests/browser.mjs
+          node tests/institutional-browser.mjs
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
