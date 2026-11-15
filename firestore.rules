@@ -1,7 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
- // Only the authenticated, validated server may read/write. Admin SDK is governed by IAM.
- match /{document=**} { allow read, write: if false; }
- }
+  match /databases/{database}/documents {
+    // No direct browser access, even for signed-in staff.
+    // Cloud Functions validates verified identity, active users/{uid},
+    // admins/{uid}, institutional Google sign-in, role and ownership.
+    // Server Admin SDK uses IAM. Never grant client writes to roles.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
 }

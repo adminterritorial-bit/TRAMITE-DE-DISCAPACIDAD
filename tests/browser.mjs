@@ -32,7 +32,8 @@ try {
  await page.locator('.navbtn[data-view=tracking]').click();
  await page.locator('#trackingList .record').first().waitFor();
  await checkAccessibility('Seguimiento');
- await page.locator('.navbtn[data-view=admin]').click();
+ assert.equal(await page.locator('#adminNav').isVisible(),false);
+ await page.locator('#institutionalAccess').click();
  await page.locator('#adminDashboard:not(.hidden)').waitFor();
  await checkAccessibility('Bandeja de Salud');
  await page.locator('#statusFilter').selectOption('awaiting_certificate');

@@ -54,7 +54,7 @@ async function participant(role) {
   assert.equal(response.ok,true);
   const {idToken} = await response.json();
   const token = await auth.verifyIdToken(idToken);
-  await db.doc('pilotUsers/'+uid).set({active:true});
+  await db.doc('users/'+uid).set({active:true});
   if (role) {
     await db.doc('admins/'+uid).set({email,active:true,role});
     token.firebase.sign_in_provider = 'google.com';
@@ -88,7 +88,18 @@ test('closed pilot enforces Firestore rules, ownership, roles, and its document 
   }
   assert.equal((await call('myRequests',owner)).items.length,1);
   assert.deepEqual((await call('myRequests',other)).items,[]);
+  assert.deepEqual(await call('sessionAccess',owner),{role:null,canManage:false,canDeliver:false});
+  assert.deepEqual(await call('sessionAccess',operator),{role:'operator',canManage:true,canDeliver:false});
+  assert.deepEqual(await call('sessionAccess',supervisor),{role:'supervisor',canManage:true,canDeliver:true});
+  const admin=await participant('admin');
+  assert.deepEqual(await call('sessionAccess',admin),{role:'admin',canManage:true,canDeliver:false});
   await denied(call('adminList',owner),'permission-denied');
+  await denied(call('adminList',{...supervisor,token:{...supervisor.token,firebase:{sign_in_provider:'password'}}}),'permission-denied');
+  const roleUrl='http://'+firestoreHost+'/v1/projects/'+project+'/databases/(default)/documents/admins/'+owner.uid;
+  const escalation=await localFetch(roleUrl,{method:'PATCH',headers:{Authorization:'Bearer '+owner.idToken,'Content-Type':'application/json'},body:JSON.stringify({fields:{active:{booleanValue:true},role:{stringValue:'supervisor'}}})});
+  assert.equal(escalation.status,403);
+  const adminDirect=await localFetch(firestoreUrl,{headers:{Authorization:'Bearer '+supervisor.idToken}});
+  assert.equal(adminDirect.status,403);
   await denied(call('adminHistory',other,request),'permission-denied');
   await denied(call('setStatus',operator,{...request,status:'awaiting_certificate'}),'failed-precondition');
   await call('setStatus',operator,{...request,status:'reviewing'});
@@ -103,6 +114,7 @@ test('closed pilot enforces Firestore rules, ownership, roles, and its document 
   await call('setStatus',operator,{...request,status:'awaiting_certificate'});
   const delivery = {...request,file:fixture('certificate'),confirm:true};
   await denied(call('sendCertificate',operator,delivery),'permission-denied');
+  await denied(call('sendCertificate',admin,delivery),'permission-denied');
   await denied(call('sendCertificate',{...supervisor,token:{...supervisor.token,auth_time:supervisor.token.auth_time-901}},delivery),'unauthenticated');
   assert.equal((await call('sendCertificate',supervisor,delivery)).status,'sent');
   await denied(call('downloadFile',other,{...request,kind:'certificate'}),'not-found');
@@ -112,8 +124,11 @@ test('closed pilot enforces Firestore rules, ownership, roles, and its document 
   const history = await call('adminHistory',operator,request);
   assert.ok(history.items.some(x=>x.action==='notification_sent'&&x.actorUid===supervisor.uid));
   assert.ok(history.items.some(x=>x.action==='download:certificate'&&x.actorUid===owner.uid));
-  await db.doc('pilotUsers/'+owner.uid).update({active:false});
+  await db.doc('users/'+owner.uid).update({active:false});
   await denied(call('downloadFile',owner,{...request,kind:'certificate'}),'permission-denied');
+  await db.doc('admins/'+supervisor.uid).update({active:false});
+  await denied(call('adminList',supervisor),'permission-denied');
+  assert.deepEqual(await call('sessionAccess',supervisor),{role:null,canManage:false,canDeliver:false});
 });
 
 test.after(async()=>{globalThis.fetch=localFetch;await db.terminate();});
