@@ -62,3 +62,7 @@ Trabajar en rama, PR, commits claros. Informe final conciso con URL, commit/PR, 
 - https://firebase.google.com/docs/firestore/quotas
 - https://developers.google.com/apps-script/guides/services/quotas
 - https://cancilleria.gov.co/normograma/compilacion/docs/ley_1581_2012.htm
+
+
+## 12. Anexo obligatorio de identidad, UX y cumplimiento
+Leer y ejecutar [IDENTIDAD-UX-Y-CUMPLIMIENTO.md](IDENTIDAD-UX-Y-CUMPLIMIENTO.md). Sus criterios son obligatorios junto con el resto del Plan Maestro. Incluye los dos PNG suministrados (paquete externo de originales, no imágenes generadas), MIV, animaciones accesibles, pantallas de carga, centro de avisos, centro legal, evidencias de aceptación, Gobierno Digital, MSPI actualizado y gestión documental.
