@@ -18,11 +18,11 @@ function iterator(array) {
 
 function harness() {
   const objects=new Map(), sent=[];
-  let quota=10;
+  let quota=10, sharing='private';
   function folder(name) {
     const folders=new Map(), files=new Map();
     return {
-      getId:()=>name,
+      getId:()=>name, getSharingAccess:()=>sharing,
       getFoldersByName:key=>iterator(folders.has(key)?[folders.get(key)]:[]),
       createFolder(key){const child=folder(key);folders.set(key,child);return child;},
       getFilesByName:key=>iterator(files.has(key)?[files.get(key)]:[]),
@@ -30,7 +30,7 @@ function harness() {
         const blob=typeof input==='string'?{name:input,data:Buffer.from(content),mime}:input;
         const id=randomUUID();
         const file={
-          getId:()=>id, getParents:()=>iterator([this]), getMimeType:()=>blob.mime,
+          getId:()=>id, getSharingAccess:()=>sharing, getParents:()=>iterator([this]), getMimeType:()=>blob.mime,
           getSize:()=>blob.data.length, getBlob:()=>({getBytes:()=>[...blob.data],getDataAsString:()=>blob.data.toString()}),
           setContent:next=>{blob.data=Buffer.from(next);}
         };
@@ -55,7 +55,7 @@ function harness() {
         base64Decode:text=>[...Buffer.from(text,'base64')],
         base64Encode:bytes=>Buffer.from(bytes).toString('base64')
       },
-      DriveApp:{getFolderById:()=>root,getFileById:id=>objects.get(id)},
+      DriveApp:{Access:{PRIVATE:'private'},getFolderById:()=>root,getFileById:id=>objects.get(id)},
       MimeType:{PLAIN_TEXT:'text/plain'},
       MailApp:{getRemainingDailyQuota:()=>quota,sendEmail:message=>sent.push(message)}
     });
@@ -66,7 +66,7 @@ function harness() {
       return JSON.parse(context.doPost({postData:{contents:JSON.stringify({ts,nonce,body,mac})}}));
     };
   }
-  return {archive:load('recepcion'),deliver:load('entrega'),sent,setQuota:value=>{quota=value;}};
+  return {archive:load('recepcion'),deliver:load('entrega'),sent,setQuota:value=>{quota=value;},setSharing:value=>{sharing=value;}};
 }
 
 function fixture(kind) {
@@ -112,3 +112,11 @@ test('Apps Script archives, acknowledges, delivers and reads a fixture across bo
   assert.equal(archive('read',{requestId:other,fileId,sha}).ok,false);
   assert.equal(archive('read',{requestId,fileId,sha:'0'.repeat(64)}).ok,false);
 });
+
+ test('reused Drive helper fails closed on general link sharing',()=>{
+ const {archive,deliver,setSharing}=harness();
+ const data={requestId,files:[fixture('historia')]};
+ setSharing('domain-with-link');assert.equal(archive('save',data).ok,false);
+ setSharing('private');assert.equal(archive('save',data).ok,true);
+ setSharing('anyone-with-link');assert.equal(archive('ack',{requestId,radicado,email,portal}).ok,false);assert.equal(deliver('deliver',{requestId,radicado,email,portal,file:fixture('certificate')}).ok,false);
+ });

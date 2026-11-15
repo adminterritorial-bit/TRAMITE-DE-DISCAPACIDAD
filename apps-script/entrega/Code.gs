@@ -1,8 +1,7 @@
 // Deploy as Salud. A private certificate is made available in the authenticated portal.
 function doPost(e){return signed_(e,'delivery',function(a,d){
-  if(a!=='deliver'||!/^[a-f0-9]{64}$/.test(d.requestId||'')||!/^SP-PIL-[A-F0-9]{16}$/.test(d.radicado||'')||!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(d.email||'')||d.portal!==prop_('PORTAL_URL'))throw Error('bad request');
-  var root=DriveApp.getFolderById(prop_('ROOT_FOLDER_ID')),existing=root.getFoldersByName(d.requestId);if(!existing.hasNext())throw Error('missing request');
-  var folder=existing.next();if(d.file.kind!=='certificate')throw Error('kind');
+  if(a!=='deliver'||!/^[a-f0-9]{64}$/.test(d.requestId||'')||!/^SP-PIL-[A-F0-9]{16}$/.test(d.radicado||'')||!isValidEmail_(d.email||'')||d.portal!==prop_('PORTAL_URL'))throw Error('bad request');
+  var root=root_(),folder=existingFolder_(root,d.requestId);if(d.file.kind!=='certificate')throw Error('kind');
   var cert=savePdf_(folder,d.file),marker=folder.getFilesByName('delivery-'+d.file.sha+'.json');
   if(marker.hasNext()){var state=JSON.parse(marker.next().getBlob().getDataAsString());if(state.sent===true)return {certificate:cert,sent:true};throw Error('delivery uncertain');}
   if(MailApp.getRemainingDailyQuota()<1)return {certificate:cert,sent:false};
