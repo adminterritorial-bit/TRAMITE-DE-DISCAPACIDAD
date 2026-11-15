@@ -1,19 +1,28 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import AxeBuilder from '@axe-core/playwright';
 import { mkdirSync } from 'node:fs';
 mkdirSync('screenshots',{recursive:true});
 const browser=await chromium.launch({headless:true});
 try {
- const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ const context=await browser.newContext({viewport:{width:1440,height:1000}});
+ const page=await context.newPage();
+ async function checkAccessibility(view){
+  const {violations}=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+  assert.deepEqual(violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[],view);
+ }
  const errors=[], remote=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:8080')&&!r.url().startsWith('data:'))remote.push(r.url())});
  await page.goto('http://127.0.0.1:8080/',{waitUntil:'networkidle'});
+ await checkAccessibility('Identificación');
  await page.screenshot({path:'screenshots/01-ciudadano.png',fullPage:true});
  await page.locator('#next').click();
  await page.locator('[data-step="1"]:not(.hidden)').waitFor();
+ await checkAccessibility('Soportes');
  await page.locator('#next').click();
  await page.locator('[data-step="2"]:not(.hidden)').waitFor();
+ await checkAccessibility('Revisión');
  await page.locator('[name="consent"]').check();
  await page.locator('[name="synthetic"]').check();
  await page.locator('#submit').click();
@@ -22,19 +31,29 @@ try {
  await page.screenshot({path:'screenshots/02-constancia.png',fullPage:true});
  await page.locator('.navbtn[data-view=tracking]').click();
  await page.locator('#trackingList .record').first().waitFor();
+ await checkAccessibility('Seguimiento');
  await page.locator('.navbtn[data-view=admin]').click();
  await page.locator('#adminDashboard:not(.hidden)').waitFor();
+ await checkAccessibility('Bandeja de Salud');
+ await page.locator('#statusFilter').selectOption('awaiting_certificate');
+ assert.equal(await page.locator('#adminList .record').count(),1);
  await page.screenshot({path:'screenshots/03-panel-salud.png',fullPage:true});
+ await page.locator('#statusFilter').selectOption('');
  await page.locator('#adminList .record').filter({hasText:'DEMO-0002'}).click();
  await page.locator('#details input[type=checkbox]').check();
  await page.getByRole('button',{name:'Archivar y notificar por correo'}).click();
  await page.locator('#details .chip').filter({hasText:'Notificación enviada'}).waitFor();
  await page.screenshot({path:'screenshots/04-expediente.png',fullPage:true});
  assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
- await page.setViewportSize({width:390,height:844});await page.reload({waitUntil:'networkidle'});
+ for(const width of [768,390,320]){
+  await page.setViewportSize({width,height:900});await page.reload({waitUntil:'networkidle'});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desbordamiento a '+width+' px');
+ }
+ await page.setViewportSize({width:390,height:844});
  const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&!e.closest('.nav')}).map(e=>[e.tagName,e.className,Math.round(e.getBoundingClientRect().right)]).slice(0,15)}));assert.ok(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));
  await page.screenshot({path:'screenshots/05-movil.png',fullPage:true});
  await page.locator('#contrast').click();assert.equal(await page.locator('#contrast').getAttribute('aria-pressed'),'true');
+ await checkAccessibility('Contraste en móvil');
  await page.screenshot({path:'screenshots/06-contraste.png',fullPage:true});
  assert.deepEqual(errors,[]);
  console.log('Portal demo: flujo ciudadano, constancia, seguimiento, envío simulado, modo móvil y contraste comprobados.');
