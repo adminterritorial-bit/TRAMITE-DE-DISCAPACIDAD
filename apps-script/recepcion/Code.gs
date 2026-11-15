@@ -8,6 +8,17 @@ function doPost(e){return signed_(e,'archive',function(a,d){
     d.files.forEach(function(f){if(['historia','apoyo'].indexOf(f.kind)<0)throw Error('bad kind');out.push(savePdf_(folder,f));});
     return {files:out};
   }
+  if(a==='ack'){
+    if(!/^SP-PIL-[A-F0-9]{16}$/.test(d.radicado||'')||!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(d.email||'')||d.portal!==prop_('PORTAL_URL'))throw Error('bad request');
+    var exists=root.getFoldersByName(d.requestId);if(!exists.hasNext())throw Error('missing request');
+    var target=exists.next(),prev=target.getFilesByName('ack.json');
+    if(prev.hasNext()){var state=JSON.parse(prev.next().getBlob().getDataAsString());if(state.sent===true)return {sent:true};throw Error('uncertain');}
+    if(MailApp.getRemainingDailyQuota()<2)return {sent:false};
+    var journal=target.createFile('ack.json',JSON.stringify({sent:false}),MimeType.PLAIN_TEXT);
+    MailApp.sendEmail({to:d.email,subject:'Acuse de prueba '+d.radicado,body:'Recibimos su solicitud en el entorno de pruebas. Referencia: '+d.radicado+'. No constituye radicación oficial. Consulte el estado en '+d.portal});
+    MailApp.sendEmail({to:prop_('HEALTH_EMAIL'),subject:'Nueva solicitud piloto '+d.radicado,body:'Existe un expediente de prueba disponible en el panel institucional. Referencia: '+d.radicado+'. Consulte en '+d.portal});
+    journal.setContent(JSON.stringify({sent:true}));return {sent:true};
+  }
   if(a==='read'){
     var folders=root.getFoldersByName(d.requestId);if(!folders.hasNext())throw Error('not found');
     var folder=folders.next(),f=DriveApp.getFileById(d.fileId),parents=f.getParents(),valid=false;

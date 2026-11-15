@@ -3,6 +3,7 @@
   "runtimeVersion": "V8",
   "exceptionLogging": "NONE",
   "oauthScopes": [
-    "https://www.googleapis.com/auth/drive"
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.send_mail"
   ]
 }
