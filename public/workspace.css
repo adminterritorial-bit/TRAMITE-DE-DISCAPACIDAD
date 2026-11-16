@@ -40,3 +40,6 @@ body.hc.staff-workspace .admin-module-menu button[aria-current=page]{background:
 @media(max-width:920px){.studio-canvas{grid-template-columns:minmax(0,1fr)}.studio-palette{grid-row:1;grid-template-columns:repeat(auto-fit,minmax(min(100%,125px),1fr))}.studio-palette h4{grid-column:1/-1}}
 @media(max-width:720px){body.staff-workspace main{padding-inline:15px}.workspace-strip{padding:13px 15px}.workspace-identity strong{font-size:.93rem}.workspace-identity span{font-size:.75rem}.workspace-strip .secondary{font-size:.78rem;padding:9px 10px}.studio-section{padding:14px}.studio-question{padding:12px}.studio-palette{padding:9px}.studio-heading h2{font-size:1.35rem}.studio-question-actions button{flex:1 1 110px}.studio-canvas,.studio-form,.studio-section{max-width:100%;min-width:0}.upload{padding:14px}input[type=file]{font-size:.76rem;padding:7px}input[type=file]::file-selector-button{padding:8px 9px;font-size:.76rem;max-width:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+body.staff-workspace .admin-module-menu button,.workspace-strip button{transition:transform .16s ease,box-shadow .16s ease!important}
+@media(prefers-reduced-motion:reduce){body.staff-workspace .admin-module-menu button,.workspace-strip button{transition:none!important}}

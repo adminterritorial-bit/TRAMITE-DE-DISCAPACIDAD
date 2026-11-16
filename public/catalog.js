@@ -355,7 +355,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    const advanced=node('details',null,'studio-advanced');advanced.append(node('summary','Configuración avanzada'));
    const code=field(advanced,'Identificador del campo','id',spec.id||unique('campo',groups().map(x=>x.querySelector('[name=id]').value)),{required:true});code.pattern='[a-z][a-z0-9-]{1,39}';
    let manual=!!spec.id;code.addEventListener('input',()=>manual=true);
-   caption.addEventListener('input',()=>{if(!manual&&slug(caption.value))code.value=unique(slug(caption.value),groups().filter(x=>x!==group).map(x=>x.querySelector('[name=id]').value));});
+   caption.addEventListener('input',()=>{if(!manual&&slug(caption.value)){const old=code.value;code.value=unique(slug(caption.value),groups().filter(x=>x!==group).map(x=>x.querySelector('[name=id]').value));for(const other of groups()){const condition=other.querySelector('[name=condition]');if(condition?.value===old)condition.value=code.value;}}});
    const test=field(advanced,'Mostrar si el campo anterior indicado tiene un valor','condition',spec.condition?.field||'');
    const equals=field(advanced,'Valor que activa la condición','equals',spec.condition?.equals||'');
    group.append(advanced);
