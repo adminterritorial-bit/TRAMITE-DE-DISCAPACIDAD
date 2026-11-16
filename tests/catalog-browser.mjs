@@ -19,7 +19,7 @@ try{
   {id:'policy-privacy',version:1,act:'notice',required:true,title:'Conocimiento del aviso',body:'Aviso de prueba.'},
   {id:'policy-terms',version:2,act:'terms',required:true,title:'Aceptación de condiciones',body:'Texto de prueba.'}
  ].map(d=>({...d,hash:'0'.repeat(64)}));
- let application;
+ let application;const staffInvites=[];
  await page.route('https://script.google.com/macros/s/**',r=>{
   const method=r.request().method(),url=new URL(r.request().url());
   let output={ok:true,build:'spark-unified-2.0',enabled:true};
@@ -31,10 +31,11 @@ try{
    if(action==='serviceSave')services.push({id:data.id,revision:1,state:'draft',draft:data.schema});
    if(action==='servicePublish'){const service=services.find(x=>x.id===data.id);service.live={...service.draft,version:2};service.state='published';service.revision=2;}
    if(action==='serviceApply')application=data;
+   if(action==='staffInvite')staffInvites.push({email:data.email,role:data.role,state:'pending',expiresAt:Date.now()+604800000});
    output.data={
     sessionAccess:{role:'supervisor',canManage:true,institutional:true},
     institutionalPublic:{notices:[],policies:[]},institutionalForm:{documents:statements},adminList:{role:'supervisor',items:[]},
-    catalogAdmin:{canPublish:true,categories,services},serviceRead:{...(services.find(x=>x.id===data.id)?.live||{})},
+    staffList:{items:[{uid:'supervisor',email:'salud@sanpedro-valle.gov.co',role:'supervisor',active:true}],invitations:staffInvites},catalogAdmin:{canPublish:true,categories,services},serviceRead:{...(services.find(x=>x.id===data.id)?.live||{})},
     serviceApply:{radicado:'SP-PIL-LOCAL',status:'received'}
    }[action]||{};
   }
@@ -78,5 +79,12 @@ try{
  assert.equal(application.version,2);
  assert.equal(application.answers.tipo,'apoyo');
  assert.equal(application.legalDecisions.length,2);
+ await page.locator('#adminNav').click();
+ await page.getByRole('button',{name:'Administrar equipo →'}).click();
+ await page.getByLabel('Correo del nuevo integrante').fill('operador@sanpedro-valle.gov.co');
+ await page.getByRole('button',{name:'Crear invitación'}).click();
+ await page.getByText('operador@sanpedro-valle.gov.co',{exact:true}).waitFor();
+ assert.equal(staffInvites[0].role,'operator');
+ assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth+1),true);
  console.log('Catálogo operativo y constructor configurados y recorridos de extremo a extremo con servicios controlados.');
 }finally{await browser.close();}

@@ -8,7 +8,7 @@ try {
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  const page=await context.newPage();
  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
- await page.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:source.replace('const demo=false','const demo=true')}));
+ await page.route(/\/app\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:source.replace('const demo=false','const demo=true')}));
  async function checkAccessibility(view){
   const {violations}=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
   assert.deepEqual(violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[],view);

@@ -140,7 +140,7 @@ function spRest_(suffix,method,data,allowMissing){
  return JSON.parse(res.getContentText());
 }
 function spName_(collection,id){
- if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases','catalog','serviceVersions','serviceRequests','admins'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
+ if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases','catalog','serviceVersions','serviceRequests','admins','users','staffInvites'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
  return SPARK_DB_+'/'+collection+'/'+id;
 }
 function spRead_(collection,id){

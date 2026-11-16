@@ -1,6 +1,6 @@
 const CATALOG_ACTIONS_=['catalogList','catalogAdmin','categorySave','categoryRetire','serviceRead','serviceSave','serviceDuplicate',
  'servicePublish','serviceRetire','serviceHistory','serviceApply','serviceMine','serviceInbox','serviceCase','serviceTransition',
- 'serviceAssign','serviceDownload','serviceNote','serviceRetryMail','serviceRequestCorrection','serviceSubmitCorrection','serviceExport','staffList','staffSave'];
+ 'serviceAssign','serviceDownload','serviceNote','serviceRetryMail','serviceRequestCorrection','serviceSubmitCorrection','serviceExport','staffList','staffSave','staffInvite','staffRevokeInvite'];
 const CATALOG_ID_=/^[a-z][a-z0-9-]{1,39}$/;
 const CATALOG_KEY_=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CATALOG_USER_=/^[A-Za-z0-9_-]{1,128}$/;
@@ -296,12 +296,13 @@ function catCaseAction_(u,action,d){
 function catStaff_(u,action,d){
  if(u.role!=='supervisor')throw Error('forbidden');
  instRecent_(u);
+ if(['staffInvite','staffRevokeInvite'].includes(action))return catInviteChange_(u,action,d);
  if(action==='staffList'){
   spLimit_(u,'staffList',60);
   return {items:spQuery_('admins',null,null,'__name__',50).map(x=>{
    const value=spData_(x.fields);
    return {uid:x.name.split('/').pop(),email:value.email,role:value.role,active:value.active===true};
-  })};
+  }),invitations:catInviteList_()};
  }
  const uid=catUid_(d.uid);
  if(uid===u.uid)throw Error('forbidden');
@@ -362,6 +363,59 @@ function catDispatch_(u,action,d){
   spCommit_([spAudit_('service-export',u.uid,'service:export')]);
   return {csv:'tramite,estado,expedientes\n'+Array.from(counts,([key,count])=>key+','+count).join('\n')};
  }
- if(action==='staffList'||action==='staffSave')return catStaff_(u,action,d);
+ if(['staffList','staffSave','staffInvite','staffRevokeInvite'].includes(action))return catStaff_(u,action,d);
  return catCaseAction_(u,action,d);
+}
+
+
+// Institutional onboarding: invite by verified Workspace email, never by password.
+// Invitations are private, one-time, time-limited, and cannot create a supervisor.
+// A signed-in Google identity must exactly match the invite before Firestore grants access.
+function catInviteEmail_(value){
+ if(typeof value!=='string')throw Error('invalid_request');
+ const email=value.trim().toLowerCase();
+ if(email.length>254||!isValidEmail_(email)||!/^[a-z0-9._+-]+@sanpedro-valle\.gov\.co$/.test(email))throw Error('invalid_request');
+ return email;
+}
+function catInviteList_(){
+ const now=Date.now();
+ return spQuery_('staffInvites',null,null,'createdAt',50).map(doc=>{
+  const row=spData_(doc.fields);
+  return {email:row.email,role:row.role,state:row.state==='pending'&&row.expiresAt<=now?'expired':row.state,expiresAt:row.expiresAt};
+ });
+}
+function catInviteChange_(u,action,d){
+ if(u.role!=='supervisor')throw Error('forbidden');
+ instRecent_(u);
+ const email=catInviteEmail_(d.email);
+ if(email===String(u.email||'').toLowerCase())throw Error('forbidden');
+ const id=spHash_(email),prior=spRead_('staffInvites',id),old=prior?spData_(prior.fields):null;
+ spLimit_(u,'staffInvite',20);
+ if(action==='staffRevokeInvite'){
+  if(!old||old.state!=='pending')throw Error('invalid_transition');
+  spCommit_([spPut_('staffInvites',id,{state:'revoked'},prior,['updatedAt']),spAudit_(id,u.uid,'staff:invitation_revoked')]);
+  return {email,state:'revoked'};
+ }
+ if(action!=='staffInvite')throw Error('invalid_request');
+ const role=instEnum_(d.role,['operator','admin']);
+ if(old?.state==='claimed')throw Error('invalid_transition');
+ const expiresAt=Date.now()+7*24*60*60*1000;
+ spCommit_([spPut_('staffInvites',id,{email,role,state:'pending',expiresAt,invitedBy:u.uid},prior,prior?['updatedAt']:['createdAt','updatedAt']),spAudit_(id,u.uid,'staff:invitation_created')]);
+ return {email,role,state:'pending',expiresAt};
+}
+// This function is invoked only after Firebase has verified the Google ID token and its email.
+function catClaimInvite_(uid,verifiedEmail,account,admin){
+ if(admin||account?.active===false||(account&&account.active!==true))return false;
+ catUid_(uid);
+ const email=catInviteEmail_(verifiedEmail);
+ const id=spHash_(email),invite=spRead_('staffInvites',id);
+ if(!invite)return false;
+ const value=spData_(invite.fields);
+ if(value.email!==email||value.state!=='pending'||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=Date.now()||!['operator','admin'].includes(value.role)||value.invitedBy===uid)return false;
+ const currentUser=spRead_('users',uid),currentAdmin=spRead_('admins',uid);
+ if(currentAdmin||(currentUser&&spData_(currentUser.fields).active!==true))return false;
+ const userGuard=currentUser?{verify:spName_('users',uid),currentDocument:{updateTime:currentUser.updateTime}}:spPut_('users',uid,{active:true},null,['createdAt','updatedAt']);
+ spCommit_([userGuard,spPut_('admins',uid,{email:verifiedEmail,role:value.role,active:true},null,['createdAt','updatedAt']),
+  spPut_('staffInvites',id,{state:'claimed',claimedUid:uid},invite,['updatedAt']),spAudit_(id,uid,'staff:invitation_claimed')]);
+ return true;
 }

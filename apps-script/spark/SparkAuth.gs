@@ -38,8 +38,13 @@ function sparkIdentity_(idToken, adminRequired) {
   });
   const u=answer.users?.[0],now=Math.floor(Date.now()/1000);
   if (!u || answer.users.length!==1 || p.aud!==SPARK_PROJECT_ || p.iss!=='https://securetoken.google.com/'+SPARK_PROJECT_ || !p.sub || u.localId!==p.sub || p.email_verified!==true || u.emailVerified!==true || u.disabled===true || !u.email || p.email!==u.email || !Number.isFinite(p.exp) || p.exp<=now || !Number.isFinite(p.auth_time) || p.auth_time>now || !Number.isFinite(p.iat) || p.iat>now || (u.validSince && (!Number.isFinite(Number(u.validSince)) || p.auth_time<Number(u.validSince)))) throw Error('invalid_identity');
-  if (sparkDoc_('users',u.localId)?.active!==true) throw Error('not_enabled');
-  const a=sparkDoc_('admins',u.localId);
+  let account=sparkDoc_('users',u.localId),a=sparkDoc_('admins',u.localId);
+  const institutional=p.firebase?.sign_in_provider==='google.com'&&u.email.toLowerCase().endsWith('@sanpedro-valle.gov.co');
+  if(institutional&&!a&&typeof catClaimInvite_==='function'&&(!account||account.active===true)){
+    // First login only; an already revoked or disabled account is never reactivated by a claim.
+    if(catClaimInvite_(u.localId,u.email,account,a)){account=sparkDoc_('users',u.localId);a=sparkDoc_('admins',u.localId);}
+  }
+  if(account?.active!==true)throw Error('not_enabled');
   const role=p.firebase?.sign_in_provider==='google.com' && u.email.toLowerCase().endsWith('@sanpedro-valle.gov.co') && a?.active===true && a.email===u.email && ['operator','admin','supervisor'].includes(a.role)?a.role:null;
   if(adminRequired&&!role)throw Error('forbidden');
   return {uid:u.localId,email:u.email,role:role,authTime:p.auth_time};

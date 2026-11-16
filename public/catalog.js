@@ -446,7 +446,27 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   field(form,'Rol','role','operator',{options:{operator:'Operador',admin:'Administrador funcional'}});
   field(form,'Acceso','active','yes',{options:{yes:'Activo',no:'Revocado'}});
   submit(form,'Guardar acceso',d=>operations(()=>invoke('staffSave',{...d,active:d.active==='yes'}),()=>openAdmin('staff')));
-  editor.append(form);manager.append(editor);
+  editor.append(form);
+  if(Array.isArray(data.invitations)){
+   const invite=node('section',null,'manager-section');
+   invite.append(node('h3','Invitar un nuevo integrante'),node('p','Crea una invitación por correo institucional. La persona podrá ingresar con Google y activar su acceso durante los próximos siete días; no necesitas conocer su UID.','module-intro'));
+   const inviteForm=node('form',null,'compact-form');
+   const inviteEmail=field(inviteForm,'Correo del nuevo integrante','email','',{type:'email',required:true,max:254});inviteEmail.placeholder='usuario@sanpedro-valle.gov.co';
+   field(inviteForm,'Rol inicial','role','operator',{options:{operator:'Operador',admin:'Administrador funcional'}});
+   submit(inviteForm,'Crear invitación',d=>operations(()=>invoke('staffInvite',d),()=>openAdmin('staff')));
+   invite.append(inviteForm);
+   const pending=node('div',null,'staff-grid');invite.append(pending);
+   for(const entry of data.invitations){
+    const card=node('article',null,'staff-card'),state=node('span',({pending:'Pendiente',claimed:'Activada',revoked:'Revocada',expired:'Vencida'}[entry.state]||entry.state),'state-label');
+    state.dataset.state=entry.state==='claimed'?'published':entry.state==='pending'?'draft':'withdrawn';
+    card.append(node('strong',entry.email),node('small',entry.role==='operator'?'Operador':'Administrador funcional'),state,node('small','Vencimiento: '+new Date(entry.expiresAt).toLocaleDateString('es-CO')));
+    if(entry.state==='pending')card.append(action('Revocar invitación',()=>operations(()=>invoke('staffRevokeInvite',{email:entry.email}),()=>openAdmin('staff'))));
+    pending.append(card);
+   }
+   if(!data.invitations.length)pending.append(node('p','Todavía no hay invitaciones.','module-intro'));
+   manager.append(invite);
+  }
+  manager.append(editor);
   const directory=node('section',null,'manager-section'),filter=field(directory,'Buscar integrante','staffQuery'),grid=node('div',null,'staff-grid');
   directory.prepend(node('h3','Directorio de gestión'));directory.append(grid);manager.append(directory);
   const render=()=>{
