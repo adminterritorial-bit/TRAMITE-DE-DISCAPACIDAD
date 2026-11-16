@@ -55,19 +55,28 @@ const caseStates={saving:'Archivando soportes',storage_review:'Archivo por verif
 
 export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,downloadContent}){
  const catalogue=region('Trámites y servicios de Salud','Consulte los servicios publicados y sus canales de atención.');
- catalogue.id='catalog';
+ catalogue.id='catalog';catalogue.classList.add('catalog-home');
  const service=region('Ficha de trámite','Consulte los requisitos antes de continuar.');
  service.id='service';
  const main=document.getElementById('main');
  const nav=document.querySelector('.nav');
  main.append(catalogue,service);
+ const masthead=node('div',null,'catalog-masthead'),copy=node('div');
+ copy.append(node('div','ALCALDÍA DE SAN PEDRO · SERVICIOS DIGITALES','catalog-kicker'),catalogue.querySelector('h1'),catalogue.querySelector('.module-intro'));
+ const pills=node('div',null,'catalog-pills');
+ for(const label of ['Atención municipal','Seguimiento en línea','Documentos protegidos'])pills.append(node('span',label));
+ copy.append(pills);
+ const visual=node('div',null,'catalog-illustration');visual.setAttribute('aria-hidden','true');
+ const visualCard=node('div',null,'catalog-visual-card');
+ visualCard.append(node('div','+','catalog-icon'),node('strong','SITS Salud'),node('small','Tu solicitud, en un solo lugar'),node('span',null,'visual-line'),node('span',null,'visual-line short'));
+ visual.append(visualCard,node('span','✓','catalog-visual-check'));masthead.append(copy,visual);catalogue.append(masthead);
  const searchBar=node('div',null,'catalog-filters');
  const search=field(searchBar,'Buscar trámite','search');
  const category=field(searchBar,'Categoría','category','',{options:{'':'Todas'}});
- catalogue.append(searchBar);
+ const filters=node('div',null,'catalog-tools');filters.append(searchBar);catalogue.append(filters);search.placeholder='Escribe el nombre del servicio…';
  const list=node('div',null,'document-grid');
  const catalogInfo=node('p',null,'module-intro');catalogInfo.setAttribute('role','status');
- catalogue.append(catalogInfo,list);
+ const infoRow=node('div',null,'catalog-info-row');infoRow.append(node('h2','Servicios disponibles'),catalogInfo);catalogue.append(infoRow,list);
  const serviceBody=node('div');
  service.append(serviceBody);
  let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
@@ -76,6 +85,13 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
  const dashboard=document.getElementById('adminDashboard');
+ const shortcuts=node('div',null,'workspace-shortcuts');
+ shortcuts.hidden=true;
+ const shortcutCatalog=btn('Diseñar un trámite →',()=>void openAdmin('catalog'));
+ const shortcutCases=btn('Gestionar solicitudes →',()=>void openAdmin('cases'));
+ const shortcutStaff=btn('Administrar equipo →',()=>void openAdmin('staff'));
+ shortcuts.append(shortcutCatalog,shortcutCases,shortcutStaff);
+ dashboard.querySelector('.dashbar').after(shortcuts);
  dashboard.append(manager);
  if(!demo){
   const tab=btn('Catálogo',()=>navigate('catalog'),'navbtn');tab.dataset.view='catalog';
@@ -99,10 +115,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   catalogInfo.textContent=cacheError?'El catálogo adicional no está disponible. Puede consultar el trámite de certificación.':'Trámites disponibles: '+matched.length;
   if(!matched.length)list.append(node('p','No hay trámites que coincidan con la búsqueda.'));
   for(const item of matched){
-   const card=node('article',null,'module-panel');
+   const card=node('article',null,'module-panel catalog-card');
    const tag=publicCatalog.categories.find(x=>x.id===item.category)?.title;
-   if(tag)card.append(node('p',tag,'doc-status'));
-   card.append(node('h2',item.title),node('p',item.description,'plain-content'),btn('Ver trámite',()=>void openService(item)));
+   const top=node('div',null,'catalog-card-top'),icon=node('span',item.standard?'+':'▤','catalog-icon');icon.setAttribute('aria-hidden','true');top.append(icon);
+   if(tag)top.append(node('span',tag,'doc-status'));
+   card.append(top,node('h2',item.title),node('p',item.description,'plain-content'),btn('Ver trámite',()=>void openService(item),'primary'));
    list.append(card);
   }
  }
@@ -243,7 +260,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  function editService(current,data){
   const draft=current?.draft||{fields:[],states:[{id:'received',label:'Recibida',next:['reviewing']},
    {id:'reviewing',label:'En revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]};
-  manager.replaceChildren(node('h2',current?'Editar borrador':'Nuevo trámite'));
+  manager.replaceChildren(node('h2',current?'Editar borrador':'Nuevo trámite'));const guide=node('div',null,'builder-intro');for(const text of ['1. Datos generales','2. Campos y documentos','3. Flujo y publicación'])guide.append(node('span',text));manager.append(guide);
   const form=node('form',null,'compact-form');
   const id=field(form,'Código del trámite','id',current?.id||'',{required:true});id.readOnly=!!current;
   field(form,'Nombre del trámite','title',draft.title,{required:true,max:120});
@@ -254,7 +271,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   field(form,'UID de operadores autorizados','operators',draft.operators.join('\n'),{multi:true});
   for(const [key,label] of [['ack','Mensaje del acuse'],['correction','Mensaje de subsanación'],['closure','Mensaje de cierre']])
    field(form,label+' sin datos personales','message-'+key,draft.messages?.[key]||'',{multi:true,max:500});
-  const fields=node('div'),states=node('div');
+  const fields=node('div',null,'builder-group'),states=node('div',null,'builder-group');
   function addField(spec={}){
    const group=node('fieldset',null,'portal-decisions');group.append(node('legend','Campo del formulario'));
    field(group,'Identificador del campo','id',spec.id,{required:true});
@@ -288,9 +305,9 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   draft.fields.forEach(addField);draft.states.forEach(addState);
   form.append(node('h3','Constructor de formulario'),fields,btn('Añadir campo',()=>addField()),
    node('h3','Flujo y transiciones'),states,btn('Añadir etapa',()=>addState()));
-  const preview=node('div');
+  const preview=node('div',null,'manager-section');preview.hidden=true;
   form.append(btn('Previsualizar formulario',()=>{
-   preview.replaceChildren(node('h3','Vista previa'));
+   preview.hidden=false;preview.replaceChildren(node('h3','Vista previa'));
    dynamicFields(preview,Array.from(fields.children,x=>x.value()),{preview:true});
   }));
   submit(form,'Guardar borrador',async()=>{
@@ -304,22 +321,34 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   manager.append(form,preview,btn('Volver al catálogo',()=>void openAdmin('catalog')));
  }
  function adminCatalog(data){
+  const enabled=data.categories.filter(c=>c.active).length;
+  const header=node('div',null,'management-header');
+  const intro=node('div');intro.append(node('h3','Diseña y publica servicios'),node('p','Configura categorías, formularios, requisitos y etapas sin modificar el código.','module-intro'));header.append(intro);
+  if(enabled)header.append(btn('Crear trámite',()=>editService(null,data),'primary'));
+  manager.append(header);
+  const stats=node('div',null,'manager-stats');
+  for(const [label,n] of [['Categorías activas',enabled],['Trámites',data.services.length],['Publicados',data.services.filter(s=>s.state==='published').length],['Borradores',data.services.filter(s=>s.state==='draft').length]]){const box=node('div');box.append(node('small',label),node('strong',String(n)));stats.append(box);}
+  manager.append(stats);
+  const categorySection=node('section',null,'manager-section');
+  const serviceSection=node('section',null,'manager-section');
   const form=node('form',null,'compact-form');
   field(form,'Código de categoría','id','',{required:true});
   field(form,'Nombre de categoría','title','',{required:true,max:70});
   submit(form,'Guardar categoría',d=>operations(()=>invoke('categorySave',d),()=>openAdmin('catalog')));
-  manager.append(node('h3','Categorías'),form);
+  categorySection.append(node('h3','Categorías'),form);
   for(const c of data.categories){
    const line=node('div',null,'record');line.append(node('strong',c.title));
    line.append(btn('Editar categoría',()=>{form.elements.id.value=c.id;form.elements.title.value=c.title;form.elements.title.focus();}));
    if(c.active&&data.canPublish)line.append(action('Retirar categoría',()=>operations(()=>invoke('categoryRetire',{id:c.id}),()=>openAdmin('catalog'))));
-   manager.append(line);
+   categorySection.append(line);
   }
-  if(data.categories.some(c=>c.active))manager.append(btn('Crear trámite',()=>editService(null,data),'primary'));
+  manager.append(categorySection);
+  serviceSection.append(node('h3','Trámites configurados'));
+  if(!data.services.length)serviceSection.append(node('p','Aún no hay trámites personalizados. Crea una categoría y luego un trámite.','module-intro'));
   for(const item of data.services){
    const line=node('article',null,'record');
-   line.append(node('h3',item.draft.title),node('p','Revisión '+item.revision+' · '+({draft:'Borrador',published:'Publicado',withdrawn:'Retirado'}[item.state]||item.state)),
-    btn('Editar trámite',()=>editService(item,data)));
+   const state=node('span',({draft:'Borrador',published:'Publicado',withdrawn:'Retirado'}[item.state]||item.state),'state-label');state.dataset.state=item.state;
+   line.append(state,node('h3',item.draft.title),node('p','Revisión '+item.revision+' · '+item.id),btn('Editar trámite',()=>editService(item,data)));
    const duplicate=node('form',null,'compact-form');
    field(duplicate,'Código para duplicar','id','',{required:true});field(duplicate,'Nombre de la copia','title','',{required:true});
    submit(duplicate,'Duplicar',d=>operations(()=>invoke('serviceDuplicate',{...d,sourceId:item.id,revision:0}),()=>openAdmin('catalog')));
@@ -339,8 +368,9 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    if(data.canPublish&&item.live)line.append(action('Retirar trámite',()=>operations(()=>invoke('serviceRetire',{id:item.id,revision:item.revision}),async()=>{
     if(endpoint)await connect(endpoint);await openAdmin('catalog');
    })));
-   manager.append(line);
+   serviceSection.append(line);
   }
+  manager.append(serviceSection);
  }
  function caseList(target,items,staff){
   const list=node('div',null,'records');
@@ -407,24 +437,37 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   target.append(note);
  }
  function staffSettings(data){
+  const head=node('div',null,'management-header');const copy=node('div');copy.append(node('h3','Equipo institucional'),node('p','Gestiona accesos de operadores y administradores. El rol supervisor está protegido.','module-intro'));head.append(copy);manager.append(head);
+  const stats=node('div',null,'manager-stats');for(const [label,n] of [['Accesos visibles',data.items.length],['Activos',data.items.filter(x=>x.active).length],['Revocados',data.items.filter(x=>!x.active).length]]){const box=node('div');box.append(node('small',label),node('strong',String(n)));stats.append(box);}manager.append(stats);
+  const editor=node('section',null,'manager-section');editor.append(node('h3','Habilitar o modificar un acceso'),node('p','Utiliza el UID de una cuenta Google institucional ya habilitada en Firebase. No se crean contraseñas ni se comparten credenciales.','module-intro'));
   const form=node('form',null,'compact-form');
   field(form,'UID de cuenta institucional habilitada','uid','',{required:true});
   field(form,'Correo institucional','email','',{type:'email',required:true});
   field(form,'Rol','role','operator',{options:{operator:'Operador',admin:'Administrador funcional'}});
   field(form,'Acceso','active','yes',{options:{yes:'Activo',no:'Revocado'}});
   submit(form,'Guardar acceso',d=>operations(()=>invoke('staffSave',{...d,active:d.active==='yes'}),()=>openAdmin('staff')));
-  for(const entry of data.items){
-   if(entry.role==='supervisor')continue;
-   manager.append(btn(entry.email+' · '+entry.role+(entry.active?'':' · Revocado'),()=>{
-    for(const name of ['uid','email','role'])form.elements[name].value=entry[name];
-    form.elements.active.value=entry.active?'yes':'no';form.elements.active.focus();
-   }));
-  }
-  manager.append(form);
+  editor.append(form);manager.append(editor);
+  const directory=node('section',null,'manager-section'),filter=field(directory,'Buscar integrante','staffQuery'),grid=node('div',null,'staff-grid');
+  directory.prepend(node('h3','Directorio de gestión'));directory.append(grid);manager.append(directory);
+  const render=()=>{
+   grid.replaceChildren();
+   const needle=filter.value.trim().toLowerCase();
+   for(const entry of data.items.filter(x=>(x.email+' '+x.role).toLowerCase().includes(needle))){
+    const card=node('article',null,'staff-card'),tag=node('span',entry.active?'Activo':'Revocado','state-label');tag.dataset.state=entry.active?'published':'withdrawn';
+    card.append(node('span',(entry.email||'?').slice(0,2).toUpperCase(),'staff-avatar'),node('strong',entry.email),node('small',({operator:'Operador',admin:'Administrador funcional',supervisor:'Supervisor'}[entry.role]||entry.role)),tag);
+    if(entry.role!=='supervisor')card.append(btn('Editar acceso',()=>{for(const name of ['uid','email','role'])form.elements[name].value=entry[name];form.elements.active.value=entry.active?'yes':'no';editor.scrollIntoView({block:'nearest'});form.elements.active.focus();}));
+    else card.append(node('small','Acceso protegido'));
+    grid.append(card);
+   }
+   if(!grid.children.length)grid.append(node('p','No hay coincidencias.','module-intro'));
+  };
+  filter.oninput=render;render();
  }
  async function openAdmin(module,after){
   const scope=user;
   for(const el of dashboard.querySelectorAll('.institutional-admin'))el.hidden=true;
+  dashboard.dataset.activeModule=module==='catalog'?'catalog':module==='staff'?'staff':'services';
+  for(const b of menu.querySelectorAll('button')){const active=b.textContent===({catalog:'Catálogo y formularios',cases:'Expedientes de servicios',staff:'Accesos del personal'}[module]);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
   manager.hidden=false;experience.loading(manager);
   const title=module==='catalog'?'Administrador de trámites y formularios':module==='cases'?'Bandeja de servicios configurados':'Accesos del personal';
   try{
@@ -465,11 +508,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  renderCatalog();
  return {connect,tracking,setSession(next,nextRole){
-  user=next;role=nextRole;
+  user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';
    if(b.textContent==='Catálogo y formularios')b.hidden=!['admin','supervisor'].includes(role);
   }
-  if(!user){manager.hidden=true;mine.classList.add('hidden');serviceBody.replaceChildren();serviceKey=null;activeService=null;}
+  if(!user){delete dashboard.dataset.activeModule;manager.hidden=true;mine.classList.add('hidden');serviceBody.replaceChildren();serviceKey=null;activeService=null;}
  }};
 }

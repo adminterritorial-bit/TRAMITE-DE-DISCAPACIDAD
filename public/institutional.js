@@ -153,12 +153,16 @@ export function portalExperience({demo,navigate,invoke}){
   const adminMenu=make('nav',null,'admin-module-menu');
   adminMenu.setAttribute('aria-label','Módulos de Salud');
   const adminPanel=byId('adminDashboard');
-  adminMenu.append(brand(),button('Expedientes',()=>adminPanel.querySelector('.dashbar').scrollIntoView()),
+  adminMenu.append(brand(),button('Expedientes',()=>{manager.hidden=true;adminPanel.dataset.activeModule='cases';adminPanel.querySelector('.dashbar').scrollIntoView({block:'nearest'});}),
     button('Avisos',()=>void loadManagement('notices')),button('Políticas',()=>void loadManagement('policies')),
     button('Solicitudes de titulares',()=>void loadManagement('rights')));
   const adminNav=make('details',null,'admin-module-nav');
   adminNav.append(make('summary','Menú institucional'),adminMenu);
   adminPanel.prepend(adminNav);
+  adminMenu.addEventListener('click',event=>{
+    const selected=event.target.closest('button');if(!selected)return;
+    for(const control of adminMenu.querySelectorAll('button')){if(control===selected)control.setAttribute('aria-current','page');else control.removeAttribute('aria-current');}
+  });
   adminPanel.append(manager);
   adminNav.hidden=!demo;
 
@@ -309,6 +313,7 @@ export function portalExperience({demo,navigate,invoke}){
     throw Error('Esta acción requiere el piloto autenticado.');
   }
   async function loadManagement(view){
+    adminPanel.dataset.activeModule=view;
     manager.hidden=false;
     loading(manager);
     try{

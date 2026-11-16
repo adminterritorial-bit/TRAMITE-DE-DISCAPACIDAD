@@ -1,9 +1,9 @@
 :root {
-  --municipal-ink: #183b38;
-  --municipal-accent: #16664e;
+  --municipal-ink: #152b50;
+  --municipal-accent: #204cdb;
   --municipal-surface: #fff;
-  --municipal-border: #b1c3b9;
-  --municipal-muted: #435d57;
+  --municipal-border: #c4d0e3;
+  --municipal-muted: #4c5e7b;
   --municipal-radius: 16px;
   --municipal-motion: 180ms;
 }
@@ -46,7 +46,7 @@ body.hc .portal-context { color: #fff; }
 .plain-content { white-space: pre-wrap; overflow-wrap: anywhere; }
 .module-panel > nav a, nav.module-panel a { display: inline-block; margin: 0 18px 8px 0; }
 .notice-card h2, .module-panel h2, .institution-dialog h2 { margin-top: 0; }
-.notice-strip { margin-bottom: 12px; border-inline-start: 5px solid #288272; }
+.notice-strip { margin-bottom: 12px; border-inline-start: 5px solid #3461df; }
 .notice-strip p { margin: 3px 0 0; }
 .severity-warning { border-inline-start: 5px solid #ae6507; }
 .severity-urgent { border-inline-start: 5px solid #a43838; }
@@ -55,13 +55,13 @@ body.hc .portal-context { color: #fff; }
   border: 1px solid var(--municipal-border); border-radius: var(--municipal-radius); background: var(--municipal-surface);
   color: var(--municipal-ink); padding: clamp(16px, 4vw, 32px);
 }
-.institution-dialog::backdrop { background: rgb(17 39 37 / .72); }
+.institution-dialog::backdrop { background: rgb(14 31 68 / .72); }
 .institution-toast {
   position: fixed; inset: auto 16px 16px auto; max-width: min(360px, calc(100% - 32px)); z-index: 3;
-  color: #fff; background: #173d37; border: 1px solid #abcec2; border-radius: 12px; padding: 14px 20px; pointer-events: none;
+  color: #fff; background: #142f78; border: 1px solid #c2d1f3; border-radius: 12px; padding: 14px 20px; pointer-events: none;
 }
 .portal-skeleton {
-  height: 92px; border-radius: 14px; background: linear-gradient(120deg, #e1ebe5 25%, #f0f5f2 52%, #e1ebe5 78%);
+  height: 92px; border-radius: 14px; background: linear-gradient(120deg, #e2e9f6 25%, #f5f8fd 52%, #e2e9f6 78%);
   background-size: 200% 100%; animation: portal-skeleton 750ms ease-in-out 2;
 }
 @keyframes portal-skeleton { from { background-position: 100% 0; } to { background-position: 0 0; } }
@@ -72,7 +72,7 @@ body.hc .portal-context { color: #fff; }
 .portal-decisions legend { font-weight: 750; }
 .portal-decisions input[type=radio] { width: 20px; min-height: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--municipal-accent); }
 .portal-decisions label strong, .portal-decisions label .plain-content { display: block; }
-.admin-module-nav { background: #e8f2ec; border: 1px solid var(--municipal-border); border-radius: 14px; padding: 10px; margin-bottom: 18px; }
+.admin-module-nav { background: #eaf0fd; border: 1px solid var(--municipal-border); border-radius: 14px; padding: 10px; margin-bottom: 18px; }
 .admin-module-nav summary { cursor: pointer; padding: 8px; min-height: 44px; font-weight: 700; }
 .admin-module-menu { display: grid; gap: 8px; align-content: start; padding: 6px; }
 .admin-module-menu button { text-align: left; }

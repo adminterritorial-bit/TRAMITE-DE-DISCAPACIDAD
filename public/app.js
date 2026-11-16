@@ -1,6 +1,6 @@
 import {config} from './config.js';
-import {portalExperience} from './institutional.js';
-import {serviceCatalog} from './catalog.js';
+import {portalExperience} from './institutional.js?v=royal-1';
+import {serviceCatalog} from './catalog.js?v=royal-1';
 const demo=false;
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
@@ -73,7 +73,7 @@ async function invoke(name,data={}){
 form.addEventListener('submit',async e=>{e.preventDefault();if(stage!==2||!validStep(2))return;const b=$('submit');b.disabled=true;const submitLabel=b.textContent;b.textContent='Enviando solicitud…';msg('formError');try{let result;if(demo){result={id:crypto.randomUUID(),radicado:'DEMO-'+Date.now(),status:'received'};demoItems.unshift({...result,name:'Persona de prueba',createdAt:Date.now(),files:[]});}else{if(!user||!authorized)throw Error('Verifica tu cuenta habilitada.');const d=Object.fromEntries(new FormData(form));const files=[await fixtureFile(form.history.files[0],'historia')];if(form.extra.files[0])files.push(await fixtureFile(form.extra.files[0],'apoyo'));requestKey??=crypto.randomUUID();result=await invoke('submitRequest',{legalDecisions:experience.decisions(),key:requestKey,name:d.name,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support,files,consent:true,synthetic:true,noticeVersion:'pilot-v1'});}
 hide(form);hide($('receipt'),false);msg('receiptId',result.radicado);msg('receiptTitle',result.status==='received'?'Solicitud de prueba registrada':'Solicitud pendiente de verificación');msg('receiptText',demo?'Demostración local. No se enviaron datos ni se creó ningún expediente oficial.':(result.status==='received'?'Puedes consultar el estado desde tu correo verificado. No es un radicado oficial.':'Salud debe verificar el almacenamiento antes de continuar.'));resetProfile();requestKey=null;experience.toast('Consulta el estado de la solicitud en Seguimiento.');
 }catch(err){displayError('formError',err);if(err.message.includes('legal_version_changed'))void experience.prepare(user).catch(e=>displayError('formError',e));}finally{b.disabled=false;b.textContent=submitLabel}});
-function badge(s){return node('span',statusNames[s]||s,'chip')}
+function badge(s){const chip=node('span',statusNames[s]||s,'chip');chip.dataset.state=s;return chip}
 function date(t){return t?new Intl.DateTimeFormat('es-CO',{dateStyle:'medium',timeStyle:'short'}).format(new Date(t)):'Sin fecha'}
 function downloadContent(f,kind){const a=document.createElement('a'),bytes=Uint8Array.from(atob(f.base64),v=>v.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.href=url;a.download=kind+'.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
 async function download(id,kind){downloadContent(await invoke('downloadFile',{id,kind}),kind);}
