@@ -30,7 +30,7 @@ function sparkVerifyApp_(token) {
   });
   if (result.alreadyConsumed === true || p.sub !== SPARK_APP_ || !Array.isArray(p.aud) || p.aud.indexOf('projects/'+SPARK_NUMBER_)<0 || p.iss !== 'https://firebaseappcheck.googleapis.com/'+SPARK_NUMBER_ || !Number.isFinite(p.exp) || p.exp <= Date.now()/1000) throw Error('invalid_app');
 }
-function sparkIdentity_(idToken, adminRequired) {
+function sparkIdentity_(idToken, adminRequired, allowRegistration=false) {
   const p=sparkClaims_(idToken);
   // Do not trust decoded claims without successful lookup using the same signed token.
   const answer=sparkJson_('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+encodeURIComponent(prop_('FIREBASE_WEB_API_KEY')),{
@@ -43,6 +43,11 @@ function sparkIdentity_(idToken, adminRequired) {
   if(institutional&&!a&&typeof catClaimInvite_==='function'&&(!account||account.active===true)){
     // First login only; an already revoked or disabled account is never reactivated by a claim.
     if(catClaimInvite_(u.localId,u.email,account,a)){account=sparkDoc_('users',u.localId);a=sparkDoc_('admins',u.localId);}
+  }
+  if(!account&&!a&&allowRegistration&&!adminRequired&&p.firebase?.sign_in_provider==='google.com'){
+    sparkRegisterCitizen_(u.localId);
+    account=sparkDoc_('users',u.localId);
+    a=sparkDoc_('admins',u.localId);
   }
   if(account?.active!==true)throw Error('not_enabled');
   const role=p.firebase?.sign_in_provider==='google.com' && u.email.toLowerCase().endsWith('@sanpedro-valle.gov.co') && a?.active===true && a.email===u.email && ['operator','admin','supervisor'].includes(a.role)?a.role:null;
@@ -58,4 +63,23 @@ function testSparkAppCheck() {
   let diagnostic={};try{const e=JSON.parse(r.getContentText()).error||{};diagnostic={status:e.status||'',message:String(e.message||'').slice(0,300),reasons:(e.details||[]).map(x=>x.reason).filter(Boolean)};}catch(_){}
   console.log('App Check probe HTTP '+r.getResponseCode()+' '+JSON.stringify(diagnostic));
   if(r.getResponseCode()===200)throw Error('invalid token unexpectedly accepted');
+}
+
+// Called exclusively after App Check and token verification on sessionAccess.
+// Never writes the admins collection; an existing account (including disabled) is preserved.
+function sparkRegisterCitizen_(uid){
+  if(typeof uid!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(uid))throw Error('invalid_identity');
+  const lock=LockService.getScriptLock();
+  lock.waitLock(15000);
+  try{
+    const existing=spRead_('users',uid),staff=spRead_('admins',uid);
+    if(existing)return;
+    if(staff)throw Error('not_enabled');
+    const day=new Date().toISOString().slice(0,10),key=spHash_('citizen-registration:'+day);
+    const prior=spRead_('rateLimits',key),count=prior?spData_(prior.fields).count:0;
+    if(!Number.isSafeInteger(count)||count<0||count>=200)throw Error('rate_limit');
+    spCommit_([spPut_('rateLimits',key,{count:count+1,day},prior),
+      spPut_('users',uid,{active:true,source:'google-self-registration'},null,['createdAt','updatedAt']),
+      spAudit_(uid,uid,'citizen:self_registered')]);
+  }finally{lock.releaseLock();}
 }

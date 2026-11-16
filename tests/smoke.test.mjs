@@ -12,7 +12,7 @@ test('only the public institutional endpoint is permitted; no browser bridge key
  assert.deepEqual(urls,['https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec']);
  for(const path of ['apps-script/Common.gs','apps-script/spark/UnifiedBackend.gs'])assert.doesNotMatch(read(path),/setSharing|ANYONE_WITH_LINK/);
  assert.match(read('apps-script/spark/UnifiedBackend.gs'),/sparkVerifyApp_\(p.appCheck\)/);
- assert.match(read('apps-script/spark/UnifiedBackend.gs'),/sparkIdentity_\(p.idToken,false\)/);
+ assert.match(read('apps-script/spark/UnifiedBackend.gs'),/sparkIdentity_\(p.idToken,false,req.action==='sessionAccess'\)/);
 });
 test('both script deployments verify request signature',()=>{assert.match(read('apps-script/Common.gs'),/computeHmacSha256Signature/);assert.match(read('apps-script/recepcion/Code.gs'),/signed_\(e,'archive'/);assert.match(read('apps-script/entrega/Code.gs'),/signed_\(e,'delivery'/);});
 

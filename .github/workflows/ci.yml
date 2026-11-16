@@ -33,6 +33,12 @@ jobs:
           node --check < apps-script/spark/ReceptionPilot.gs
           node --check < apps-script/spark/UnifiedBackend.gs
           node --check public/spark-pilot.js
+      - name: Package authorized Apps Script update
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-salud-release
+          path: build/spark-release/
+          if-no-files-found: error
       - name: Unit tests and security contracts
         run: node --test tests/*.test.mjs
       - name: Audit locked dependencies

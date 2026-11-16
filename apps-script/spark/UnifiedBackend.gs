@@ -526,9 +526,10 @@ function spHandle_(e){
   if(PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')!=='true')throw Error('pilot_disabled');
   stage='request';var p=spParse_(e);
   stage='app_check';sparkVerifyApp_(p.appCheck);
-  stage='identity';var u=sparkIdentity_(p.idToken,false);
-  stage='operation';var req=JSON.parse(p.payload);
+  stage='request';var req=JSON.parse(p.payload);
   if(!req||![...(typeof CATALOG_ACTIONS_==='undefined'?[]:CATALOG_ACTIONS_),...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
+  stage='identity';var u=sparkIdentity_(p.idToken,false,req.action==='sessionAccess');
+  stage='operation';
   if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))){lock=LockService.getScriptLock();lock.waitLock(15000);}
   return output_({ok:true,build:SPARK_BUILD_,data:spDispatch_(u,req.action,req.data)});
  }catch(err){

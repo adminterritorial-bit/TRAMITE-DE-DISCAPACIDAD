@@ -47,6 +47,8 @@ try{
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
  });
  await page.goto('http://127.0.0.1:8080/');
+ await page.locator('body.staff-workspace').waitFor();
+ await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
  await page.getByRole('button',{name:'Escuchar guía'}).click();
  await page.locator('#voice-guide:not([hidden])').waitFor();
@@ -88,7 +90,7 @@ try{
  assert.deepEqual(audit.violations.map(x=>[x.id,x.nodes.map(n=>n.target)]),[],'Catálogo accesible');
 
  await page.locator('#adminNav').click();
- await page.getByText('Menú institucional',{exact:true}).click();
+ if(!await page.locator('.admin-module-nav').evaluate(e=>e.open))await page.getByText('Menú institucional',{exact:true}).click();
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();
  await page.getByLabel('Código de categoría').fill('orientacion');
  await page.getByLabel('Nombre de categoría').fill('Orientación');
@@ -99,8 +101,9 @@ try{
  await page.getByLabel('Descripción').fill('Prueba del trámite configurable.');
  await page.getByLabel('Canal autorizado').fill('Secretaría de Salud');
  await page.getByRole('button',{name:'Añadir campo'}).click();
- await page.getByLabel('Identificador del campo').fill('tipo');
  await page.getByLabel('Etiqueta del campo').fill('Tipo de consulta');
+ await page.getByText('Configuración avanzada',{exact:true}).click();
+ await page.getByLabel('Identificador del campo').fill('tipo');
  await page.getByLabel('Tipo de campo').selectOption('select');
  await page.getByLabel(/Valor ficticio o lista/).fill('propia\napoyo');
  await page.getByRole('button',{name:'Previsualizar formulario'}).click();

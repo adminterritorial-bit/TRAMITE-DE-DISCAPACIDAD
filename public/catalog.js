@@ -323,67 +323,70 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  const lines=value=>value.split(/[\n,]/).map(x=>x.trim()).filter(Boolean);
  function editService(current,data){
-  const draft=current?.draft||{fields:[],states:[{id:'received',label:'Recibida',next:['reviewing']},
-   {id:'reviewing',label:'En revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]};
-  manager.replaceChildren(node('h2',current?'Editar borrador':'Nuevo trámite'));const guide=node('div',null,'builder-intro');for(const text of ['1. Datos generales','2. Campos y documentos','3. Flujo y publicación'])guide.append(node('span',text));manager.append(guide);
-  const form=node('form',null,'compact-form');
-  const id=field(form,'Código del trámite','id',current?.id||'',{required:true});id.readOnly=!!current;
-  field(form,'Nombre del trámite','title',draft.title,{required:true,max:120});
-  field(form,'Descripción','description',draft.description,{required:true,multi:true,max:1800});
-  field(form,'Categoría','category',draft.category||data.categories.find(x=>x.active)?.id||'',{required:true,
-   options:Object.fromEntries(data.categories.filter(x=>x.active).map(x=>[x.id,x.title]))});
-  field(form,'Canal autorizado','channel',draft.channel,{required:true,max:180});
-  field(form,'UID de operadores autorizados','operators',draft.operators.join('\n'),{multi:true});
-  for(const [key,label] of [['ack','Mensaje del acuse'],['correction','Mensaje de subsanación'],['closure','Mensaje de cierre']])
-   field(form,label+' sin datos personales','message-'+key,draft.messages?.[key]||'',{multi:true,max:500});
-  const fields=node('div',null,'builder-group'),states=node('div',null,'builder-group');
-  function addField(spec={}){
-   const group=node('fieldset',null,'portal-decisions');group.append(node('legend','Campo del formulario'));
-   field(group,'Identificador del campo','id',spec.id,{required:true});
-   field(group,'Etiqueta del campo','label',spec.label,{required:true,max:120});
+  const draft=current?.draft||{fields:[],states:[{id:'received',label:'Recibida',next:['reviewing']},{id:'reviewing',label:'En revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]};
+  const slug=value=>normalize(value).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,38);
+  const unique=(value,used)=>{let base=/^[a-z]/.test(value)?value:'campo-'+value;base=base.slice(0,34)||'campo';if(base.length<2)base+='-1';let id=base,i=2;while(used.includes(id))id=base+'-'+i++;return id;};
+  manager.replaceChildren();
+  const heading=node('div',null,'studio-heading');const about=node('div');about.append(node('span','ESTUDIO DE FORMULARIOS','studio-kicker'),node('h2',current?'Editar borrador':'Nuevo trámite'),node('p','Crea y organiza las preguntas. Revisa la vista previa antes de guardar.','module-intro'));heading.append(about,btn('Volver al catálogo',()=>void openAdmin('catalog')));manager.append(heading);
+  const form=node('form',null,'compact-form studio-form');
+  // Avoid collisions between repeated nested field ids and the service's id.
+  const general=node('section',null,'studio-section');general.append(node('h3','1. Información del trámite'));
+  const title=field(general,'Nombre del trámite','title',draft.title||'',{required:true,max:120});
+  const id=field(general,'Código del trámite','serviceId',current?.id||'',{required:true});id.readOnly=!!current;id.pattern='[a-z][a-z0-9-]{1,39}';
+  let idManual=!!current;id.addEventListener('input',()=>{idManual=true});
+  title.addEventListener('input',()=>{if(!idManual){const value=slug(title.value);id.value=value?unique(value,data.services.map(x=>x.id)):'';}});
+  const description=field(general,'Descripción','description',draft.description||'',{required:true,multi:true,max:1800});
+  const category=field(general,'Categoría','category',draft.category||data.categories.find(x=>x.active)?.id||'',{required:true,options:Object.fromEntries(data.categories.filter(x=>x.active).map(x=>[x.id,x.title]))});
+  const channel=field(general,'Canal autorizado','channel',draft.channel||'Secretaría de Salud',{required:true,max:180});
+  form.append(general);
+  const workspace=node('section',null,'studio-section');const bar=node('div',null,'studio-bar');bar.append(node('h3','2. Constructor de formulario'));const count=node('span','0 campos','state-label');bar.append(count);workspace.append(bar,node('p','Agrega preguntas, marca las obligatorias y ordénalas con las flechas. Los códigos se generan automáticamente.','module-intro'));
+  const canvas=node('div',null,'studio-canvas'),palette=node('div',null,'studio-palette'),fields=node('div',null,'builder-group studio-fields');canvas.append(fields,palette);workspace.append(canvas);form.append(workspace);
+  const empty=node('div','Agrega tu primera pregunta para comenzar.','studio-empty');empty.setAttribute('role','status');
+  function refreshOrder(){const groups=Array.from(fields.children).filter(x=>x!==empty);groups.forEach((group,i)=>{group.querySelector('legend').textContent='Pregunta '+(i+1);group.querySelector('[data-move=up]').disabled=i===0;group.querySelector('[data-move=down]').disabled=i===groups.length-1;});count.textContent=groups.length+' de 16 campos';if(!groups.length){if(!empty.isConnected)fields.append(empty);}else empty.remove();for(const b of palette.querySelectorAll('button'))b.disabled=groups.length>=16;}
+  const groups=()=>Array.from(fields.children).filter(x=>x!==empty);
+  function addField(spec={},after=null){
+   if(groups().length>=16)return;
+   const group=node('fieldset',null,'portal-decisions studio-question');group.append(node('legend','Pregunta'));
+   const caption=field(group,'Etiqueta del campo','label',spec.label||'',{required:true,max:120});
    const type=field(group,'Tipo de campo','type',spec.type||'text',{options:fieldNames});
    const required=field(group,'Obligatorio','required',spec.required?'yes':'no',{options:{yes:'Sí',no:'No'}});
    const value=field(group,'Valor ficticio o lista de opciones (una por línea)','value',spec.options?.join('\n')??spec.fixture??'',{multi:true});
-   const kind=field(group,'PDF de prueba','fixture',spec.fixture||'historia',{options:fixtureNames});
-   const test=field(group,'Mostrar si el campo anterior indicado tiene un valor','condition',spec.condition?.field||'');
-   const equals=field(group,'Valor que activa la condición','equals',spec.condition?.equals||'');
-   const update=()=>{kind.parentElement.hidden=type.value!=='document';value.parentElement.hidden=['checkbox','document'].includes(type.value);};
+   const kind=field(group,'PDF de prueba','fixture',spec.type==='document'?spec.fixture:'historia',{options:fixtureNames});
+   const advanced=node('details',null,'studio-advanced');advanced.append(node('summary','Configuración avanzada'));
+   const code=field(advanced,'Identificador del campo','id',spec.id||unique('campo',groups().map(x=>x.querySelector('[name=id]').value)),{required:true});code.pattern='[a-z][a-z0-9-]{1,39}';
+   let manual=!!spec.id;code.addEventListener('input',()=>manual=true);
+   caption.addEventListener('input',()=>{if(!manual&&slug(caption.value))code.value=unique(slug(caption.value),groups().filter(x=>x!==group).map(x=>x.querySelector('[name=id]').value));});
+   const test=field(advanced,'Mostrar si el campo anterior indicado tiene un valor','condition',spec.condition?.field||'');
+   const equals=field(advanced,'Valor que activa la condición','equals',spec.condition?.equals||'');
+   group.append(advanced);
+   function update(){kind.parentElement.hidden=type.value!=='document';value.parentElement.hidden=['checkbox','document'].includes(type.value);value.required=!value.parentElement.hidden;value.disabled=value.parentElement.hidden;kind.disabled=kind.parentElement.hidden;if(type.value==='number'&&!value.value)value.value='0';if(type.value==='date'&&!value.value)value.value='2026-01-01';if(['text','textarea'].includes(type.value)&&!value.value)value.value='Ejemplo de respuesta';}
    type.onchange=update;update();
-   group.append(btn('Eliminar campo',()=>group.remove()));fields.append(group);
-   group.value=()=>{
-    const typeValue=type.value;
-    return {id:group.querySelector('[name=id]').value,label:group.querySelector('[name=label]').value,type:typeValue,
-     required:required.value==='yes',...(['select','radio'].includes(typeValue)?{options:lines(value.value)}:typeValue==='document'?
-      {fixture:kind.value}:typeValue==='number'?{fixture:Number(value.value)}:typeValue==='checkbox'?{}:{fixture:value.value}),
-     ...(test.value?{condition:{field:test.value,equals:equals.value}}:{})};
-   };
+   const actions=node('div',null,'studio-question-actions');
+   const up=btn('↑ Subir',()=>{const prev=group.previousElementSibling;if(prev&&prev!==empty)fields.insertBefore(group,prev);refreshOrder();up.focus();});up.dataset.move='up';
+   const down=btn('↓ Bajar',()=>{const next=group.nextElementSibling;if(next)fields.insertBefore(next,group);refreshOrder();down.focus();});down.dataset.move='down';
+   const duplicate=btn('Duplicar campo',()=>{const copy=group.value();copy.id=unique(copy.id,groups().map(x=>x.querySelector('[name=id]').value));if(copy.type==='document'){experience.toast('Cada PDF de soporte debe ser único.');return;}addField(copy,group);});
+   const remove=btn('Eliminar campo',()=>{group.remove();refreshOrder();palette.querySelector('button')?.focus();});
+   actions.append(up,down,duplicate,remove);group.append(actions);
+   group.value=()=>{const typeValue=type.value;return {id:code.value,label:caption.value,type:typeValue,required:required.value==='yes',...(['select','radio'].includes(typeValue)?{options:lines(value.value)}:typeValue==='document'?{fixture:kind.value}:typeValue==='number'?{fixture:Number(value.value)}:typeValue==='checkbox'?{}:{fixture:value.value}),...(test.value?{condition:{field:test.value,equals:equals.value}}:{})};};
+   empty.remove();if(after)after.after(group);else fields.append(group);refreshOrder();if(!spec.id)caption.focus();
   }
-  function addState(spec={}){
-   const group=node('fieldset',null,'portal-decisions');group.append(node('legend','Etapa del flujo'));
-   const id=field(group,'Código de etapa','stateId',spec.id,{required:true});
-   const label=field(group,'Nombre de etapa','stateLabel',spec.label,{required:true});
-   const next=field(group,'Códigos de las siguientes etapas','next',(spec.next||[]).join(', '));
-   group.append(btn('Eliminar etapa',()=>group.remove()));
-   group.value=()=>({id:id.value,label:label.value,next:lines(next.value)});
-   states.append(group);
-  }
-  draft.fields.forEach(addField);draft.states.forEach(addState);
-  form.append(node('h3','Constructor de formulario'),fields,btn('Añadir campo',()=>addField()),
-   node('h3','Flujo y transiciones'),states,btn('Añadir etapa',()=>addState()));
-  const preview=node('div',null,'manager-section');preview.hidden=true;
-  form.append(btn('Previsualizar formulario',()=>{
-   preview.hidden=false;preview.replaceChildren(node('h3','Vista previa'));
-   dynamicFields(preview,Array.from(fields.children,x=>x.value()),{preview:true});
-  }));
-  submit(form,'Guardar borrador',async()=>{
-   await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,schema:{
-    title:form.elements.title.value,description:form.elements.description.value,channel:form.elements.channel.value,
-    category:form.elements.category.value,operators:lines(form.elements.operators.value),
-    messages:Object.fromEntries(['ack','correction','closure'].map(key=>[key,form.elements['message-'+key].value])),
-    fields:Array.from(fields.children,x=>x.value()),states:Array.from(states.children,x=>x.value())
-   }}),()=>openAdmin('catalog'));
-  });
-  manager.append(form,preview,btn('Volver al catálogo',()=>void openAdmin('catalog')));
+  palette.append(node('h4','Añadir preguntas'));
+  palette.append(btn('Añadir campo',()=>addField(),'primary'));
+  for(const [type,label] of Object.entries(fieldNames))palette.append(btn('+ '+label,()=>addField({type})));
+  draft.fields.forEach(f=>addField(f));refreshOrder();
+  const workflow=node('details',null,'studio-section studio-workflow');workflow.append(node('summary','3. Flujo, responsables y mensajes'),node('p','Puedes conservar el flujo predeterminado o personalizarlo.','module-intro'));
+  const operators=field(workflow,'UID de operadores autorizados','operators',draft.operators.join('\n'),{multi:true});
+  const messages={};for(const [key,label] of [['ack','Mensaje del acuse'],['correction','Mensaje de subsanación'],['closure','Mensaje de cierre']])messages[key]=field(workflow,label+' sin datos personales','message-'+key,draft.messages?.[key]||'',{multi:true,max:500});
+  const states=node('div',null,'builder-group');
+  function addState(spec={}){const group=node('fieldset',null,'portal-decisions');group.append(node('legend','Etapa del flujo'));const code=field(group,'Código de etapa','stateId',spec.id||'',{required:true});const label=field(group,'Nombre de etapa','stateLabel',spec.label||'',{required:true});const next=field(group,'Códigos de las siguientes etapas','next',(spec.next||[]).join(', '));group.append(btn('Eliminar etapa',()=>group.remove()));group.value=()=>({id:code.value,label:label.value,next:lines(next.value)});states.append(group);}
+  draft.states.forEach(addState);workflow.append(node('h3','Flujo y transiciones'),states,btn('Añadir etapa',()=>addState()));form.append(workflow);
+  const preview=node('div',null,'manager-section studio-preview');preview.hidden=true;
+  function validateFields(){const list=groups().map(x=>x.value());const seen=new Set(),documents=new Set();for(const [i,f] of list.entries()){if(!/^[a-z][a-z0-9-]{1,39}$/.test(f.id)||seen.has(f.id)||!f.label.trim())throw Error('Revisa el nombre y el código único de la pregunta '+(i+1)+'.');if(f.options&&(!f.options.length||f.options.length>10||new Set(f.options).size!==f.options.length))throw Error('La pregunta '+(i+1)+' necesita de 1 a 10 opciones distintas.');if(f.type==='document'){if(documents.has(f.fixture))throw Error('No repitas el mismo tipo de soporte PDF.');documents.add(f.fixture);}if(f.condition){const prior=list.slice(0,i).find(x=>x.id===f.condition.field);if(!prior?.options?.includes(f.condition.equals))throw Error('La condición de la pregunta '+(i+1)+' debe referirse a una opción de una pregunta anterior.');}seen.add(f.id);}return list;}
+  const footer=node('div',null,'studio-footer');const previewError=errorRegion();
+  footer.append(btn('Previsualizar formulario',()=>{try{previewError.textContent='';const values=validateFields();preview.hidden=false;preview.replaceChildren(node('span','VISTA CIUDADANA','studio-kicker'),node('h3',title.value||'Vista previa'));dynamicFields(preview,values,{preview:true});preview.scrollIntoView({block:'nearest'});}catch(e){previewError.textContent=e.message;}}));
+  form.append(footer,previewError);
+  submit(form,'Guardar borrador',async()=>{const specs=validateFields();await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,schema:{title:title.value,description:description.value,channel:channel.value,category:category.value,operators:lines(operators.value),messages:Object.fromEntries(Object.entries(messages).map(([k,v])=>[k,v.value])),fields:specs,states:Array.from(states.children,x=>x.value())}}),()=>openAdmin('catalog'));});
+  manager.append(form,preview);
  }
  function adminCatalog(data){
   const enabled=data.categories.filter(c=>c.active).length;
