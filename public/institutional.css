@@ -37,6 +37,9 @@ body.hc .portal-context { color: #fff; }
   border-radius: var(--municipal-radius); background: var(--municipal-surface); overflow-wrap: anywhere;
 }
 .module-panel { margin-bottom: 16px; }
+ .catalog-filters { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,250px),1fr)); gap: 16px; }
+.catalog-manager .record { margin-bottom: 10px; }
+.catalog-manager fieldset { min-width: 0; }
 .document-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
 .document-grid > .module-panel { margin-bottom: 0; }
 .doc-status { color: var(--municipal-muted); font-size: .90rem; font-weight: 650; }

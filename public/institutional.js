@@ -532,7 +532,10 @@ export function portalExperience({demo,navigate,invoke}){
     setSession(user,role,enabled=false){
       if(session!==user){rightsKey=null;manager.hidden=true;clearDecisions();}
       session=user;privateContent=null;capability=enabled;
-      adminNav.hidden=!demo&&!['admin','supervisor'].includes(role);
+      adminNav.hidden=!demo&&!['operator','admin','supervisor'].includes(role);
+      for(const b of adminMenu.querySelectorAll('button')){
+        if(['Avisos','Políticas','Solicitudes de titulares'].includes(b.textContent))b.hidden=!demo&&!['admin','supervisor'].includes(role);
+      }
       if(!user){if(dialog.open)dialog.close();accountRegion.replaceChildren();render();}
       else void refreshPrivate().then(()=>{if(selectedView==='legal'&&session===user)void loadAccount();});
     },

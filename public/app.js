@@ -1,7 +1,9 @@
 import {config} from './config.js';
 import {portalExperience} from './institutional.js';
+import {serviceCatalog} from './catalog.js';
+const demo=false;
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
-const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm'), demo=config.mode!=='pilot'&&!location.pathname.endsWith('/pilot.html');
+const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
 const statusNames={saving:'Guardando soportes',received:'Recibida',reviewing:'En revisión',needs_documents:'Requiere documentos',awaiting_certificate:'Pendiente de certificado',sending:'Enviando notificación',sent:'Notificación enviada',archived:'Documento archivado',storage_review:'Revisión de almacenamiento',delivery_review:'Revisión del envío'};
 let authorized=false;let stage=0, user=null, api=null, adminItems=[], selected=null, adminRole=null, requestKey=null, currentView='citizen', demoItems=[];
 const hide=(el,val=true)=>el.classList.toggle('hidden',val);
@@ -10,9 +12,10 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function append(parent,...children){parent.append(...children);return parent}
 function button(text,fn,klass='secondary'){const b=node('button',text,klass);b.type='button';b.addEventListener('click',fn);return b}
 function displayError(id,e){msg(id,e?.message?.slice(0,220)||'Ocurrió un error. Inténtalo de nuevo.')}
-function showView(v){currentView=v;experience.view(v);if(['legal','communications'].includes(v))history.replaceState(null,'','#'+v);else if(['#legal','#communications'].includes(location.hash))history.replaceState(null,'',location.pathname+location.search);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});if(v==='tracking')loadTracking();if(v==='admin')loadAdmin()}
+function showView(v){currentView=v;experience.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});if(v==='tracking'){loadTracking();void catalog.tracking();}if(v==='admin')loadAdmin()}
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
+const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});
 $('contrast').addEventListener('click',()=>{let on=document.body.classList.toggle('hc');$('contrast').setAttribute('aria-pressed',String(on))});
 $('scale').addEventListener('click',()=>{let on=document.documentElement.classList.toggle('large');$('scale').setAttribute('aria-pressed',String(on))});
 function phase(n){stage=n;all('.step').forEach(e=>hide(e,Number(e.dataset.step)!==n));all('.steps li').forEach((e,i)=>{e.classList.toggle('current',i===n);e.classList.toggle('complete',i<n);if(i===n)e.setAttribute('aria-current','step');else e.removeAttribute('aria-current')});msg('stepLabel','Paso '+(n+1)+' de 3');$('progress').setAttribute('aria-valuenow',String(n+1));$('progress').firstElementChild.style.width=(n+1)*100/3+'%';hide($('back'),n===0);hide($('next'),n===2);hide($('submit'),n!==2);msg('formError');if(n===2)review();}
@@ -72,7 +75,13 @@ hide(form);hide($('receipt'),false);msg('receiptId',result.radicado);msg('receip
 }catch(err){displayError('formError',err);if(err.message.includes('legal_version_changed'))void experience.prepare(user).catch(e=>displayError('formError',e));}finally{b.disabled=false;b.textContent=submitLabel}});
 function badge(s){return node('span',statusNames[s]||s,'chip')}
 function date(t){return t?new Intl.DateTimeFormat('es-CO',{dateStyle:'medium',timeStyle:'short'}).format(new Date(t)):'Sin fecha'}
-async function download(id,kind){const f=await invoke('downloadFile',{id,kind});const a=document.createElement('a'),bytes=Uint8Array.from(atob(f.base64),v=>v.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.href=url;a.download=kind+'.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+function downloadContent(f,kind){const a=document.createElement('a'),bytes=Uint8Array.from(atob(f.base64),v=>v.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.href=url;a.download=kind+'.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+async function download(id,kind){downloadContent(await invoke('downloadFile',{id,kind}),kind);}
+async function fixtureData(kind){
+ const response=await fetch('./pilot-fixtures/'+kind+'.pdf',{cache:'no-store'});
+ if(!response.ok)throw Error('No se pudo cargar el archivo de prueba.');
+ return fixtureFile(new File([await response.blob()],kind+'.pdf',{type:'application/pdf'}),kind);
+}
 const documentNames={historia:'soporte principal',apoyo:'anexo de apoyo'};
 function correctionForm(item){
  const wrapper=node('div',undefined,'detail-actions'), kind=item.correctionKind;
@@ -154,11 +163,14 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  fixturePanel.append(node('strong','Documentos de prueba disponibles'),node('span','Haz clic para adjuntarlos directamente. No necesitas descargar ni buscar archivos.'),attach,attachExtra,fixtureLink('historia','Descargar PDF ficticio'));
  fixturePanel.classList.add('fixture-panel');
  hide($('fixtureFiles'),false);
- hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');try{
+ hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
+const endpoint='https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
+void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);
+try{
 const version='11.10.0';const [app,auth,check]=await Promise.all([import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app-check.js')]);
 const a=app.initializeApp(config.firebase),au=auth.getAuth(a),appCheck=check.initializeAppCheck(a,{provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),isTokenAutoRefreshEnabled:false});
 await auth.setPersistence(au,auth.browserSessionPersistence);
-api={check,appCheck,endpoint:'https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec'};
+api={check,appCheck,endpoint};
 $('emailForm').hidden=true;
 const citizenLogin=button('Ingresar con Google',async()=>login(false),'primary');
 $('authCitizen').querySelector('h2').textContent='Acceso al piloto cerrado';
@@ -169,16 +181,19 @@ if(!healthResponse.ok)throw Error('Recepción HTTP '+healthResponse.status);
 const health=await healthResponse.json();
 if(health.build!=='spark-unified-2.0')throw Error('Recepción aún utiliza una versión anterior. No se han enviado archivos.');
 if(health.enabled!==true)throw Error('El piloto de Recepción está desactivado (SPARK_PILOT_ENABLED).');
-experience.connection('ready');void experience.publicEndpoint(api.endpoint);
+experience.connection('ready');
 async function login(admin){try{const p=new auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account',...(admin?{hd:'sanpedro-valle.gov.co'}:{})});await auth.signInWithPopup(au,p);}catch(err){msg(admin?'loginError':'authMessage','No se pudo iniciar sesión: '+(err.code||'verifica la cuenta'));}}
 $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);$('signout').onclick=()=>auth.signOut(au);
 auth.onAuthStateChanged(au,async u=>{
- user=u;experience.setSession(null,null);authorized=false;hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
+ user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
- try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;adminRole=access.canManage?access.role:null;experience.setSession(u,adminRole,access.institutional===true);await experience.prepare(u);if(user!==u)return;hide($('authCitizen'));hide(form,false);hide($('adminNav'),!access.canManage);if(currentView==='admin')await loadAdmin();if(currentView==='tracking')await loadTracking();}
+ try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;adminRole=access.canManage?access.role:null;experience.setSession(u,adminRole,access.institutional===true);catalog.setSession(u,adminRole);await experience.prepare(u);if(user!==u)return;hide($('authCitizen'));hide(form,false);hide($('adminNav'),!access.canManage);if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
  catch(e){if(user!==u)return;msg('authMessage',e.message);msg('loginError',e.message);}
 });
 }catch(e){experience.connection('failed');msg('authMessage',e.message||'No fue posible conectar con Recepción.');msg('loginError',e.message||'Recepción no disponible.');}}
-phase(0);if(['#legal','#communications'].includes(location.hash))showView(location.hash.slice(1));
+phase(0);
+const initial=location.hash.slice(1);
+if(['legal','communications','catalog','citizen','tracking','admin'].includes(initial))showView(initial);
+else if(!demo)showView(location.pathname.endsWith('/pilot.html')?'citizen':'catalog');
 void init();
