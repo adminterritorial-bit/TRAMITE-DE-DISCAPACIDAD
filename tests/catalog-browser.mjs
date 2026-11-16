@@ -44,6 +44,22 @@ try{
  await page.goto('http://127.0.0.1:8080/');
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
+ await page.getByRole('button',{name:'¿Necesitas ayuda?'}).click();
+ await page.getByRole('dialog',{name:'Cómo utilizar SITS Salud'}).waitFor();
+ await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'Vista de lista'}).click();
+ assert.equal(await page.getByRole('button',{name:'Vista de lista'}).getAttribute('aria-pressed'),'true');
+ await page.getByRole('button',{name:'Vista de tarjetas'}).click();
+ await page.getByLabel('Buscar trámite').fill('CERTIFICACION');
+ await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
+ await page.getByRole('button',{name:'Limpiar filtros'}).click();
+ await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver trámite'}).click();
+ await page.getByRole('heading',{name:'Sobre este servicio'}).waitFor();
+ await page.getByRole('button',{name:'Consultar catálogo'}).click();
+ for(const width of [390,320,1280]){await page.setViewportSize({width,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desborde de catálogo '+width);}
+ const audit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+ assert.deepEqual(audit.violations.map(x=>[x.id,x.nodes.map(n=>n.target)]),[],'Catálogo accesible');
+
  await page.locator('#adminNav').click();
  await page.getByText('Menú institucional',{exact:true}).click();
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();

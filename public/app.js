@@ -1,6 +1,6 @@
 import {config} from './config.js';
-import {portalExperience} from './institutional.js?v=royal-1';
-import {serviceCatalog} from './catalog.js?v=royal-1';
+import {portalExperience} from './institutional.js?v=navy-1';
+import {serviceCatalog} from './catalog.js?v=navy-1';
 const demo=false;
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
@@ -173,14 +173,14 @@ await auth.setPersistence(au,auth.browserSessionPersistence);
 api={check,appCheck,endpoint};
 $('emailForm').hidden=true;
 const citizenLogin=button('Ingresar con Google',async()=>login(false),'primary');
-$('authCitizen').querySelector('h2').textContent='Acceso al piloto cerrado';
-$('authCitizen').querySelector('p').textContent='Inicia sesión con una cuenta Google previamente habilitada para esta prueba.';
+$('authCitizen').querySelector('h2').textContent='Acceso autorizado';
+$('authCitizen').querySelector('p').textContent='Inicia sesión con una cuenta Google habilitada. La recepción oficial de solicitudes todavía no está disponible.';
 $('authCitizen').insertBefore(citizenLogin,$('authMessage'));
 const healthResponse=await fetch(api.endpoint+'?v=2.0',{credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(20000)});
 if(!healthResponse.ok)throw Error('Recepción HTTP '+healthResponse.status);
 const health=await healthResponse.json();
 if(health.build!=='spark-unified-2.0')throw Error('Recepción aún utiliza una versión anterior. No se han enviado archivos.');
-if(health.enabled!==true)throw Error('El piloto de Recepción está desactivado (SPARK_PILOT_ENABLED).');
+if(health.enabled!==true)throw Error('El servicio de recepción no está disponible temporalmente.');
 experience.connection('ready');
 async function login(admin){try{const p=new auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account',...(admin?{hd:'sanpedro-valle.gov.co'}:{})});await auth.signInWithPopup(au,p);}catch(err){msg(admin?'loginError':'authMessage','No se pudo iniciar sesión: '+(err.code||'verifica la cuenta'));}}
 $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);$('signout').onclick=()=>auth.signOut(au);

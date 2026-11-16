@@ -224,7 +224,7 @@ export function portalExperience({demo,navigate,invoke}){
       }
     }
     if(!notices.length)messageList.append(make('p','No hay avisos vigentes.','module-panel'));
-    if(allowModal&&selectedView==='citizen'&&!document.activeElement?.closest('form')){
+    if(allowModal&&['citizen','catalog'].includes(selectedView)&&!document.activeElement?.closest('form')){
       const item=notices.find(x=>x.channel==='modal'&&(x.frequency==='always'||!seenNotice(x.id+':'+x.version)));
       if(item&&open(item.title,[make('p',item.body,'plain-content')]))markSeen(item.id+':'+item.version);
     }
@@ -236,7 +236,7 @@ export function portalExperience({demo,navigate,invoke}){
       const official=current.policies.find(d=>d.kind===kind);
       const item=make('article',null,'module-panel legal-document');
       item.id='legal-'+kind;
-      item.append(make('h2',official?.title??title),make('p',official?'Versión '+official.version+' · Vigente desde '+timestamp(official.effective):'Texto informativo del piloto · En revisión institucional','doc-status'),
+      item.append(make('h2',official?.title??title),make('p',official?'Versión '+official.version+' · Vigente desde '+timestamp(official.effective):'Documento informativo · Pendiente de aprobación institucional','doc-status'),
         make('p',official?.body??legalFallback[kind],'plain-content'));
       legalDocs.append(item);
     }
@@ -254,7 +254,7 @@ export function portalExperience({demo,navigate,invoke}){
   async function loadAccount(){
     accountRegion.replaceChildren(make('h2','Derechos y decisiones registradas'));
     accountRegion.append(make('p','Puede solicitar acceso, actualización, rectificación, supresión, prueba de autorización o revocación. La custodia documental y las obligaciones aplicables pueden limitar la supresión. Para una solicitud real utilice los canales oficiales.'));
-    if(!session||!capability){accountRegion.append(make('p','Inicie sesión en el piloto actualizado para consultar sus pruebas.'));return;}
+    if(!session||!capability){accountRegion.append(make('p','Inicie sesión con una cuenta autorizada para consultar sus decisiones.'));return;}
     const scope=session;
     const result=make('div');
     accountRegion.append(result);loading(result);
@@ -310,7 +310,7 @@ export function portalExperience({demo,navigate,invoke}){
       publicContent={notices:demoNotices.map(x=>x.live).filter(x=>x?.audience==='public'),policies:[]};
       render(data.state==='published');return row;
     }
-    throw Error('Esta acción requiere el piloto autenticado.');
+    throw Error('Esta acción requiere una cuenta habilitada.');
   }
   async function loadManagement(view){
     adminPanel.dataset.activeModule=view;
@@ -392,7 +392,7 @@ export function portalExperience({demo,navigate,invoke}){
     open(item?'Editar aviso':'Nuevo aviso',[form]);
   }
   function renderPolicies(data){
-    if(demo){manager.append(make('p','La edición y aprobación de políticas requieren el piloto autenticado.'));return;}
+    if(demo){manager.append(make('p','La edición y aprobación de políticas requieren acceso institucional.'));return;}
     for(const [kind,title] of Object.entries(policyTitles)){
       const item=data.policies.find(x=>x.kind===kind);
       const card=make('article',null,'record');
@@ -521,10 +521,10 @@ export function portalExperience({demo,navigate,invoke}){
     },
     view(view){
       selectedView=view;
-      context.textContent='Portal de Salud / '+({citizen:'Solicitud ciudadana',tracking:'Seguimiento',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
+      context.textContent='Portal de Salud / '+({citizen:'Solicitud ciudadana',catalog:'Catálogo de trámites',service:'Información del servicio',tracking:'Mis solicitudes',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
       if(view==='legal')void loadAccount();
-      if(view!=='citizen'&&dialog.open)dialog.close();
-      if(view==='citizen')render(true);
+      if(!['citizen','catalog'].includes(view)&&dialog.open)dialog.close();
+      if(['citizen','catalog'].includes(view))render(true);
     },
     async publicEndpoint(endpoint){
       publicEndpoint=endpoint;
