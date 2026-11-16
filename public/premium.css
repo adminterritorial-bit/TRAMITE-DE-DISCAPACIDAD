@@ -152,3 +152,33 @@ body.hc :is(.state-label,.chip,.catalog-card .doc-status,.builder-intro span,.ca
 @media(max-width:720px){main{padding-inline:15px}.portal-context{padding-inline:15px}.top{padding:12px 15px}.tools{width:100%;justify-content:flex-start}.staff-entry{flex:0 1 auto}.nav{gap:5px;padding:7px 12px}.navbtn{font-size:.83rem;padding:9px 10px}.catalog-masthead{grid-template-columns:minmax(0,1fr);border-radius:20px;padding:25px}.catalog-illustration{display:none}.catalog-tools .catalog-filters{grid-template-columns:minmax(0,1fr)}.catalog-masthead h1{font-size:clamp(1.9rem,7vw,2.8rem)}.catalog-masthead .module-intro{font-size:.93rem}.catalog-card{min-height:200px}.hero{min-height:auto;border-radius:20px}.admin-module-menu{grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr))}.workspace-shortcuts{grid-template-columns:minmax(0,1fr)}.metric{padding:13px}.metric b{font-size:1.7rem}.manager-section{padding:12px}.manager-section>form{padding:12px}.catalog-card .primary{width:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 @media print{.catalog-masthead,.catalog-tools,.workspace-shortcuts,.admin-module-nav,.staff-entry{display:none!important}}
+
+/* Mobile layout: shrink intrinsic sizes and wrap text rather than clipping content. */
+@media(max-width:720px){
+  .top,.top .brand,.tools,.nav,main,.portal-context,.layout,.panel,.section-head,.hero,.hero>div,.benefits,.dashbar,.metric,.record,.module-panel,.catalog-tools,.catalog-masthead,.catalog-card,.admin-module-menu,.manager-section,.staff-card,.workspace-shortcuts{min-width:0;max-width:100%}
+  .top .brand{flex:1 1 100%;width:100%;gap:9px}
+  .top .brand>div{min-width:0;flex:1 1 0;overflow-wrap:anywhere}
+  .tools{width:100%;flex:1 1 100%;flex-wrap:wrap}
+  .tools button,.nav button,.actions button,.detail-actions button,.compact-form button,.fixture-panel button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .hero .hero-link{max-width:100%;white-space:normal}
+  .hero h1,.section-head h1,.catalog-masthead h1,.panel h2,.module-panel h2{overflow-wrap:anywhere}
+  .benefits,.dashbar{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  .benefits div{padding:12px 9px;min-width:0;overflow-wrap:anywhere}
+  .benefits b,.benefits span,.metric small,.metric b{overflow-wrap:anywhere}
+  .fields,.layout,.adminlayout,.catalog-tools .catalog-filters,.builder-group,.staff-grid,.workspace-shortcuts{grid-template-columns:minmax(0,1fr)}
+  .fixture-panel,.fixture-panel>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+  .steps li,.steps li>div,.summary>div{min-width:0;overflow-wrap:anywhere}
+  input,textarea,select,fieldset,form,dialog,.summary{min-width:0;max-width:100%}
+  footer{padding-inline:15px;overflow-wrap:anywhere}
+}
+@media(max-width:420px){
+  .benefits{grid-template-columns:minmax(0,1fr)}
+  .benefits div{padding:12px 15px}
+  .benefits b{font-size:.93rem}
+  .dashbar{grid-template-columns:minmax(0,1fr)}
+  .metric{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .metric:before{display:none}
+  .top .institution-logo{width:min(100px,32vw)}
+  .staff-entry{max-width:100%}
+  .steps{gap:5px}
+}

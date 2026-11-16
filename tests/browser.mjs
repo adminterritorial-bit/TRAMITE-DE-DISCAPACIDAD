@@ -82,7 +82,7 @@ try {
  await page.emulateMedia({reducedMotion:'reduce'});
  for(const width of [1024,768,390,360,320]){
   await page.setViewportSize({width,height:900});await page.reload({waitUntil:'networkidle'});
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desbordamiento a '+width+' px');
+  const size=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('body *')].filter(e=>{const b=e.getBoundingClientRect();return b.width&&b.right>innerWidth+1&&!e.closest('.hero,.catalog-masthead,.nav')}).map(e=>[e.tagName,typeof e.className==='string'?e.className:'svg',Math.round(e.getBoundingClientRect().right)]).slice(0,25)}));assert.ok(size.scroll<=size.width+1,'Desbordamiento a '+width+' px: '+JSON.stringify(size));
  }
  await page.setViewportSize({width:390,height:844});
  const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&!e.closest('.nav')}).map(e=>[e.tagName,e.className,Math.round(e.getBoundingClientRect().right)]).slice(0,15)}));assert.ok(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));
