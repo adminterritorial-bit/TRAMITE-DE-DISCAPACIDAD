@@ -55,3 +55,26 @@ body.hc .portal-context{color:#fff!important}
 @media(max-width:900px){.citizen-quick{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-tile:last-child{grid-column:1/-1}}
 @media(max-width:720px){.citizen-quick{grid-template-columns:minmax(0,1fr);gap:9px}.quick-tile{min-height:77px;padding:13px}.quick-tile:last-child{grid-column:auto}.catalog-masthead{min-height:0;padding:26px 22px}.folder-region{margin:24px 0}.folder-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}.service-folder{padding:10px;gap:9px;min-height:74px}.folder-glyph{width:34px;height:34px}.folder-glyph svg{width:20px;height:20px}.citizen-assistance{flex-direction:column;align-items:flex-start;padding:18px}.help-link{max-width:100%;white-space:normal}.catalog-card{min-height:230px;padding:19px}.catalog-list-view .catalog-card{display:flex}.catalog-list-view .catalog-card .primary{width:100%}.catalog-home,.citizen-quick,.folder-grid,.folder-region,.catalog-view-controls,.citizen-assistance,.service-availability{min-width:0;max-width:100%;overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Inclusive service edition — structured public route, assisted access and local voice. */
+.citizen-route{background:#fff;border:1px solid #dbe3ed;border-radius:20px;padding:22px 24px;margin:20px 0 0;box-shadow:0 8px 25px #0c274309}
+.citizen-route h2{font-size:1.16rem;color:#102744;margin:0 0 18px}
+.citizen-milestones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.citizen-milestone{position:relative;border-left:1px solid #cbd8e5;padding-left:18px;min-width:0}
+.citizen-milestone .route-icon{display:grid;place-items:center;width:38px;height:38px;background:#edf3f8;border-radius:10px;color:#17365b;margin-bottom:10px}
+.route-icon svg{width:21px;height:21px}
+.route-number{position:absolute;right:0;top:2px;color:#4c6077;font-size:.75rem;font-weight:750;letter-spacing:.1em}
+.citizen-milestone strong{display:block;color:#102744;font-size:.94rem}.citizen-milestone p{color:#4c6077;font-size:.85rem;margin:5px 0}
+.voice-entry{font-weight:700;border:1px solid #c3cfdd}
+.voice-dialog,.tracking-dialog,.guest-preparation{padding:clamp(18px,4vw,30px);max-width:min(560px,calc(100vw - 28px));width:100%;max-height:85dvh;overflow-y:auto}
+.voice-transcript{border:1px solid #dbe3ed;background:#f1f5f9;color:#162c46;border-radius:14px;padding:16px;line-height:1.75}
+.voice-controls{display:flex;gap:8px;flex-wrap:wrap;margin:17px 0}.voice-controls button{flex:0 1 auto;white-space:normal;max-width:100%}
+.voice-status{font-size:.9rem;color:#4c6077}
+.tracking-entry{background:#fff;border:1px solid #dbe3ed;box-shadow:0 8px 25px #0c27430b;border-radius:18px;padding:22px;margin:0 0 18px;color:#102744}
+.tracking-entry h2{margin:0 0 6px}.tracking-entry p{color:#4c6077}
+.tracking-entry[hidden]{display:none}.guest-preparation .check{margin:15px 0}
+.catalog-masthead{border-radius:26px}.catalog-card{border-top:3px solid #b6c7da}.catalog-card:hover{border-top-color:#17365b}
+body.hc :is(.citizen-route,.citizen-milestone,.route-icon,.voice-transcript,.tracking-entry,.guest-preparation){background:#000!important;color:white!important;border-color:white!important}
+body.hc :is(.citizen-route h2,.citizen-milestone strong,.citizen-milestone p,.route-number,.voice-status,.tracking-entry h2,.tracking-entry p){color:#fff!important}
+@media(max-width:720px){.citizen-route{padding:17px}.citizen-milestones{grid-template-columns:minmax(0,1fr);gap:14px}.citizen-milestone{padding-left:58px;min-height:50px}.citizen-milestone .route-icon{position:absolute;left:9px;top:2px}.route-number{display:none}.voice-dialog,.tracking-dialog,.guest-preparation{width:calc(100vw - 28px);max-width:100%;min-width:0}.voice-controls button{flex:1 1 120px}.tracking-entry{padding:17px}}
+@media(prefers-reduced-motion:reduce){.citizen-route,.tracking-entry,.voice-entry{animation:none!important;transition:none!important}}

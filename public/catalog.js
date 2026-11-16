@@ -87,6 +87,12 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const words=node('span');words.append(node('strong',title),node('small',desc));tile.append(ico,words,glyph('arrow','quick-arrow'));quick.append(tile);
  }
  catalogue.append(quick);
+ const route=node('section',null,'citizen-route');route.append(node('h2','Tu ruta de atención'));
+ const milestones=node('div',null,'citizen-milestones');
+ for(const [number,title,detail,icon] of [['01','Selecciona un servicio','Consulta qué necesitas y qué canal está disponible.','folder'],['02','Prepara tu solicitud','Organiza la información antes de iniciar.','document'],['03','Realiza el seguimiento','Accede con la cuenta asociada a tu solicitud.','clock']]){
+  const step=node('div',null,'citizen-milestone'),symbol=node('span',null,'route-icon');symbol.append(glyph(icon));step.append(symbol,node('span',number,'route-number'),node('strong',title),node('p',detail));milestones.append(step);
+ }
+ route.append(milestones);catalogue.append(route);
  const searchBar=node('div',null,'catalog-filters');
  const search=field(searchBar,'Buscar trámite','search');
  const category=field(searchBar,'Categoría','category','',{options:{'':'Todas'}});
@@ -107,6 +113,13 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const guideTitle=node('h2','Cómo utilizar SITS Salud');guideTitle.id='citizen-guide-title';const guideClose=btn('Cerrar',()=>guide.close());
  const guideList=node('ol',null,'help-steps');for(const [title,body] of [['Encuentra el servicio','Utiliza el buscador o selecciona una categoría.'],['Consulta la información','Revisa los requisitos y el canal de atención.'],['Identifícate','Cuando corresponda, utiliza tu cuenta autorizada.'],['Haz seguimiento','En Mis solicitudes podrás consultar tus actuaciones disponibles.']]){const li=node('li');li.append(node('strong',title),node('p',body));guideList.append(li);}
  guide.append(guideTitle,guideList,node('p','La radicación electrónica oficial se habilitará cuando la entidad complete su validación. Por ahora, consulta la información y los canales autorizados.','module-intro'),guideClose);document.body.append(guide);
+ function showPreparation(item){
+  const dialog=node('dialog',null,'institution-dialog guest-preparation');dialog.setAttribute('aria-labelledby','guest-preparation-title');
+  const title=node('h2','Prepara tu solicitud');title.id='guest-preparation-title';const intro=node('p','Revisa esta lista sin iniciar sesión ni ingresar datos personales. No se enviará una solicitud ni se generará un radicado.');dialog.append(title,intro);
+  for(const line of ['Consultar los requisitos en la Secretaría de Salud.','Identificar el canal oficial de atención.','Organizar los documentos sin cargarlos al portal.']){const label=node('label',null,'check'),box=node('input');box.type='checkbox';label.append(box,node('span',line));dialog.append(label);}
+  const detail=node('p','El seguimiento de una solicitud registrada requiere la cuenta asociada. Si no tienes correo, consulta la alternativa de atención municipal.','module-intro');
+  const focus=document.activeElement;const close=btn('Cerrar',()=>dialog.close());dialog.append(detail,close);document.body.append(dialog);dialog.addEventListener('close',()=>{dialog.remove();if(focus?.isConnected)focus.focus();});dialog.showModal();close.focus();
+ }
  let guideFocus;function showHelp(){if(document.querySelector('dialog[open]'))return;guideFocus=document.activeElement;guide.showModal();guideClose.focus();}
  guide.addEventListener('close',()=>{if(guideFocus?.isConnected)guideFocus.focus();});
 
@@ -270,7 +283,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   if(item.standard){
    const requirements=node('section',null,'service-overview');requirements.append(node('h2','Antes de continuar'),node('p','La certificación de discapacidad se realiza a través del procedimiento y las entidades competentes. La Secretaría de Salud orienta la gestión de los documentos.'));
    const items=node('ul');for(const text of ['Consulta los requisitos aplicables con la Secretaría de Salud.','Ten disponible un correo electrónico para el seguimiento cuando se habilite la recepción.','Verifica el canal oficial antes de entregar documentación clínica.'])items.append(node('li',text));
-   requirements.append(items,btn('Acceso autorizado',()=>navigate('citizen'),'primary'));serviceBody.append(requirements);return;
+   requirements.append(items,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn('Acceso autorizado',()=>navigate('citizen'),'primary'));serviceBody.append(requirements);return;
   }
   if(!user){serviceBody.append(btn('Ingresar para continuar',()=>{pendingService=item;navigate('citizen');},'primary'));return;}
   const load=node('div');serviceBody.append(load);experience.loading(load);

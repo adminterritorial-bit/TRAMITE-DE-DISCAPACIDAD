@@ -19,6 +19,7 @@ jobs:
           node --check functions/index.js
           node --check public/app.js
           node --input-type=module --check < public/catalog.js
+          node --input-type=module --check < public/accessibility.js
           node --input-type=module --check < public/institutional.js
           node scripts/prepare-spark.mjs
           node --check < build/spark-release/Codigo.gs

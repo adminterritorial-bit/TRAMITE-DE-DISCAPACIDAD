@@ -43,6 +43,10 @@ try{
  });
  await page.goto('http://127.0.0.1:8080/');
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
+ await page.getByRole('button',{name:'Escuchar guía'}).click();
+ await page.getByRole('dialog',{name:'Accesibilidad y lectura por voz'}).waitFor();
+ await page.getByRole('button',{name:'Reproducir'}).click();
+ await page.keyboard.press('Escape');
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
  await page.getByRole('button',{name:'¿Necesitas ayuda?'}).click();
  await page.getByRole('dialog',{name:'Cómo utilizar SITS Salud'}).waitFor();
@@ -55,6 +59,10 @@ try{
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver trámite'}).click();
  await page.getByRole('heading',{name:'Sobre este servicio'}).waitFor();
+ await page.getByRole('button',{name:'Preparar requisitos sin iniciar sesión'}).click();
+ await page.getByRole('dialog',{name:'Prepara tu solicitud'}).waitFor();
+ await page.getByRole('checkbox',{name:'Consultar los requisitos en la Secretaría de Salud.'}).check();
+ await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'Consultar catálogo'}).click();
  for(const width of [390,320,1280]){await page.setViewportSize({width,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desborde de catálogo '+width);}
  const audit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
