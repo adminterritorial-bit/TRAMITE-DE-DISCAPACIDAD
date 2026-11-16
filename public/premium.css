@@ -182,3 +182,11 @@ body.hc :is(.state-label,.chip,.catalog-card .doc-status,.builder-intro span,.ca
   .staff-entry{max-width:100%}
   .steps{gap:5px}
 }
+
+/* High-contrast theme: explicit foreground and backgrounds, including active navigation. */
+body.hc .navbtn.active,body.hc .navbtn:hover,body.hc .admin-module-menu button[aria-current=page],body.hc .admin-module-menu button:hover{background:#000!important;color:#ffdf74!important;border-color:#ffdf74!important;box-shadow:none!important}
+body.hc .benefits b,body.hc .steps li.current b,body.hc .steps li.complete b,body.hc .catalog-visual-card strong,body.hc .management-header h3,body.hc .manager-section h3,body.hc .builder-group .portal-decisions legend{color:#fff!important}
+body.hc .steps li.current span,body.hc .steps li.complete span{color:#000!important;background:#ffdf74!important;box-shadow:none}
+body.hc .portal-decisions,body.hc .fixture-panel{border-color:#fff!important;background:#000!important;color:#fff!important}
+body.hc .fixture-panel>span,body.hc .manager-section .module-intro{color:#fff!important}
+body.hc button,body.hc a,body.hc input,body.hc select,body.hc textarea{transition:none!important}
