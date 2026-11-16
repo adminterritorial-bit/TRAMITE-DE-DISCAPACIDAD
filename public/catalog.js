@@ -252,6 +252,8 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    options:Object.fromEntries(data.categories.filter(x=>x.active).map(x=>[x.id,x.title]))});
   field(form,'Canal autorizado','channel',draft.channel,{required:true,max:180});
   field(form,'UID de operadores autorizados','operators',draft.operators.join('\n'),{multi:true});
+  for(const [key,label] of [['ack','Mensaje del acuse'],['correction','Mensaje de subsanación'],['closure','Mensaje de cierre']])
+   field(form,label+' sin datos personales','message-'+key,draft.messages?.[key]||'',{multi:true,max:500});
   const fields=node('div'),states=node('div');
   function addField(spec={}){
    const group=node('fieldset',null,'portal-decisions');group.append(node('legend','Campo del formulario'));
@@ -295,6 +297,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,schema:{
     title:form.elements.title.value,description:form.elements.description.value,channel:form.elements.channel.value,
     category:form.elements.category.value,operators:lines(form.elements.operators.value),
+    messages:Object.fromEntries(['ack','correction','closure'].map(key=>[key,form.elements['message-'+key].value])),
     fields:Array.from(fields.children,x=>x.value()),states:Array.from(states.children,x=>x.value())
    }}),()=>openAdmin('catalog'));
   });
@@ -363,17 +366,31 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   for(const file of item.files||[])target.append(action('Descargar '+file.field,async()=>{
    const data=await invoke('serviceDownload',{id:item.id,field:file.field});downloadContent(data,file.field);
   }));
-  if(!staff)return;
-  const refresh=async()=>renderCase(target,await invoke('serviceCase',{id:item.id}),true);
+  const refresh=async()=>renderCase(target,await invoke('serviceCase',{id:item.id}),staff);
+  if(!staff&&item.correction){
+   target.append(node('p','Subsanación solicitada: '+item.correction.label));
+   target.append(action('Adjuntar y presentar soporte de prueba',()=>operations(async()=>{
+    const file=await fixtureData(item.correction.kind);
+    await invoke('serviceSubmitCorrection',{id:item.id,revision:item.revision,file});
+   },refresh)));
+  }
   for(const [key,value] of Object.entries(item.answers||{}))target.append(node('p',key+' · '+value));
   if(item.history?.length){
    const history=node('details'),events=node('ol');
    history.append(node('summary','Historial de actuaciones'),events);
-   for(const event of item.history)events.append(node('li',event.action+' · '+new Date(event.at).toLocaleString('es-CO')+' · '+event.actorUid));
+   const names={'service:created':'Registrada','service:received':'Soportes recibidos','service:closed':'Cerrada','service:correction_requested':'Subsanación solicitada','service:correction_received':'Subsanación recibida'};
+   for(const event of item.history)events.append(node('li',(names[event.action]||event.action)+' · '+new Date(event.at).toLocaleString('es-CO')+(event.actorUid?' · '+event.actorUid:'')));
    target.append(history);
   }
-  for(const [phase,status] of [['ack',item.ackStatus],['closure',item.deliveryStatus]]){
-   if(status==='pending'&&['admin','supervisor'].includes(role))target.append(action(phase==='ack'?'Reintentar acuse':'Reintentar aviso de cierre',()=>operations(()=>invoke('serviceRetryMail',{id:item.id,revision:item.revision,phase}),refresh)));
+  if(!staff)return;
+  if(item.correctionOptions?.length){
+   const form=node('form',null,'compact-form');
+   field(form,'Soporte que debe subsanarse','field',item.correctionOptions[0].id,{options:Object.fromEntries(item.correctionOptions.map(x=>[x.id,x.label]))});
+   submit(form,'Solicitar subsanación',d=>operations(()=>invoke('serviceRequestCorrection',{...d,id:item.id,revision:item.revision}),refresh));
+   target.append(form);
+  }
+  for(const [phase,status] of [['ack',item.ackStatus],['correction',item.correctionStatus],['closure',item.deliveryStatus]]){
+   if(status==='pending'&&['admin','supervisor'].includes(role))target.append(action(phase==='ack'?'Reintentar acuse':phase==='correction'?'Reintentar aviso de subsanación':'Reintentar aviso de cierre',()=>operations(()=>invoke('serviceRetryMail',{id:item.id,revision:item.revision,phase}),refresh)));
    if(['sending','review'].includes(status))target.append(node('p','El envío requiere conciliación antes de otro intento.'));
   }
   for(const status of item.next)target.append(action(item.stateLabels[status],()=>operations(()=>invoke('serviceTransition',{id:item.id,revision:item.revision,status}),refresh)));

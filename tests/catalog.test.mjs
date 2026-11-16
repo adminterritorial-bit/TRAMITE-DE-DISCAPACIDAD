@@ -15,7 +15,7 @@ const template={title:'Orientación de prueba',description:'Servicio sintético.
   ],states:[{id:'received',label:'Recibida',next:['reviewing']},{id:'reviewing',label:'Revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:['operador']};
 function harness(){
  const db=new Map(), log=[];
- const ctx=vm.createContext({Utilities:{getUuid:randomUUID},MailApp:{getRemainingDailyQuota:()=>1}});
+ const ctx=vm.createContext({Utilities:{getUuid:randomUUID,base64Decode:s=>Buffer.from(s,'base64')},MailApp:{getRemainingDailyQuota:()=>1}});
  vm.runInContext(source('UnifiedBackend.gs'),ctx);
  if(existsSync(new URL('../apps-script/spark/ServiceCatalog.gs',import.meta.url)))vm.runInContext(source('ServiceCatalog.gs'),ctx);
  Object.assign(ctx,{
@@ -37,7 +37,10 @@ function harness(){
     const field=ctx.spData_(x.fields)[key];
     return x.name.startsWith(c+'/')&&(!key||(options?.op==='ARRAY_CONTAINS'?field?.includes(value):field===value));
    }),
-   instEvidence_:()=>({writes:[],notify:false})
+   instEvidence_:()=>({writes:[],notify:false}),
+   spFixture_:(value,kind)=>{if(value.base64!=='fixture')throw Error('invalid_fixture');return {kind,sha:'fixture',size:42,base64:value.base64};},
+   root_:()=>({}),folder_:()=>({}),existingFolder_:()=>({}),
+   savePdf_:(_folder,file)=>({fileId:'private-fixture',sha:file.sha,kind:file.kind,size:file.size})
  });
  return {call:(u,a,d={})=>ctx.spDispatch_(u,a,d),db,log};
 }
@@ -83,6 +86,23 @@ test('dynamic requests validate published version, conditions, fixture values, o
  call(publisher,'serviceTransition',{id:request.id,revision:2,status:'closed'});
  assert.equal(call(citizen,'serviceCase',{id:request.id}).status,'closed');
  assert.ok(log.some(x=>x.uid==='operador'&&x.action==='service:reviewing'));
+});
+test('assigned staff requests a correction and only the owner can supply its approved fixture',()=>{
+ const {call,log}=harness();
+ call(admin,'categorySave',{id:'orientacion',title:'Orientación'});
+ call(admin,'serviceSave',{id:'soportes',revision:0,schema:{...template,fields:[{id:'soporte',label:'Anexo',type:'document',required:false,fixture:'apoyo'}]}});
+ const live=call(publisher,'servicePublish',{id:'soportes',revision:1,reference:'Prueba autorizada'});
+ const request=call(citizen,'serviceApply',{id:'soportes',version:live.live.version,key:randomUUID(),synthetic:true,answers:{},legalDecisions:[]});
+ const employee={uid:'operador',role:'operator'};
+ call(employee,'serviceRequestCorrection',{id:request.id,revision:1,field:'soporte'});
+ assert.equal(call(citizen,'serviceCase',{id:request.id}).correction.kind,'apoyo');
+ assert.throws(()=>call(employee,'serviceTransition',{id:request.id,revision:2,status:'reviewing'}),/invalid_transition/);
+ assert.throws(()=>call({uid:'otro',role:null},'serviceSubmitCorrection',{id:request.id,revision:2,file:{base64:'fixture'}}),/not_found/);
+ assert.throws(()=>call(citizen,'serviceSubmitCorrection',{id:request.id,revision:2,file:{base64:'real'}}),/invalid_fixture/);
+ call(citizen,'serviceSubmitCorrection',{id:request.id,revision:2,file:{base64:'fixture'}});
+ assert.equal(call(citizen,'serviceCase',{id:request.id}).correction,null);
+ assert.equal(call(citizen,'serviceCase',{id:request.id}).files[0].fileId,undefined);
+ assert.ok(log.some(x=>x.uid===citizen.uid&&x.action==='service:correction_received'));
 });
 test('schema rejects script markup, executable field types and cyclic state configurations',()=>{
  const {call}=harness();

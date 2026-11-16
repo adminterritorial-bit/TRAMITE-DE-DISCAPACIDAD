@@ -1,6 +1,6 @@
 const CATALOG_ACTIONS_=['catalogList','catalogAdmin','categorySave','categoryRetire','serviceRead','serviceSave','serviceDuplicate',
  'servicePublish','serviceRetire','serviceHistory','serviceApply','serviceMine','serviceInbox','serviceCase','serviceTransition',
- 'serviceAssign','serviceDownload','serviceNote','serviceRetryMail','serviceExport','staffList','staffSave'];
+ 'serviceAssign','serviceDownload','serviceNote','serviceRetryMail','serviceRequestCorrection','serviceSubmitCorrection','serviceExport','staffList','staffSave'];
 const CATALOG_ID_=/^[a-z][a-z0-9-]{1,39}$/;
 const CATALOG_KEY_=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CATALOG_USER_=/^[A-Za-z0-9_-]{1,128}$/;
@@ -64,7 +64,8 @@ function catSchema_(d){
  for(const state of states)if(reachable.has(state.id))state.next.forEach(next=>reachable.add(next));
  if(reachable.size!==states.length)throw Error('invalid_request');
  return {title:instText_(d.title,120),description:instText_(d.description,1800),category:catId_(d.category),
-  channel:instText_(d.channel,180),fields,states,operators:catUnique_(catList_(d.operators||[],40,catUid_))};
+  channel:instText_(d.channel,180),fields,states,operators:catUnique_(catList_(d.operators||[],40,catUid_)),
+  messages:Object.fromEntries(['ack','correction','closure'].filter(key=>!!d.messages?.[key]).map(key=>[key,instText_(d.messages[key],500)]))};
 }
 function catStore_(){
  const {doc,data}=instRead_('catalog','registry');
@@ -154,6 +155,7 @@ function catCaseView_(doc,staff=false){
  const {id,serviceId,serviceVersion,title,radicado,status,revision,createdAt,updatedAt,assignedTo,ackStatus,deliveryStatus}=row;
  const result={id,serviceId,serviceVersion,title,radicado,status,revision,createdAt,updatedAt,ackStatus,deliveryStatus};
  result.files=(row.files||[]).map(({field,kind,size})=>({field,kind,size}));
+ result.correction=row.correction?{field:row.correction.field,kind:row.correction.kind,label:row.correction.label}:null;
  if(staff)Object.assign(result,{assignedTo,answers:row.answers,ownerUid:row.ownerUid,notes:row.notes||[]});
  return result;
 }
@@ -175,7 +177,7 @@ function catApply_(u,d){
  const radicado='SP-PIL-'+id.slice(0,16).toUpperCase();
  const row={id,serviceId:d.id,serviceVersion:live.version,versionId:live.idVersion,title:live.title,radicado,ownerUid:u.uid,
   email:u.email,status:files.length?'saving':'received',revision:1,answers,files:[],notes:[],assignedTo:null,
-  operators:live.operators,notifyByEmail:evidence.notify,ackStatus:'pending',deliveryStatus:'not_sent'};
+  operators:live.operators,messages:live.messages||{},notifyByEmail:evidence.notify,ackStatus:'pending',deliveryStatus:'not_sent',correctionStatus:'not_sent'};
  const guard={verify:spName_('catalog','registry'),currentDocument:{updateTime:store.doc.updateTime}};
  spCommit_([guard,...evidence.writes,spPut_('serviceRequests',id,row,null,['createdAt','updatedAt']),spAudit_(id,u.uid,'service:created')]);
  if(files.length){
@@ -193,7 +195,9 @@ function catApply_(u,d){
  return catCaseView_(spRead_('serviceRequests',id));
 }
 function catNotify_(doc,u,phase){
- const row=spData_(doc.fields),field=phase==='ack'?'ackStatus':'deliveryStatus';
+ const row=spData_(doc.fields),field=phase==='ack'?'ackStatus':phase==='correction'?'correctionStatus':'deliveryStatus';
+ const marker=phase==='correction'?row.correction?.id:null;
+ if(phase==='correction'&&!marker)return;
  if(!row.notifyByEmail){
   if(row[field]!=='declined')spCommit_([spPut_('serviceRequests',row.id,{[field]:'declined'},doc,['updatedAt'])]);
   return;
@@ -203,10 +207,12 @@ function catNotify_(doc,u,phase){
  spCommit_([spPut_('serviceRequests',row.id,{[field]:'sending'},doc,['updatedAt']),spAudit_(row.id,u.uid,'service-mail:sending')]);
  let sent=false;
  try{
-  sent=spJournal_(folder,'service-'+phase+'.json',()=>spMail_(row.email,'Actualización de solicitud de prueba',
-   'Consulte la referencia de prueba '+row.radicado+' desde su cuenta verificada.'),1);
+  const body=row.messages?.[phase]||'Hay una actualización de su solicitud de prueba.';
+  sent=spJournal_(folder,'service-'+phase+(marker?'-'+marker:'')+'.json',()=>spMail_(row.email,'Actualización de solicitud de prueba',
+   body+' Consulte la referencia de prueba '+row.radicado+' desde su cuenta verificada.'),1);
  }catch(_){}
  const current=spRead_('serviceRequests',row.id);
+ if(marker&&spData_(current.fields).correction?.id!==marker)return;
  spCommit_([spPut_('serviceRequests',row.id,{[field]:sent?'sent':'review'},current,['updatedAt']),
   spAudit_(row.id,u.uid,sent?'service-mail:sent':'service-mail:review')]);
 }
@@ -219,11 +225,13 @@ function catCaseAction_(u,action,d){
  if(action==='serviceCase'){
   const schema=instRead_('serviceVersions',row.versionId).data?.schema;
   const current=schema?.states.find(x=>x.id===row.status);
-  return {...catCaseView_(doc,staff),next:staff?(current?.next.filter(x=>x!=='closed'||u.role==='supervisor')||[]):[],
+  const actions=staff&&!row.correction?(current?.next.filter(x=>x!=='closed'||u.role==='supervisor')||[]):[];
+  const history=spQuery_('audit','requestId',row.id,'at',40).map(x=>spData_(x.fields));
+  return {...catCaseView_(doc,staff),next:actions,
+   correctionOptions:staff&&!row.correction&&!['closed','saving','storage_review'].includes(row.status)?(schema?.fields.filter(x=>x.type==='document').map(({id,label})=>({id,label}))||[]):[],
+   correctionStatus:staff?row.correctionStatus:null,
    stateLabels:Object.fromEntries((schema?.states||[]).map(x=>[x.id,x.label])),
-   history:staff?spQuery_('audit','requestId',row.id,'at',40).map(x=>{
-    const item=spData_(x.fields);return {at:item.at,action:item.action,actorUid:item.actorUid};
-   }):[]};
+   history:history.filter(item=>staff||/^service:(created|received|closed|correction_requested|correction_received)$/.test(item.action)).map(item=>({at:item.at,action:item.action,...(staff?{actorUid:item.actorUid}:{})}))};
  }
  if(action==='serviceDownload'){
   const file=(row.files||[]).find(x=>x.field===d.field);
@@ -232,17 +240,34 @@ function catCaseAction_(u,action,d){
   spCommit_([spAudit_(row.id,u.uid,'service-file:download')]);
   return spDownload_(row.id,file,file.kind);
  }
+ if(action==='serviceSubmitCorrection'){
+  if(!owner)throw Error('not_found');
+  if(d.revision!==row.revision||!row.correction)throw Error('content_version_changed');
+  const file=spFixture_(d.file,row.correction.kind);
+  spLimit_(u,'serviceCorrectionSubmit',10);
+  const saved=savePdf_(folder_(root_(),row.id),file);
+  const files=(row.files||[]).filter(x=>x.field!==row.correction.field);
+  files.push({field:row.correction.field,...saved});
+  spCommit_([spPut_('serviceRequests',row.id,{files,correction:null,revision:row.revision+1},doc,['updatedAt']),spAudit_(row.id,u.uid,'service:correction_received')]);
+  return catCaseView_(spRead_('serviceRequests',row.id));
+ }
  if(!staff)throw Error('forbidden');
  if(d.revision!==row.revision)throw Error('content_version_changed');
  if(action==='serviceRetryMail'){
   instManager_(u);instRecent_(u);
-  const phase=instEnum_(d.phase,['ack','closure']),field=phase==='ack'?'ackStatus':'deliveryStatus';
+  const phase=instEnum_(d.phase,['ack','correction','closure']),field=phase==='ack'?'ackStatus':phase==='correction'?'correctionStatus':'deliveryStatus';
   if(row[field]!=='pending'||(phase==='closure'&&row.status!=='closed')||(phase==='ack'&&['saving','storage_review'].includes(row.status)))throw Error('invalid_transition');
   spLimit_(u,'serviceRetryMail',20);catNotify_(doc,u,phase);
   return catCaseView_(spRead_('serviceRequests',row.id),true);
  }
  let update,event;
- if(action==='serviceAssign'){
+ if(action==='serviceRequestCorrection'){
+  if(row.correction||['closed','saving','storage_review'].includes(row.status))throw Error('invalid_transition');
+  const schema=instRead_('serviceVersions',row.versionId).data?.schema;
+  const field=schema?.fields.find(x=>x.id===d.field&&x.type==='document');
+  if(!field)throw Error('invalid_request');
+  update={correction:{id:Utilities.getUuid(),field:field.id,kind:field.fixture,label:field.label},correctionStatus:'pending'};event='correction_requested';
+ }else if(action==='serviceAssign'){
   instManager_(u);instRecent_(u);
   const id=catUid_(d.uid);
   if(!row.operators.includes(id)||sparkDoc_('admins',id)?.active!==true)throw Error('forbidden');
@@ -254,7 +279,7 @@ function catCaseAction_(u,action,d){
  }else{
   const schema=instRead_('serviceVersions',row.versionId).data?.schema;
   const state=schema?.states.find(x=>x.id===row.status);
-  if(!state?.next.includes(d.status))throw Error('invalid_transition');
+  if(row.correction||!state?.next.includes(d.status))throw Error('invalid_transition');
   if(d.status==='closed'){
    if(u.role!=='supervisor')throw Error('forbidden');
    instRecent_(u);
@@ -265,6 +290,7 @@ function catCaseAction_(u,action,d){
  spLimit_(u,'serviceWrite',50);
  spCommit_([spPut_('serviceRequests',row.id,{...update,revision:row.revision+1},doc,['updatedAt']),spAudit_(row.id,u.uid,'service:'+event)]);
  if(update.status==='closed')catNotify_(spRead_('serviceRequests',row.id),u,'closure');
+ if(event==='correction_requested')catNotify_(spRead_('serviceRequests',row.id),u,'correction');
  return catCaseView_(spRead_('serviceRequests',row.id),true);
 }
 function catStaff_(u,action,d){
