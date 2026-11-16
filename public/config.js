@@ -1,8 +1,8 @@
 // Firebase Web SDK configuration: public identifiers, not privileged credentials.
-// Demo does not initialize Firebase. Only the controlled deployment enables pilot mode.
+// The public catalog connects to the existing municipal Spark deployment.
 // No Analytics initialization: minimize data collection in this health-sector portal.
 export const config = {
-  mode:'demo',
+  mode:'pilot',
   firebase:{
     apiKey:"AIzaSyBPVOOM7VQHdJgJ7hI3-fOVD3z-x-RT_gs",
     authDomain:"tramite-discapacidad.firebaseapp.com",

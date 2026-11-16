@@ -78,9 +78,19 @@ function savePdf_(folder,f){
 
 /** Spark unified closed pilot. Keep existing SparkAuth.gs, scopes and Script Properties. */
 const SPARK_BUILD_='spark-unified-2.0';
-const SPARK_PORTAL_='https://adminterritorial-bit.github.io/TRAMITE-DE-DISCAPACIDAD/pilot.html';
+const SPARK_PORTAL_='https://adminterritorial-bit.github.io/TRAMITE-DE-DISCAPACIDAD/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ if(e?.parameter?.content==='catalog'&&typeof catPublic_==='function'){
+  try{
+   const cache=CacheService.getScriptCache(),value=cache.get('catalog-public-v1');
+   if(value)return output_(JSON.parse(value));
+   const data={ok:true,...catPublic_()};
+   const json=JSON.stringify(data);
+   if(json.length<90000)cache.put('catalog-public-v1',json,45);
+   return output_(data);
+  }catch(_){return output_({ok:false,error:'firestore_unavailable'});}
+ }
  const enabled=PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')==='true';
  if(e?.parameter?.content==='public'&&enabled){
   try{
@@ -93,7 +103,7 @@ function doGet(e){
   }
   catch(_){return output_({ok:false,error:'firestore_unavailable'});}
  }
- return output_({ok:true,build:SPARK_BUILD_,enabled});
+ return output_({ok:true,build:SPARK_BUILD_,enabled,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
 }
 function doPost(e){return spHandle_(e);}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
@@ -130,7 +140,7 @@ function spRest_(suffix,method,data,allowMissing){
  return JSON.parse(res.getContentText());
 }
 function spName_(collection,id){
- if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
+ if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases','catalog','serviceVersions','serviceRequests','admins'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
  return SPARK_DB_+'/'+collection+'/'+id;
 }
 function spRead_(collection,id){
@@ -145,9 +155,13 @@ function spPut_(collection,id,data,prior,timestamps){
 }
 function spCommit_(writes){return spRest_(':commit','post',{writes});}
 function spAudit_(id,uid,action){return spPut_('audit',Utilities.getUuid(),{requestId:id,actorUid:uid,action},null,['at']);}
-function spQuery_(collection,field,value,sort,max){
+function spQuery_(collection,field,value,sort,max,{op='EQUAL',cursor}={}){
  var q={from:[{collectionId:collection}],orderBy:[{field:{fieldPath:sort},direction:'DESCENDING'}],limit:max};
- if(field)q.where={fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:spValue_(value)}};
+ if(field)q.where={fieldFilter:{field:{fieldPath:field},op,value:spValue_(value)}};
+ if(cursor){
+  q.orderBy.push({field:{fieldPath:'__name__'},direction:'DESCENDING'});
+  q.startAt={before:false,values:[cursor.fields[sort],{referenceValue:cursor.name}]};
+ }
  return spRest_(':runQuery','post',{structuredQuery:q}).filter(x=>x.document).map(x=>x.document);
 }
 function spLimit_(u,action,max){
@@ -192,7 +206,7 @@ function spMail_(to,subject,message){
  const options={to,subject,body:label+'\n\n'+message+'\n\n'+SPARK_PORTAL_};
  function escaped(text){return text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  try{
-  const response=UrlFetchApp.fetch(SPARK_PORTAL_.replace(/pilot\.html$/,'assets/brand/alcaldia-san-pedro.png'),{muteHttpExceptions:true});
+  const response=UrlFetchApp.fetch(SPARK_PORTAL_+'assets/brand/alcaldia-san-pedro.png',{muteHttpExceptions:true});
   if(response.getResponseCode()===200&&digest_(response.getBlob().getBytes())==='acb2538438b975a6daf640a6c8e277edbc90807a8cbb97ec59320f5234855072'){
    options.inlineImages={alcaldia:response.getBlob().setName('alcaldia-san-pedro.png')};
    options.htmlBody='<img src="cid:alcaldia" alt="" width="192" height="108"><h1>'+escaped(label)+'</h1><p>'+escaped(message)+'</p><p><a href="'+SPARK_PORTAL_+'">Consultar en el portal</a></p>';
@@ -360,7 +374,7 @@ function instForm_(){
  });
  return {documents,guards};
 }
-function instEvidence_(u,id,decisions){
+function instEvidence_(u,id,decisions,service='discapacidad'){
  const {documents,guards}=instForm_();
  if(!Array.isArray(decisions)||decisions.length!==documents.length)throw Error('legal_decision_required');
  let notify=false;
@@ -374,7 +388,7 @@ function instEvidence_(u,id,decisions){
   if(item.act==='electronic_notice')notify=decision.decision==='granted';
   const key=spHash_(id+':'+item.act);
   return spPut_('legalEvidence',key,{ownerUid:u.uid,requestId:id,documentId:item.id,version:item.version,
-   hash:item.hash,act:item.act,decision:decision.decision,service:'discapacidad',purpose:'piloto_sintetico'},null,['at']);
+   hash:item.hash,act:item.act,decision:decision.decision,service,purpose:'piloto_sintetico'},null,['at']);
  });
  return {writes:[...guards,...writes],notify};
 }
@@ -444,6 +458,7 @@ function instDispatch_(u,action,d){
 }
 
 function spDispatch_(u,action,d){
+ if(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(action))return catDispatch_(u,action,d);
  if(INST_ACTIONS_.includes(action))return instDispatch_(u,action,d);
  if(action==='sessionAccess')return {role:u.role,canManage:!!u.role,canDeliver:u.role==='supervisor',institutional:true,build:SPARK_BUILD_};
  if(action==='submitRequest')return spSubmit_(u,d);
@@ -513,8 +528,8 @@ function spHandle_(e){
   stage='app_check';sparkVerifyApp_(p.appCheck);
   stage='identity';var u=sparkIdentity_(p.idToken,false);
   stage='operation';var req=JSON.parse(p.payload);
-  if(!req||![...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
-  if(!INST_ACTIONS_.includes(req.action)){lock=LockService.getScriptLock();lock.waitLock(15000);}
+  if(!req||![...(typeof CATALOG_ACTIONS_==='undefined'?[]:CATALOG_ACTIONS_),...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
+  if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))){lock=LockService.getScriptLock();lock.waitLock(15000);}
   return output_({ok:true,build:SPARK_BUILD_,data:spDispatch_(u,req.action,req.data)});
  }catch(err){
   var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','legal_decision_required','legal_version_changed','content_version_changed','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token'];
