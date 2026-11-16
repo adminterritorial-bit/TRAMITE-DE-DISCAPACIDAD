@@ -140,7 +140,8 @@ button.record:hover,.record:focus-within{border-color:#a7bde7;background:#f8faff
 .institution-dialog::backdrop{backdrop-filter:blur(3px)}
 .institution-toast{background:#173b9d;border:1px solid #3155b8;border-radius:15px;box-shadow:0 14px 40px #1232783b}
 .view:not(.hidden){animation:royal-enter .26s var(--royal-ease) both}
-@keyframes royal-enter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+/* Never fade live text: contrast must hold during transitions as well. */
+@keyframes royal-enter{from{transform:translateY(7px)}to{transform:translateY(0)}}
 footer{border-top:1px solid #d9e3f3;background:#eaf0fb;padding-block:24px}
 body.hc .catalog-masthead,body.hc .catalog-tools,body.hc .catalog-home,body.hc .catalog-card,body.hc .catalog-visual-card,body.hc .manager-section,body.hc .manager-section>form,body.hc .staff-card,body.hc .manager-stats>div,body.hc .builder-group .portal-decisions,body.hc .workspace-shortcuts button,body.hc .admin-module-menu button{background:#000!important;color:#fff!important;border:1px solid #fff}
 body.hc :is(.catalog-masthead h1,.catalog-masthead .module-intro,.catalog-info-row h2,.catalog-card h2,.catalog-card p,.catalog-visual-card small,.metric b,.management-header h3,.manager-stats strong,.manager-stats small,.staff-card small,.section-head h1,.catalog-manager h2,.institutional-admin h2,.admin-module-nav summary){color:#fff!important}
