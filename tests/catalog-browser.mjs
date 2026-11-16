@@ -6,6 +6,11 @@ const browser=await chromium.launch();
 try{
  const context=await browser.newContext({viewport:{width:1280,height:960}});
  const page=await context.newPage();
+ await page.addInitScript(()=>{
+  window.__spoken=[];class Speech{constructor(text){this.text=text;}}
+  Object.defineProperty(window,'SpeechSynthesisUtterance',{configurable:true,value:Speech});
+  Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>[{lang:'es-CO',localService:true}],speak:u=>{window.__spoken.push(u.text);queueMicrotask(()=>u.onend?.());},cancel(){},addEventListener(){}}});
+ });
  const sdk={
   'firebase-app':'export const initializeApp=x=>x;',
   'firebase-auth':`export const browserSessionPersistence={};export const getAuth=()=>({});
@@ -44,9 +49,23 @@ try{
  await page.goto('http://127.0.0.1:8080/');
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
  await page.getByRole('button',{name:'Escuchar guía'}).click();
- await page.getByRole('dialog',{name:'Accesibilidad y lectura por voz'}).waitFor();
- await page.getByRole('button',{name:'Reproducir'}).click();
- await page.keyboard.press('Escape');
+ await page.locator('#voice-guide:not([hidden])').waitFor();
+ assert.equal(await page.locator('dialog[open]').count(),0);
+ await page.getByLabel('Buscar trámite').hover();
+ await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Buscador de trámites')));
+ await page.getByLabel('Buscar trámite').fill('NO-LEER-DATO-PRIVADO');
+ assert.equal(await page.evaluate(()=>window.__spoken.some(x=>x.includes('NO-LEER-DATO-PRIVADO'))),false);
+ await page.getByRole('button',{name:'Limpiar filtros'}).click();
+ await page.locator('.navbtn[data-view=legal]').click();
+ await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Aquí encuentras información')));
+ assert.equal(await page.locator('#voice-guide').isVisible(),true);
+ await page.locator('.navbtn[data-view=catalog]').click();
+ await page.getByRole('button',{name:'Vista de lista'}).focus();
+ await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Vista de lista')));
+ await page.getByRole('button',{name:'Pausar',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'Continuar',exact:true}).filter({visible:true}).getAttribute('aria-pressed'),'true');
+ await page.getByRole('button',{name:'Desactivar',exact:true}).click();
+ assert.equal(await page.locator('#voice-guide').isVisible(),false);
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
  await page.getByRole('button',{name:'¿Necesitas ayuda?'}).click();
  await page.getByRole('dialog',{name:'Cómo utilizar SITS Salud'}).waitFor();

@@ -1,7 +1,7 @@
 import {config} from './config.js';
-import {portalExperience} from './institutional.js?v=navy-2';
-import {serviceCatalog} from './catalog.js?v=navy-2';
-import {accessiblePortal,trackingAccess} from './accessibility.js?v=1';
+import {portalExperience} from './institutional.js?v=navy-3';
+import {serviceCatalog} from './catalog.js?v=navy-3';
+import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
@@ -13,7 +13,7 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function append(parent,...children){parent.append(...children);return parent}
 function button(text,fn,klass='secondary'){const b=node('button',text,klass);b.type='button';b.addEventListener('click',fn);return b}
 function displayError(id,e){msg(id,e?.message?.slice(0,220)||'Ocurrió un error. Inténtalo de nuevo.')}
-function showView(v){currentView=v;experience.view(v);accessibility.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});if(!demo)trackingGate.view(v,authorized);if(v==='tracking'){loadTracking();void catalog.tracking();}if(v==='admin')loadAdmin()}
+function showView(v){currentView=v;experience.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});accessibility.view(v);if(!demo)trackingGate.view(v,authorized);if(v==='tracking'){loadTracking();void catalog.tracking();}if(v==='admin')loadAdmin()}
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
 const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});

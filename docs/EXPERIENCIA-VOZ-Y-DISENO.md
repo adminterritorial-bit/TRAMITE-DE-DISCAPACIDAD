@@ -1,0 +1,7 @@
+# Experiencia ciudadana · azul profundo
+
+La guía se activa desde la cabecera y no usa un diálogo modal. El documento permanece navegable con mouse, Tab, Enter y toque en controles. Incluye guía de cada módulo, narración de indicaciones públicas al enfocar o sobrevolar elementos, transcripción, pausa, repetición, velocidad y desactivación. No vocaliza valores de campos, expedientes, datos de personal ni información de usuarios. Se usa una voz local en español si está disponible; si no, se muestra la transcripción y el mensaje correspondiente. La guía es complementaria al lector de pantalla, no lo reemplaza. Piloto de recepción y backend sin modificaciones.
+
+Se reorganiza el catálogo: búsqueda prioritaria, accesos rápidos, categorías, tarjetas, ruta de atención y preguntas frecuentes. Azul profundo para cabecera, portada, navegación, tarjetas, paneles y pie; animaciones breves sin pérdida de contraste y con prefers-reduced-motion. Referencias de diseño: https://design-system.service.gov.uk/patterns/navigate-a-service/ ; https://design-system.service.gov.uk/patterns/start-using-a-service/ ; https://digital.nsw.gov.au/delivery/digital-service-toolkit ; https://www.w3.org/TR/WCAG22/ .
+
+Las pruebas de navegador simulan el motor de voz para comprobar las interacciones y no garantizan que todos los sistemas dispongan de una voz local en español. Se mantiene la auditoría automática de accesibilidad y el reflujo; revisión manual con tecnologías de asistencia pendiente.

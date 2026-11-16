@@ -76,7 +76,12 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const visualCard=node('div',null,'catalog-visual-card');
  const visualIcon=node('div',null,'catalog-icon');visualIcon.append(glyph('heart'));
  visualCard.append(visualIcon,node('strong','SITS Salud'),node('small','Secretaría de Salud'),node('span',null,'visual-line'),node('span',null,'visual-line short'));
- visual.append(visualCard,node('span','✓','catalog-visual-check'));masthead.append(copy,visual);catalogue.append(masthead);
+ const orbit=node('div',null,'hero-orbit'),badgeA=node('div',null,'hero-mini hero-mini-folder'),badgeB=node('div',null,'hero-mini hero-mini-clock'),badgeIcon=node('span',null,'hero-mini-icon'),clockIcon=node('span',null,'hero-mini-icon');badgeIcon.append(glyph('folder'));clockIcon.append(glyph('clock'));badgeA.append(badgeIcon,node('span','Servicios'));badgeB.append(clockIcon,node('span','Seguimiento'));
+ visual.append(orbit,visualCard,badgeA,badgeB,node('span','✓','catalog-visual-check'));masthead.append(copy,visual);catalogue.append(masthead);
+ const heroActions=node('div',null,'hero-actions');
+ const explore=btn('Explorar trámites',()=>{search.focus();search.scrollIntoView({block:'center'});},'primary hero-cta');explore.dataset.voiceHint='Explorar trámites. Abre el buscador de servicios.';
+ const follow=btn('Consultar solicitudes',()=>navigate('tracking'),'secondary hero-secondary');follow.dataset.voiceHint='Consultar solicitudes. Accede al seguimiento protegido.';
+ heroActions.append(explore,follow);copy.append(heroActions);
  const quick=node('div',null,'citizen-quick');
  for(const [icon,title,desc,action] of [
   ['search','Encuentra un trámite','Explora el catálogo por categoría.',()=>{search.focus();search.scrollIntoView({block:'center'});}],
@@ -84,19 +89,19 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   ['help','¿Necesitas ayuda?','Conoce cómo usar el portal.',()=>showHelp()]
  ]){
   const tile=btn('',action,'quick-tile'),ico=node('span',null,'quick-glyph');ico.append(glyph(icon));
-  const words=node('span');words.append(node('strong',title),node('small',desc));tile.append(ico,words,glyph('arrow','quick-arrow'));quick.append(tile);
+  const words=node('span');words.append(node('strong',title),node('small',desc));tile.append(ico,words,glyph('arrow','quick-arrow'));tile.dataset.voiceHint=title+'. '+desc;quick.append(tile);
  }
  catalogue.append(quick);
  const route=node('section',null,'citizen-route');route.append(node('h2','Tu ruta de atención'));
  const milestones=node('div',null,'citizen-milestones');
  for(const [number,title,detail,icon] of [['01','Selecciona un servicio','Consulta qué necesitas y qué canal está disponible.','folder'],['02','Prepara tu solicitud','Organiza la información antes de iniciar.','document'],['03','Realiza el seguimiento','Accede con la cuenta asociada a tu solicitud.','clock']]){
-  const step=node('div',null,'citizen-milestone'),symbol=node('span',null,'route-icon');symbol.append(glyph(icon));step.append(symbol,node('span',number,'route-number'),node('strong',title),node('p',detail));milestones.append(step);
+  const step=node('div',null,'citizen-milestone'),symbol=node('span',null,'route-icon');symbol.append(glyph(icon));step.append(symbol,node('span',number,'route-number'),node('strong',title),node('p',detail));step.dataset.voiceHint=title+'. '+detail;milestones.append(step);
  }
  route.append(milestones);catalogue.append(route);
  const searchBar=node('div',null,'catalog-filters');
  const search=field(searchBar,'Buscar trámite','search');
  const category=field(searchBar,'Categoría','category','',{options:{'':'Todas'}});
- const filters=node('div',null,'catalog-tools');filters.append(searchBar);catalogue.append(filters);search.placeholder='Ej. discapacidad, certificación…';
+ const filters=node('div',null,'catalog-tools');filters.append(searchBar);catalogue.insertBefore(filters,quick);search.placeholder='Ej. discapacidad, certificación…';
  const folderRegion=node('section',null,'folder-region');folderRegion.append(node('h2','Explora por categoría'));const folders=node('div',null,'folder-grid');folderRegion.append(folders);catalogue.append(folderRegion);
  const list=node('div',null,'document-grid');
  const catalogInfo=node('p',null,'module-intro');catalogInfo.setAttribute('role','status');
@@ -104,11 +109,12 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const controls=node('div',null,'catalog-view-controls'),clear=btn('Limpiar filtros',()=>{search.value='';category.value='';renderCatalog();},'quiet');
  const cards=btn('',()=>setLayout('cards'),'quiet'),rows=btn('',()=>setLayout('rows'),'quiet');
  cards.setAttribute('aria-label','Vista de tarjetas');rows.setAttribute('aria-label','Vista de lista');cards.append(glyph('grid'));rows.append(glyph('list'));controls.append(clear,cards,rows);
- infoRow.append(infoText,controls);catalogue.append(infoRow,list);
+ infoRow.append(infoText,controls);catalogue.append(infoRow,list,route);
  function setLayout(layout){list.classList.toggle('catalog-list-view',layout==='rows');cards.setAttribute('aria-pressed',String(layout==='cards'));rows.setAttribute('aria-pressed',String(layout==='rows'));}
  setLayout('cards');
  const assistance=node('section',null,'citizen-assistance');const assistCopy=node('div');assistCopy.append(node('h2','Estamos para orientarte'),node('p','Si tienes dudas sobre los requisitos o necesitas atención presencial, consulta los canales de la Alcaldía.'));
  const official=node('a','Consultar canales oficiales','secondary help-link');official.href='https://www.sanpedro-valle.gov.co/';assistance.append(assistCopy,official);catalogue.append(assistance);
+ const faq=node('section',null,'citizen-faq');faq.append(node('h2','Preguntas frecuentes'),node('p','Encuentra respuestas antes de iniciar.','module-intro'));for(const [q,a] of [['¿Necesito iniciar sesión para consultar los trámites?','No. El catálogo, las fichas y la preparación de requisitos están disponibles sin cuenta.'],['¿Cómo consulto el estado de una solicitud?','En Mis solicitudes, inicia sesión con el correo asociado a tu expediente.'],['¿Dónde puedo recibir atención si necesito apoyo?','Consulta los canales oficiales de la Alcaldía y de la Secretaría de Salud.'],['¿Cómo activo la guía por voz?','Selecciona Escuchar guía. Navega con el mouse o con Tab; puedes pausar o desactivar la lectura en cualquier momento.']]){const detail=node('details',null,'faq-item'),summary=node('summary',q);summary.dataset.voiceHint=q;const answer=node('p',a);answer.dataset.voiceHint=a;detail.append(summary,answer);faq.append(detail);}catalogue.append(faq);
  const guide=node('dialog',null,'institution-dialog citizen-guide');guide.setAttribute('aria-labelledby','citizen-guide-title');
  const guideTitle=node('h2','Cómo utilizar SITS Salud');guideTitle.id='citizen-guide-title';const guideClose=btn('Cerrar',()=>guide.close());
  const guideList=node('ol',null,'help-steps');for(const [title,body] of [['Encuentra el servicio','Utiliza el buscador o selecciona una categoría.'],['Consulta la información','Revisa los requisitos y el canal de atención.'],['Identifícate','Cuando corresponda, utiliza tu cuenta autorizada.'],['Haz seguimiento','En Mis solicitudes podrás consultar tus actuaciones disponibles.']]){const li=node('li');li.append(node('strong',title),node('p',body));guideList.append(li);}
@@ -161,7 +167,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   for(const item of [{id:'',title:'Todos los servicios'},...publicCatalog.categories]){
    const count=publicCatalog.items.filter(x=>!item.id||x.category===item.id).length;
    const folder=btn('',()=>{category.value=item.id;renderCatalog();},'service-folder');
-   folder.setAttribute('aria-pressed',String(chosen===item.id));const ico=node('span',null,'folder-glyph');ico.append(glyph('folder'));
+   folder.setAttribute('aria-pressed',String(chosen===item.id));folder.dataset.voiceHint='Categoría '+item.title+'. '+count+' servicio'+(count===1?'':'s')+'.';const ico=node('span',null,'folder-glyph');ico.append(glyph('folder'));
    const words=node('span');words.append(node('strong',item.title),node('small',count+' '+(count===1?'servicio':'servicios')));folder.append(ico,words);folders.append(folder);
   }
   clear.disabled=!text&&!chosen;
@@ -172,7 +178,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    const tag=publicCatalog.categories.find(x=>x.id===item.category)?.title;
    const top=node('div',null,'catalog-card-top'),icon=node('span',null,'catalog-icon');icon.append(glyph(item.standard?'heart':'document'));top.append(icon);
    if(tag)top.append(node('span',tag,'doc-status'));
-   const meta=node('p','Información y orientación · Secretaría de Salud','catalog-card-meta');card.append(top,node('h2',item.title),node('p',item.description,'plain-content'),meta,btn('Ver trámite',()=>void openService(item),'primary'));
+   const meta=node('p','Información y orientación · Secretaría de Salud','catalog-card-meta');const title=node('h2',item.title),description=node('p',item.description,'plain-content'),action=btn('Ver trámite',()=>void openService(item),'primary');title.dataset.voiceHint=item.title;description.dataset.voiceHint=item.description;action.dataset.voiceHint='Ver trámite. '+item.title;card.dataset.voiceHint=item.title+'. '+item.description;card.append(top,title,description,meta,action);
    list.append(card);
   }
  }
@@ -275,7 +281,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  async function openService(item){
   activeService=item;serviceKey=null;
-  service.querySelector('h1').textContent=item.title;
+  service.querySelector('h1').textContent=item.title;service.querySelector('h1').dataset.voiceHint=item.title;
   const description=node('div',null,'service-overview');description.append(node('h2','Sobre este servicio'),node('p',item.description,'plain-content'),node('p','Canal de atención: '+(item.channel||'Secretaría de Salud')));
   const status=node('div',null,'service-availability');status.append(glyph('shield'),node('p','Radicación electrónica pendiente de habilitación oficial. Los usuarios autorizados pueden acceder a la validación institucional.'));
   serviceBody.replaceChildren(description,status);

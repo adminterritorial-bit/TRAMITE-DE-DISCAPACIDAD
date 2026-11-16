@@ -1,0 +1,76 @@
+
+/* Deep blue civic experience. No external dependencies. */
+:root{--sits-deep:#092441;--sits-blue:#124d88;--sits-bright:#1465ac;--sits-ice:#e9f2fc;--sits-line:#c9d9e9;--sits-text:#142d49;--sits-muted:#435b74;--royal:#14558e;--royal-strong:#0d3966;--royal-pale:#e8f2fc;--royal-canvas:#f1f6fc;--municipal-accent:#14558e;--municipal-ink:#142d49}
+body{background:linear-gradient(180deg,#edf4fc 0,#f6f9fd 520px,#f1f6fc 100%);color:var(--sits-text)}
+.top{background:#fff;padding-inline:max(20px,calc((100% - 1320px)/2));border-top:5px solid #13568f;border-bottom:1px solid #c9d9e9}
+.top .brand{gap:16px}.top .institution-logo{width:clamp(105px,12vw,155px)}.top .brand strong{font-size:1.12rem;color:#092441}.top .brand small{color:#435b74}
+.nav{background:#0e3157;color:#fff;padding:8px max(20px,calc((100% - 1320px)/2));gap:7px;box-shadow:0 5px 13px #0a2e4f18}
+.nav .navbtn{color:#e7f1ff;border:1px solid transparent;min-height:44px;border-radius:9px;padding:10px 16px}
+.nav .navbtn.active{background:#eaf3fe;color:#103d69;border-color:#eaf3fe;box-shadow:none}
+.nav .navbtn:hover:not(.active){background:#204c78;color:#fff;border-color:#3d638a}
+.notice{background:#e5effb;color:#173c64;border-bottom:1px solid #c8dbef}.notice strong{color:#0f365e}.notice .dot{background:#165b98}
+.portal-context{font-size:.81rem;color:#435b74}
+.primary{background:#14558e;box-shadow:0 5px 12px #0e45752a}.primary:hover{background:#0c3c69;box-shadow:0 8px 18px #0e45753b}
+.secondary,.quiet{color:#164776;border-color:#adc6df}.secondary:hover,.quiet:hover{background:#e6f0fb;color:#0d3966;border-color:#83acd0}
+button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #c76b00;outline-offset:3px}
+.hero,.catalog-masthead{background:radial-gradient(ellipse at 83% 12%,#2e79b9 0%,transparent 49%),linear-gradient(125deg,#081f3d 0%,#123f70 61%,#174f87 100%);border:1px solid #1c588f;box-shadow:0 20px 44px #163f6d2e}
+.catalog-masthead{min-height:350px;grid-template-columns:minmax(0,1.45fr) minmax(230px,1fr);padding:clamp(27px,4.6vw,58px);border-radius:27px}
+.catalog-masthead h1{font-size:clamp(2.2rem,4.8vw,4.1rem);max-width:16ch;line-height:1.06;letter-spacing:-.045em;margin:15px 0}
+.catalog-masthead .catalog-kicker{color:#dcecff;font-size:.72rem}.catalog-masthead .module-intro{color:#e4efff;font-size:1.05rem;max-width:52ch}
+.catalog-pills{margin-top:13px}.catalog-pills span{border-color:#ffffff4d;background:#ffffff17;padding:6px 10px}
+.hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:25px}
+.hero-actions .hero-cta{color:#0a3158;background:#fff;border-color:#fff;box-shadow:0 8px 22px #061a3c30}
+.hero-actions .hero-cta:hover{background:#dfedff}.hero-actions .hero-secondary{background:#123d6b;color:#fff;border:1px solid #80aed5}.hero-actions .hero-secondary:hover{background:#205786}
+.catalog-illustration{min-height:258px;isolation:isolate}
+.hero-orbit{position:absolute;z-index:-1;width:240px;height:240px;border:1px solid #ffffff30;border-radius:50%;box-shadow:0 0 0 24px #ffffff0b,0 0 0 48px #ffffff0c;pointer-events:none}
+.catalog-visual-card{width:min(100%,235px);min-height:196px;transform:rotate(-4deg);box-shadow:0 22px 45px #04203e60;outline:1px solid #f7fbff;animation:sits-card-arrive .52s cubic-bezier(.2,.75,.25,1) both}
+.catalog-visual-card .catalog-icon{background:#e4f0fe;color:#164d82}.visual-line{background:#d5e6f9}.catalog-visual-check{background:#e1f1ff;color:#15467c;border-color:#1e5a95;right:7%;bottom:3px}
+.hero-mini{display:flex;align-items:center;gap:8px;position:absolute;background:#eaf4ff;color:#143d68;padding:9px 12px;min-height:44px;border-radius:12px;font-size:.78rem;font-weight:750;box-shadow:0 9px 23px #081f3d40;white-space:nowrap;animation:sits-rise .48s cubic-bezier(.2,.75,.25,1) both}
+.hero-mini-folder{top:8%;left:0;animation-delay:.10s}.hero-mini-clock{bottom:14%;right:0;animation-delay:.18s}
+.hero-mini-icon{width:27px;height:27px;display:grid;place-items:center;border-radius:8px;background:#cfe4fc;color:#134b82}
+.hero-mini-icon svg{width:18px;height:18px}
+@keyframes sits-card-arrive{from{transform:translateY(9px) rotate(-1deg)}to{transform:translateY(0) rotate(-4deg)}}
+@keyframes sits-rise{from{transform:translateY(8px)}to{transform:translateY(0)}}
+.catalog-tools{position:relative;margin-top:18px;border:1px solid #bcd1e8;box-shadow:0 10px 26px #123e6b12;padding:20px 24px;background:#fff;border-radius:17px}
+.catalog-tools .catalog-filters label>span{color:#173c64}.catalog-tools input,.catalog-tools select{border-color:#aac5df;background:#f8fbff}
+.citizen-quick{margin:16px 0 14px;gap:13px}
+.quick-tile{border:1px solid #c6d9ed;min-height:105px;background:linear-gradient(140deg,#fff,#edf5ff);box-shadow:0 7px 18px #0e3a6710;transition:transform .2s,box-shadow .2s,background .2s}
+.quick-tile:hover{background:#e4f0ff;border-color:#84acd2;transform:translateY(-3px);box-shadow:0 12px 23px #0c457820}.quick-tile strong{color:#123d68}.quick-tile small{color:#405c78}
+.quick-glyph{background:#15568e;color:#fff;box-shadow:0 5px 10px #154d8040}.quick-arrow{color:#175a91}
+.folder-region{background:#e5effb;border:1px solid #cadcf0;border-radius:20px;padding:22px;margin:23px 0}
+.folder-region h2{color:#0d3257}.service-folder{background:#fff;border-color:#bad1e8;border-bottom:3px solid #c4d8ed}.service-folder:hover,.service-folder[aria-pressed=true]{background:#d8e9fc;border-color:#6c9ccc;box-shadow:inset 0 0 0 1px #82abd1}
+.folder-glyph{background:#dcecff;color:#14558e}.service-folder strong{color:#123d68}.service-folder small{color:#435b74}
+.catalog-info-row{padding:6px 0}.catalog-info-row h2{color:#0b335c}
+.catalog-card{overflow:hidden;position:relative;background:linear-gradient(180deg,#f0f7ff 0,#fff 118px);border:1px solid #c4d7ec;border-top:4px solid #2a6da8;box-shadow:0 7px 22px #123f6710;padding:23px;min-height:290px}
+.catalog-card:hover{border-color:#80abd2;border-top-color:#14558e;box-shadow:0 16px 30px #123f6725;transform:translateY(-3px)}
+.catalog-card .catalog-icon{background:#16598f;color:#fff;box-shadow:0 6px 13px #155a9436;width:58px;height:58px;border-radius:16px}.catalog-card .doc-status{background:#e0edfc;color:#164776}
+.catalog-card h2{color:#0c3158}.catalog-card p{color:#435b74}.catalog-card .catalog-card-meta{color:#435b74}
+.citizen-route{background:#123c66;color:#fff;border:1px solid #184d7c;border-radius:22px;padding:25px;margin:27px 0;box-shadow:0 12px 29px #11396320}
+.citizen-route h2,.citizen-milestone strong{color:#fff}.citizen-milestone p,.route-number{color:#dceaff}.citizen-milestone{border-left-color:#7092b5}.citizen-milestone .route-icon{background:#d9eaff;color:#134575}
+.citizen-assistance{background:linear-gradient(125deg,#dcecff,#eef5ff);border-color:#bdd3ec}.citizen-assistance h2{color:#10385e}
+.citizen-faq{background:#fff;border:1px solid #c9d9e9;border-radius:20px;box-shadow:0 9px 22px #0c315b0b;padding:23px;margin:23px 0}.citizen-faq h2{font-size:1.3rem;color:#0c3158;margin:0 0 7px}.citizen-faq .module-intro{margin-top:0}
+.faq-item{border-top:1px solid #d8e5f3;padding:12px 0}.faq-item summary{cursor:pointer;color:#164776;font-weight:700;padding:6px 0;min-height:44px}.faq-item p{color:#435b74;margin:7px 0;line-height:1.7;animation:sits-rise .22s ease-out both}
+.service-overview{padding:22px 0}.service-availability{background:#e5effc;border-color:#c0d6ed}.service-overview>button{margin:7px 9px 0 0;white-space:normal;max-width:100%}
+.section-head{padding:23px 26px;border-radius:17px;background:linear-gradient(125deg,#e1edfc,#f2f7fd);border:1px solid #c8daed}.section-head h1{color:#103961}.section-head .eyebrow{color:#14558e}
+.panel,.module-panel,.notice-card{border-color:#c7d9eb;box-shadow:0 8px 26px #113b6710}.admin-module-nav{border-color:#bbd2e9;background:#f3f8ff}
+.admin-module-menu button{color:#174979}.admin-module-menu button[aria-current=page],.admin-module-menu button:hover{background:#dcecff;color:#0d3b65;border-color:#b2cbdf}.metric{border-top:3px solid #2a6da8;background:linear-gradient(160deg,#fff,#eaf3ff)}
+.workspace-shortcuts button{background:#eaf3ff;border-color:#bfd5eb;color:#164776}.manager-section{background:#f4f9ff;border-color:#c7d9eb}.manager-stats>div{background:#e5f0fc;border-color:#bed4ec}.staff-card{border-color:#bbd2e8}
+.institutional-admin h2,.catalog-manager h2{color:#103961}.institution-dialog{border-color:#abc9e5;box-shadow:0 26px 80px #092d544d;border-top:5px solid #14558e}
+footer{background:#102f52;color:#e7f1ff;border-top:4px solid #1f659f}footer a{color:#fff}
+.voice-entry{background:#e7f1ff;border:1px solid #b5cde5;color:#123e6c}.voice-entry[aria-pressed=true]{background:#14558e;color:#fff;border-color:#14558e}
+.voice-dock{position:relative;background:#0d345c;color:#fff;border-bottom:2px solid #69a3d6;padding:12px max(20px,calc((100% - 1320px)/2));box-shadow:0 3px 10px #0b2d531b}
+.voice-dock-inner{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(270px,.9fr);gap:14px;align-items:center}
+.voice-dock-copy{min-width:0}.voice-dock h2{font-size:1rem;margin:0 0 2px;color:#fff}.voice-dock-copy>p{font-size:.8rem;margin:3px 0;color:#e0edfc;overflow-wrap:anywhere}
+.voice-dock .voice-transcript{background:#21496f;border:1px solid #5a83aa;color:#fff;font-size:.84rem;line-height:1.45;padding:8px 11px;margin:5px 0}.voice-dock .voice-status{color:#e1eeff;font-size:.76rem}
+.voice-dock .voice-controls{display:flex;align-items:end;gap:7px;flex-wrap:wrap;justify-content:flex-end;margin:0}
+.voice-dock label{color:#fff;margin:0;font-size:.77rem}.voice-dock select{min-height:44px;width:auto;max-width:100%;margin-top:4px;padding:7px 9px}
+.voice-dock .secondary{background:#e4efff;color:#123e6c;border-color:#b6cde6}.voice-dock .primary{background:#fff;color:#123e6c;border-color:#fff}.voice-dock button{font-size:.83rem;padding:8px 11px}
+[ data-voice-hint ]{scroll-margin-top:16px}
+body.hc :is(.top,.nav,.notice,.folder-region,.citizen-faq,.section-head,.voice-dock,.voice-dock .voice-transcript,.hero-mini,.hero-mini-icon,footer,.metric,.catalog-card,.service-folder,.quick-tile,.citizen-route,.citizen-assistance,.admin-module-nav,.workspace-shortcuts button){background:#000!important;color:#fff!important;border-color:#fff!important;box-shadow:none!important}
+body.hc :is(.top .brand strong,.top .brand small,.notice strong,.citizen-faq h2,.citizen-faq p,.faq-item summary,.folder-region h2,.service-folder strong,.service-folder small,.catalog-info-row h2,.quick-tile strong,.quick-tile small,.quick-arrow,.citizen-route h2,.citizen-milestone strong,.citizen-milestone p,.section-head h1,.section-head .eyebrow,.voice-dock h2,.voice-dock p,.voice-dock label,footer a){color:#fff!important}
+body.hc :is(.nav .navbtn.active,.service-folder[aria-pressed=true],.voice-entry[aria-pressed=true]){background:#ffdf74!important;color:#000!important;border-color:#ffdf74!important}
+body.hc .service-folder[aria-pressed=true] :is(strong,small){color:#000!important}
+body.hc .hero-actions .hero-secondary{background:#000!important;color:#fff!important;border-color:#fff!important}
+@media(max-width:980px){.hero-mini-folder{left:0}.hero-mini-clock{right:0}.voice-dock-inner{grid-template-columns:minmax(0,1fr)}.voice-dock .voice-controls{justify-content:flex-start}}
+@media(max-width:720px){.top{padding-inline:15px;border-top-width:4px}.top .brand{gap:10px}.nav{padding:8px 12px;gap:5px}.nav .navbtn{padding:8px 11px;font-size:.82rem}.catalog-masthead{grid-template-columns:minmax(0,1fr);padding:27px 22px;min-height:0}.catalog-masthead h1{font-size:clamp(1.95rem,8.3vw,2.9rem);max-width:100%}.catalog-masthead .module-intro{font-size:.92rem}.hero-actions{margin-top:20px;gap:8px}.hero-actions button{flex:1 1 125px;min-width:0;max-width:100%;font-size:.85rem;padding:9px 11px}.catalog-tools{padding:15px}.folder-region,.citizen-faq,.citizen-route{padding:16px}.catalog-card{min-height:246px;padding:19px}.citizen-route .citizen-milestone{border-left-color:#6d93bb}.section-head{padding:17px}.voice-dock{padding:10px 15px}.voice-dock .voice-controls button{flex:0 1 auto}.voice-dock .voice-controls{align-items:end}.voice-dock .voice-transcript{max-height:115px;overflow:auto}.voice-dock-inner,.voice-dock,.citizen-faq,.folder-region,.hero-actions,.voice-controls{min-width:0;max-width:100%;overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
