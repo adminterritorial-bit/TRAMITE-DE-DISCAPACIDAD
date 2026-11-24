@@ -89,7 +89,15 @@ function catPublic_(){
  return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>({
    ...catSummary_({id:x.id,...x.live}),
    intakeEnabled:enabled.has(x.id),
-   ...(enabled.has(x.id)?{intakeSchema:x.live}:{})
+   ...(enabled.has(x.id)?{intakeSchema:{
+     version:x.live.version,title:x.live.title,category:x.live.category,
+     fields:(x.live.fields||[]).map(field=>({
+      id:field.id,type:field.type,label:field.label,required:field.required,
+      ...(field.options?{options:field.options}:{}),
+      ...(field.condition?{condition:field.condition}:{}),
+      ...(field.type==='document'?{fixture:field.fixture}:{})
+     }))
+    }}:{})
   }))],
   categories:categories.filter(x=>x.active).map(({id,title})=>({id,title}))};
 }
