@@ -105,7 +105,7 @@ export function mountAdminWorkspace({dashboard,menu}){
    return;
   }
   for(const [key,value] of Object.entries(verified))values[key].textContent=value.toLocaleString('es-CO');
-  note.textContent=detail.filtered?'Indicadores según los filtros aplicados a la bandeja.':'Indicadores reales · bandeja institucional autorizada.';
+  note.textContent=detail.demo?'Datos ficticios de demostración.':detail.filtered?'Indicadores según los filtros aplicados a la bandeja.':'Indicadores reales · bandeja institucional autorizada.';
  });
  decorate();
  return {refresh:decorate};
