@@ -107,6 +107,12 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  const limit=15;
  let records=[],selectedId=null,page=1,total=0,exact=false,metrics=null,recent=[],requestGeneration=0,detailGeneration=0,searchTimer;
  const priorities=['received','needs_documents','awaiting_certificate','delivery_review'];
+ const publishMetrics=(valid=true)=>{
+  window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{
+   exact:valid&&exact,metrics:valid?metrics:null,
+   filtered:!!(search.value||filter.value||from.value||to.value||owner.value||task.value)
+  }}));
+ };
  const signal=(message,problem=false)=>{status.textContent=message;status.dataset.error=String(problem)};
  function stat(name,count,kind){
   const item=e('div',undefined,'case-stat'),num=e('strong',String(count));
@@ -182,10 +188,10 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    metrics=exact?response.metrics:null;
    recent=Array.isArray(response.activity)?response.activity:[...records].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
    drawCounts();drawList();syncQuick();
-   window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{exact,metrics,filtered:!!(search.value||filter.value||from.value||to.value||owner.value||task.value)}}));
+   publishMetrics();
    if(reloadSelected&&selectedId)void openCase(selectedId);
    signal(exact?'Bandeja actualizada':records.length>=100?'Mostrando los últimos 100 expedientes disponibles.':'Bandeja actualizada');
-  }catch(err){if(run===requestGeneration)signal(errorText(err),true);}
+  }catch(err){if(run===requestGeneration){signal(errorText(err),true);publishMetrics(false);}}
   finally{if(run===requestGeneration){refresh.disabled=false;panel.removeAttribute('aria-busy');}}
  }
  function changeFilters(){
@@ -221,7 +227,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   records=records.map(item=>item.id===result.id?result:item);
   recent=[result,...recent.filter(item=>item.id!==result.id)].slice(0,4);
   if(result.id===selectedId)renderDetail(result);
-  drawCounts();drawList();signal(message);
+  drawCounts();drawList();publishMetrics();signal(message);
  }
  function actionBlock(label,description){
   const section=e('section',undefined,'case-section');
