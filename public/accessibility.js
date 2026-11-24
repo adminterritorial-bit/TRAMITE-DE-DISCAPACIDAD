@@ -1,5 +1,7 @@
 // Public guidance only. No form values, expedientes, emails or documents are spoken.
 const guidance=Object.freeze({
+ home:'Estás en el inicio de SITS Salud. Consulta trámites, haz seguimiento de tus solicitudes o abre la sección de ayuda.',
+ help:'Consulta las preguntas frecuentes y los canales de la Secretaría de Salud.',
  catalog:'Bienvenido a SITS Salud de la Alcaldía de San Pedro. Usa el buscador para encontrar el servicio. Elige una categoría o una tarjeta para consultar sus requisitos. En Mis solicitudes puedes acceder al seguimiento con una cuenta autorizada.',
  service:'Consulta la información y los requisitos del servicio. Revisa el canal de atención y la disponibilidad de la radicación. Si necesitas ayuda, puedes acudir a los canales oficiales de la Alcaldía.',
  citizen:'Para acceder al formulario, identifica tu cuenta cuando se solicite. Revisa las instrucciones de cada paso. Puedes pedir apoyo a la Secretaría de Salud. No se leerán datos personales ni documentos en voz alta.',
@@ -16,7 +18,10 @@ export function accessiblePortal(){
  const compatible=()=>typeof window.speechSynthesis!=='undefined'&&typeof window.SpeechSynthesisUtterance==='function';
  const voice=()=>compatible()?synth().getVoices().filter(v=>v.localService&&/^es(?:-|_|$)/i.test(v.lang)).sort((a,b)=>Number(b.lang.toLowerCase()==='es-co')-Number(a.lang.toLowerCase()==='es-co'))[0]:null;
  const toolbar=document.querySelector('.tools');
- const trigger=button('Escuchar guía',()=>setEnabled(!enabled),'quiet voice-entry');trigger.id='voice-toggle';trigger.setAttribute('aria-pressed','false');trigger.setAttribute('aria-controls','voice-guide');toolbar.insertBefore(trigger,document.getElementById('signout'));
+ const trigger=document.getElementById('voice-toggle')||button('Escuchar guía',()=>{},'quiet voice-entry');
+ trigger.onclick=()=>setEnabled(!enabled);trigger.id='voice-toggle';
+ trigger.setAttribute('aria-pressed','false');trigger.setAttribute('aria-controls','voice-guide');
+ if(!trigger.isConnected)toolbar.insertBefore(trigger,document.getElementById('signout'));
  // Inline, non-modal: the rest of the document remains interactive and focus never moves.
  const panel=create('aside',undefined,'voice-dock');panel.id='voice-guide';panel.hidden=true;panel.setAttribute('aria-labelledby','voice-guide-title');
  const inner=create('div',undefined,'voice-dock-inner'),copy=create('div',undefined,'voice-dock-copy'),h=create('h2','Guía de voz activa');h.id='voice-guide-title';

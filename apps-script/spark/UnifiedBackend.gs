@@ -81,6 +81,23 @@ const SPARK_BUILD_='spark-unified-2.0';
 const SPARK_PORTAL_='https://sits-salud-san-pedro.vercel.app/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ // Version-specific handshake: never silently accept an old Firebase deployment.
+ if(e?.parameter?.probe==='sits-supabase-v1'){
+  if(typeof sitsSbOn_!=='function'||!sitsSbOn_())
+   return output_({ok:false,build:SPARK_BUILD_,enabled:false});
+  if(e?.parameter?.content==='catalog'||e?.parameter?.content==='public'){
+   try{return output_({ok:true,build:'sits-supabase-1.0',
+    ...sitsPortalRun_(()=>e.parameter.content==='catalog'?catPublic_():{notices:instNotices_('public'),policies:instPublished_()})});}
+   catch(_){return output_({ok:false,error:'database_unavailable'});}
+  }
+  if(e?.parameter?.content==='official-intake'){
+   try{root_();return output_({ok:true,build:'sits-supabase-1.0',...sitsSbCapabilities_()});}
+   catch(_){return output_({ok:true,build:'sits-supabase-1.0',enabled:false,documents:[]});}
+  }
+  return output_({ok:true,build:'sits-supabase-1.0',enabled:true});
+ }
+ if(PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='supabase')
+  return output_({ok:false,build:'sits-supabase-1.0',error:'legacy_backend_disabled'});
  if(e?.parameter?.content==='official-intake'){
   try{return output_({ok:true,...officialCapabilities_()});}
   catch(_){return output_({ok:true,enabled:false,documents:[]});}
@@ -109,7 +126,19 @@ function doGet(e){
  }
  return output_({ok:true,build:SPARK_BUILD_,enabled:true,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
 }
-function doPost(e){return spHandle_(e);}
+function doPost(e){
+ const probe=e?.parameter?.probe||'';
+ const mode=PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')||'firebase';
+ if(probe==='sits-supabase-v1'){
+  if(mode==='dual'||mode==='supabase')return sitsSbHandle_(e);
+  return output_({ok:false,build:'sits-supabase-1.0',error:'pilot_disabled'});
+ }
+ if(mode==='supabase'){
+  // Never reinterpret an old Firebase token as a Supabase access token.
+  return output_({ok:false,build:'sits-supabase-1.0',error:'legacy_backend_disabled'});
+ }
+ return spHandle_(e);
+}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
 const SPARK_REST_='https://firestore.googleapis.com/v1/'+SPARK_DB_;
 const SPARK_FIXTURE_='2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf';
@@ -159,6 +188,7 @@ function spName_(collection,id){
 }
 function spRead_(collection,id){
  var name=spName_(collection,id);
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalRead_(collection,id);
  return spRest_('/'+name.slice(SPARK_DB_.length+1),'get',undefined,true);
 }
 function spPut_(collection,id,data,prior,timestamps){
@@ -167,9 +197,13 @@ function spPut_(collection,id,data,prior,timestamps){
  if(timestamps&&timestamps.length)w.updateTransforms=timestamps.map(fieldPath=>({fieldPath,setToServerValue:'REQUEST_TIME'}));
  return w;
 }
-function spCommit_(writes){return spRest_(':commit','post',{writes});}
+function spCommit_(writes){
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalCommit_(writes);
+ return spRest_(':commit','post',{writes});
+}
 function spAudit_(id,uid,action){return spPut_('audit',Utilities.getUuid(),{requestId:id,actorUid:uid,action},null,['at']);}
 function spQuery_(collection,field,value,sort,max,{op='EQUAL',cursor}={}){
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalQuery_(collection,field,value,sort,max,op,cursor);
  var q={from:[{collectionId:collection}],orderBy:[{field:{fieldPath:sort},direction:'DESCENDING'}],limit:max};
  if(field)q.where={fieldFilter:{field:{fieldPath:field},op,value:spValue_(value)}};
  if(cursor){
@@ -654,12 +688,13 @@ function officialCertificateFile_(f){
  const accepted=officialFiles_([{...f,kind:'historia'}])[0];
  return {...accepted,kind:'certificate'};
 }
-function officialCertificateMail_(to,reference,file){
+function officialCertificateMail_(to,reference,file,test=false){
  if(!isValidEmail_(to))throw Error('invalid_request');
  const bytes=Utilities.base64Decode(file.base64);
  const attachment=Utilities.newBlob(bytes,'application/pdf','Certificado-'+reference+'.pdf');
- MailApp.sendEmail({to,subject:'Certificado de discapacidad · '+reference,
+ MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+'Certificado de discapacidad · '+reference,
   body:'Secretaría de Salud de San Pedro, Valle del Cauca\n\n'
+   +(test?'Documento ficticio usado para verificar el servicio.\n\n':'')
    +'Adjuntamos el certificado correspondiente a tu solicitud '+reference+'. '
    +'Este correo se remite a la dirección verificada que autorizaste para recibir el certificado.\n\n'
    +'Si no reconoces la solicitud, comunícate con la Secretaría de Salud mediante los canales oficiales.\n\n'

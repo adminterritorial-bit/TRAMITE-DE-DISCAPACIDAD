@@ -10,17 +10,22 @@ const NEXT={
  received:['reviewing'],reviewing:['needs_documents','awaiting_certificate','not_proceed'],
  needs_documents:['reviewing'],not_proceed:['closed']
 };
+const workspaces=new WeakMap();
+const localDate=stamp=>{
+ const value=new Date(stamp).getTime();
+ return Number.isFinite(value)?new Date(value-5*3600000).toISOString().slice(0,10):'';
+};
+const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const NAMES={historia:'Soporte médico',apoyo:'Soporte adicional',certificate:'Certificado de discapacidad'};
 const safeDate=ms=>ms?new Date(ms).toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'}):'—';
 const e=(tag,txt,cls)=>{const x=document.createElement(tag);if(txt!==undefined)x.textContent=txt;if(cls)x.className=cls;return x};
 const b=(txt,fn,cls='secondary')=>{const x=e('button',txt,cls);x.type='button';x.addEventListener('click',fn);return x};
 const field=(title,control)=>{const label=e('label',undefined,'case-field');label.append(e('span',title),control);return label};
 const errorText=err=>{
- const code=err?.message||'operation_failed';
+ const code=err?.code||err?.message||'operation_failed';
  const messages={
-  firestore_permission_denied:'Firestore no autorizó guardar el cambio. Revisa el acceso del proyecto de Apps Script a la base de datos.',
-  firestore_precondition:'Firestore rechazó la operación o requiere un índice. Consulta las ejecuciones del proyecto Apps Script.',
-  firestore_unavailable:'No fue posible guardar la actuación en Firestore. El estado anterior se conserva hasta verificar la operación.',
+  database_unavailable:'No fue posible guardar la actuación en Supabase.',
+  revision_conflict:'El expediente cambió durante la operación. Actualiza el registro.',
   content_version_changed:'El expediente fue actualizado por otra persona. Recarga el registro antes de continuar.',
   invalid_transition:'La operación no corresponde al estado actual. Actualiza el expediente.',
   recent_login_required:'Para esta actuación debes salir e ingresar nuevamente con Google.',
@@ -30,7 +35,7 @@ const errorText=err=>{
   rate_limit:'Se alcanzó el límite de operaciones de seguridad. Consulta con el administrador.',
   invalid_request:'El servidor no reconoce la operación o faltan datos. Comprueba que el código de Apps Script esté actualizado.'
  };
- return (messages[code]||'No se completó la operación. Consulta el registro y vuelve a cargar.')+' · '+code;
+ return messages[code]||'No se completó la operación. Actualiza el expediente e inténtalo de nuevo.';
 };
 function pill(status){
  const x=e('span',STATES[status]||'Estado por verificar','case-badge');
@@ -42,7 +47,7 @@ function download(blob,name){
  const link=e('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-export async function renderOfficialStaffInbox({invoke,validatePdf}){
+export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId}){
  const dashboard=document.getElementById('adminDashboard');
  if(!dashboard||dashboard.classList.contains('hidden'))return;
  let panel=dashboard.querySelector('#officialInbox');
@@ -51,12 +56,13 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   panel.id='officialInbox';
   dashboard.querySelector('.dashbar')?.after(panel);
  }
+ if(workspaces.has(panel))return;
  panel.hidden=false;panel.setAttribute('aria-label','Gestión de expedientes de Salud');
  const head=e('div',undefined,'case-heading'),intro=e('div');
  intro.append(e('span','SECRETARÍA DE SALUD · GESTIÓN DOCUMENTAL','intake-kicker'),
    e('h2','Gestión integral de expedientes'),
-   e('p','Revisa soportes, registra actuaciones, solicita correcciones y entrega certificados desde el expediente.'));
- const refresh=b('Actualizar bandeja',()=>load(),'secondary');
+   e('p','Revisa soportes, registra actuaciones y entrega certificados desde el expediente.'));
+ const refresh=b('Actualizar bandeja',()=>load({reloadSelected:true}),'secondary');
  head.append(intro,refresh);
  const status=e('p','','case-feedback');status.setAttribute('role','status');
  const counts=e('div',undefined,'case-counts');
@@ -66,72 +72,145 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
  for(const [value,name] of [['','Todos los estados'],...Object.entries(STATES)]){
   const o=e('option',name);o.value=value;filter.append(o);
  }
- tools.append(field('Buscar expediente',search),field('Estado',filter));
+ const from=e('input');from.type='date';
+ const to=e('input');to.type='date';
+ const owner=e('select');
+ const order=e('select');
+ const task=e('select');
+ for(const [select,values] of [[owner,[['','Cualquier responsable'],['me','Asignados a mí'],['none','Sin asignar']]],
+  [order,[['new','Más recientes'],['old','Más antiguos'],['activity','Última actuación']]],
+  [task,[['','Cualquier actuación'],['pending','Requiere gestión']]]]){
+  for(const [value,label] of values){const option=e('option',label);option.value=value;select.append(option);}
+ }
+ tools.append(field('Buscar expediente',search),field('Estado',filter),field('Desde',from),field('Hasta',to),field('Responsable',owner),field('Orden',order),field('Prioridad',task));
+ const activity=e('section',undefined,'case-activity');
+ const tasks=e('section',undefined,'case-priorities');
+ const overview=e('div',undefined,'case-overview');overview.append(tasks,activity);
  const layout=e('div',undefined,'case-layout'),list=e('div',undefined,'case-list'),detail=e('div',undefined,'case-detail');
+ const pagination=e('div',undefined,'case-pagination'),queue=e('div',undefined,'case-queue');
  list.setAttribute('aria-label','Lista de expedientes');
  detail.setAttribute('aria-label','Expediente seleccionado');
- detail.append(e('h3','Selecciona un expediente'),e('p','Consulta los soportes y su historial de gestión.'));
- layout.append(list,detail);panel.replaceChildren(head,status,counts,tools,layout);
- let records=[],selectedId=null,selectedDetail=null;
+ detail.append(e('h3','Selecciona un expediente'),e('p','Consulta los soportes y registra actuaciones en el mismo lugar.'));
+ queue.append(list,pagination);
+ layout.append(queue,detail);panel.replaceChildren(head,status,counts,overview,tools,layout);
+ workspaces.set(panel,true);
+ const limit=15;
+ let records=[],selectedId=null,page=1,total=0,exact=false,metrics=null,recent=[],requestGeneration=0,detailGeneration=0,searchTimer;
+ const priorities=['received','needs_documents','awaiting_certificate','delivery_review'];
  const signal=(message,problem=false)=>{status.textContent=message;status.dataset.error=String(problem)};
  function stat(name,count,kind){
   const item=e('div',undefined,'case-stat'),num=e('strong',String(count));
   item.append(num,e('span',name));item.dataset.kind=kind;return item;
  }
+ function countOf(kind){return metrics?Number(metrics[kind]||0):records.filter(x=>x.status===kind).length;}
  function drawCounts(){
   counts.replaceChildren(
-   stat('Solicitudes',records.length,'all'),
-   stat('Recibidas',records.filter(x=>x.status==='received').length,'received'),
-   stat('En revisión',records.filter(x=>x.status==='reviewing').length,'reviewing'),
-   stat('Subsanaciones',records.filter(x=>x.status==='needs_documents').length,'needs_documents'),
-   stat('Pendientes de certificado',records.filter(x=>x.status==='awaiting_certificate').length,'awaiting_certificate'),
-   stat('Entregadas',records.filter(x=>['delivered','available'].includes(x.status)).length,'delivered')
+   stat(exact?'Expedientes':'Expedientes cargados',metrics?Object.values(metrics).reduce((sum,n)=>sum+Number(n),0):records.length,'all'),
+   stat('Recibidas',countOf('received'),'received'),
+   stat('En revisión',countOf('reviewing'),'reviewing'),
+   stat('En subsanación',countOf('needs_documents'),'needs_documents'),
+   stat('Por certificar',countOf('awaiting_certificate'),'awaiting_certificate'),
+   stat('Entrega por verificar',countOf('delivery_review'),'delivery_review')
   );
+  const priorityList=e('ul',undefined,'workspace-list');
+  for(const kind of priorities){
+   const count=countOf(kind);
+   if(!count)continue;
+   const li=e('li');li.append(b(STATES[kind]+' · '+count,()=>{filter.value=kind;changeFilters();},'quiet'));priorityList.append(li);
+  }
+  if(!priorityList.children.length)priorityList.append(e('li','No hay actuaciones pendientes en la bandeja.'));
+  tasks.replaceChildren(e('h3','Acciones prioritarias'),priorityList);
+  const activityList=e('ul',undefined,'workspace-list');
+  for(const entry of recent){
+   const li=e('li');li.append(e('strong',entry.reference),e('small',safeDate(entry.updatedAt)),pill(entry.status));activityList.append(li);
+  }
+  if(!activityList.children.length)activityList.append(e('li','Aún no hay actividad registrada.'));
+  activity.replaceChildren(e('h3','Actividad reciente'),activityList);
+ }
+ function fallbackRows(){
+  const term=normalize(search.value);
+  const filtered=records.filter(x=>(!filter.value||filter.value===x.status)&&
+    (!term||normalize([x.reference,x.name,x.documentNumber].join(' ')).includes(term))&&
+    (!from.value||localDate(x.createdAt)>=from.value)&&(!to.value||localDate(x.createdAt)<=to.value)&&
+    (!task.value||priorities.includes(x.status))&&(!owner.value||(owner.value==='none'?!x.assignedTo:x.assignedTo===sessionUserId)));
+  filtered.sort((a,b)=>order.value==='activity'?new Date(b.updatedAt)-new Date(a.updatedAt):
+    order.value==='old'?new Date(a.createdAt)-new Date(b.createdAt):new Date(b.createdAt)-new Date(a.createdAt));
+  total=filtered.length;
+  return filtered.slice((page-1)*limit,page*limit);
  }
  function drawList(){
-  list.replaceChildren();const term=search.value.trim().toLocaleLowerCase('es-CO');
-  const filtered=records.filter(x=>(!filter.value||filter.value===x.status)&&
-    (!term||(x.reference+' '+x.name+' '+(x.documentNumber||'')).toLocaleLowerCase('es-CO').includes(term)));
+  list.replaceChildren();
+  const filtered=exact?records:fallbackRows();
   for(const item of filtered){
-   const card=b('',()=>openCase(item.id),'case-list-card');
+   const card=b('',()=>void openCase(item.id),'case-list-card');
    card.setAttribute('aria-label','Gestionar '+item.reference);
+   card.setAttribute('aria-pressed',String(selectedId===item.id));
    card.classList.toggle('selected',selectedId===item.id);
    card.append(e('strong',item.reference),pill(item.status),e('span',item.name||'Titular'),e('small',safeDate(item.createdAt)));
    list.append(card);
   }
-  if(!filtered.length)list.append(e('p','Sin expedientes con los criterios seleccionados.','muted'));
+  if(!filtered.length)list.append(e('p','Sin expedientes con los criterios seleccionados.','case-empty'));
+  pagination.replaceChildren();
+  const last=Math.max(1,Math.ceil(total/limit));
+  if(last>1){
+   const prev=b('Anterior',()=>{page--;exact?void load():drawList();});
+   const next=b('Siguiente',()=>{page++;exact?void load():drawList();});
+   prev.disabled=page===1;next.disabled=page>=last;
+   pagination.append(prev,e('span','Página '+page+' de '+last),next);
+  }
  }
- async function load(reopen){
-  refresh.disabled=true;signal('Consultando expedientes…');
+ async function load({reloadSelected=false}={}){
+  const run=++requestGeneration;
+  refresh.disabled=true;signal('Consultando expedientes…');panel.setAttribute('aria-busy','true');
   try{
-   const response=await invoke('officialInbox');
+   const response=await invoke('officialInbox',{search:search.value.trim(),status:filter.value,from:from.value,to:to.value,
+    owner:owner.value,sort:order.value,task:task.value,page,size:limit});
+   if(run!==requestGeneration||!panel.isConnected)return;
    records=Array.isArray(response.items)?response.items:[];
-   drawCounts();drawList();signal('Bandeja actualizada');
-   if(reopen&&records.some(x=>x.id===reopen))await openCase(reopen);
-  }catch(err){signal(errorText(err),true);}
-  finally{refresh.disabled=false;}
+   exact=Number.isInteger(response.total);total=response.total??records.length;
+   owner.disabled=!exact;owner.title=exact?'':'Disponible con la bandeja paginada';
+   metrics=exact?response.metrics:null;
+   recent=Array.isArray(response.activity)?response.activity:[...records].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
+   drawCounts();drawList();
+   if(reloadSelected&&selectedId)void openCase(selectedId);
+   signal(exact?'Bandeja actualizada':records.length>=100?'Mostrando los últimos 100 expedientes disponibles.':'Bandeja actualizada');
+  }catch(err){if(run===requestGeneration)signal(errorText(err),true);}
+  finally{if(run===requestGeneration){refresh.disabled=false;panel.removeAttribute('aria-busy');}}
  }
- search.addEventListener('input',drawList);filter.addEventListener('change',drawList);
+ function changeFilters(){
+  if(from.value&&to.value&&from.value>to.value){signal('La fecha inicial debe ser anterior a la fecha final.',true);return;}
+  page=1;
+  if(exact)void load();else drawList();
+ }
+ search.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(changeFilters,225);});
+ for(const input of [filter,from,to,owner,order,task])input.addEventListener('change',changeFilters);
  async function openCase(id){
-  selectedId=id;drawList();
-  // The authorized inbox already supplies full staff details; avoid another
-  // round-trip to Apps Script, App Check and Firestore for each selection.
+  const sequence=++detailGeneration;selectedId=id;drawList();
+  // The authorized inbox already includes the details needed to open a case.
   const available=records.find(item=>item.id===id);
   if(available?.email&&available?.documentNumber&&Array.isArray(available.history)){
-   selectedDetail=available;renderDetail(available);return;
+   renderDetail(available);return;
   }
   detail.replaceChildren(e('p','Consultando expediente…','muted'));
   try{
    const row=await invoke('officialRead',{id});
-   if(selectedId!==id)return;
-   selectedDetail=row;renderDetail(row);
-  }catch(err){detail.replaceChildren(e('p',errorText(err),'error'));}
+   if(sequence!==detailGeneration||!panel.isConnected)return;
+   renderDetail(row);
+  }catch(err){if(sequence===detailGeneration)detail.replaceChildren(e('p',errorText(err),'error'));}
  }
  function applyChange(result,message){
-  if(!result?.id||result.id!==selectedId)throw Error('content_version_changed');
+  if(!result?.id)throw Error('content_version_changed');
+  if(metrics){
+   const old=records.find(item=>item.id===result.id);
+   if(old&&old.status!==result.status){
+    metrics[old.status]=Math.max(0,Number(metrics[old.status]||0)-1);
+    metrics[result.status]=Number(metrics[result.status]||0)+1;
+   }
+  }
   records=records.map(item=>item.id===result.id?result:item);
-  selectedDetail=result;drawCounts();drawList();renderDetail(result);
-  signal(message);
+  recent=[result,...recent.filter(item=>item.id!==result.id)].slice(0,4);
+  if(result.id===selectedId)renderDetail(result);
+  drawCounts();drawList();signal(message);
  }
  function actionBlock(label,description){
   const section=e('section',undefined,'case-section');
@@ -141,13 +220,26 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   const title=e('div',undefined,'case-detail-heading'),left=e('div');
   left.append(e('span','EXPEDIENTE · '+row.reference,'intake-kicker'),e('h3',row.name),e('p',row.documentType+' '+row.documentNumber+' · '+row.zone));
   title.append(left,pill(row.status));
+  const openHeading=left.querySelector('h3');openHeading.tabIndex=-1;
   const info=e('div',undefined,'case-facts');
   for(const [label,value] of [['Correo verificado',row.email],['Teléfono',row.phone||'Sin registrar'],
     ['Presentación',row.representation==='apoyo'?'Persona de apoyo':'Directa'],['Última actualización',safeDate(row.updatedAt)]]){
    const pair=e('div');pair.append(e('small',label),e('strong',value||'—'));info.append(pair);
   }
   detail.replaceChildren(title,info);
+  const tabs=e('nav',undefined,'case-section-nav');
+  tabs.setAttribute('aria-label','Secciones del expediente');
+  for(const [id,label] of [['case-files','Documentos'],['case-history','Actuaciones'],['case-next','Gestionar']]){
+   const control=b(label,()=>{
+    const section=detail.querySelector('#'+id);
+    const heading=section?.querySelector('h4');
+    if(heading){heading.tabIndex=-1;heading.focus();}
+   },'quiet');
+   control.dataset.section=id;tabs.append(control);
+  }
+  title.after(tabs);
   const documents=actionBlock('Documentos del expediente','Los soportes se conservan en el repositorio privado; no se generan enlaces públicos.');
+  documents.id='case-files';
   const filelist=e('div',undefined,'case-filelist');
   for(const file of row.files||[]){
    const line=e('div',undefined,'case-document');line.append(e('span',NAMES[file.kind]||'Documento'),e('small',(file.size/1024/1024).toFixed(2)+' MB'));
@@ -170,6 +262,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   if(!filelist.children.length)filelist.append(e('p','No hay soportes asociados.','muted'));
   documents.append(filelist);detail.append(documents);
   const history=actionBlock('Historial de actuaciones','Registro cronológico de las decisiones y novedades del expediente.');
+  history.id='case-history';
   const timeline=e('ol',undefined,'case-timeline');
   const events=Array.isArray(row.history)?row.history:[];
   for(const item of [...events].reverse()){
@@ -180,6 +273,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   const options=NEXT[row.status]||[];
   if(options.length){
    const block=actionBlock('Actualizar estado','Selecciona la siguiente actuación y registra el motivo para mantener la trazabilidad.');
+   block.id='case-next';
    const form=e('form',undefined,'case-update-form');
    const select=e('select');select.required=true;select.name='status';select.setAttribute('aria-label','Nuevo estado');
    for(const code of options){const option=e('option',STATES[code]||code);option.value=code;select.append(option);}
@@ -198,13 +292,16 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
      applyChange(updated,'Actuación registrada correctamente.');
     }catch(err){signal(errorText(err),true);}finally{confirm.disabled=false;}
    },'primary');
-   const update=()=>{kindLabel.hidden=select.value!=='needs_documents';};
+   const consequence=e('p','','case-section-help');
+   const effects={reviewing:'El expediente quedará en revisión.',needs_documents:'El ciudadano verá el soporte solicitado y el motivo de la corrección.',awaiting_certificate:'Se habilitará la carga y entrega del certificado.',not_proceed:'La decisión quedará reflejada en el historial.',closed:'El expediente pasará al archivo.'};
+   const update=()=>{kindLabel.hidden=select.value!=='needs_documents';consequence.textContent=effects[select.value]||'';};
    select.addEventListener('change',update);update();
-   form.append(field('Nuevo estado',select),kindLabel,field('Justificación de la actuación',comments),confirm);
+   form.append(field('Nuevo estado',select),kindLabel,field('Justificación de la actuación',comments),consequence,confirm);
    block.append(form);detail.append(block);
   }
   if(row.status==='awaiting_certificate'){
    const block=actionBlock('Emisión y entrega del certificado','Adjunta exclusivamente el certificado expedido por la autoridad competente. Tras confirmar, el sistema lo guardará y realizará la entrega autorizada.');
+   block.id='case-next';
    const destination=e('div',undefined,'case-delivery-destination');
    destination.append(e('strong',row.certificateEmailConsent?'Entrega por correo autorizada':'Entrega disponible en el portal'),
     e('span',row.certificateEmailConsent
@@ -228,6 +325,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   }
   if(row.status==='delivery_review'){
    const block=actionBlock('Verificación de entrega','El certificado ya está guardado. No se reenviará automáticamente: primero debemos comprobar si el correo anterior fue aceptado.');
+   block.id='case-next';
    const verify=b('Comprobar registro del envío',async()=>{
     verify.disabled=true;signal('Comprobando evidencia de entrega…');
     try{const updated=await invoke('officialVerifyDelivery',{id:row.id,revision:row.revision,confirm:true});applyChange(updated,'Entrega confirmada.');}
@@ -250,6 +348,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
    }
    detail.append(block);
   }
+  if(!detail.querySelector('#case-next'))tabs.querySelector('[data-section=case-next]').hidden=true;
  }
  await load();
 }

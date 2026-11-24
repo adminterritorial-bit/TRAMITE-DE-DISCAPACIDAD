@@ -19,10 +19,10 @@ const policyTitles={
 const rightsTitles={access:'Conocer o consultar los datos',update:'Actualizar datos',rectification:'Rectificar datos',
   suppression:'Solicitar supresión',proof:'Solicitar prueba de autorización',revocation:'Solicitar revocación'};
 const legalFallback={
-  "processing": "La Alcaldía Municipal de San Pedro, Valle del Cauca, administra este portal de la Secretaría de Salud. En la operación habilitada se utilizan el correo verificado, identificador de cuenta, registros de acceso, decisiones de privacidad y expedientes sintéticos. Las finalidades son autenticar, permitir seguimiento, proteger el servicio y registrar actuaciones. Firebase y Google Workspace soportan identidad, registros, almacenamiento y comunicaciones. No se ha habilitado la recepción clínica oficial. El tratamiento se rige por la Ley 1581 de 2012 y el Decreto 1074 de 2015. Los derechos de conocimiento, acceso, actualización, rectificación, prueba de autorización, información del uso, revocación y supresión se ejercen a través de los canales oficiales de la Alcaldía, con las excepciones y obligaciones de conservación aplicables. Después de agotar la consulta o reclamación ante el responsable podrá acudir a la SIC cuando proceda. La política definitiva debe incorporar las condiciones institucionales de custodia, retención, encargados y transmisión, previa aprobación.",
+  "processing": "La Alcaldía Municipal de San Pedro, Valle del Cauca, administra este portal de la Secretaría de Salud. En la operación habilitada se utilizan el correo verificado, identificador de cuenta, registros de acceso, decisiones de privacidad y expedientes sintéticos. Las finalidades son autenticar, permitir seguimiento, proteger el servicio y registrar actuaciones. Supabase gestiona la autenticación y los registros. Google Workspace gestiona el almacenamiento de documentos y las comunicaciones. No se ha habilitado la recepción clínica oficial. El tratamiento se rige por la Ley 1581 de 2012 y el Decreto 1074 de 2015. Los derechos de conocimiento, acceso, actualización, rectificación, prueba de autorización, información del uso, revocación y supresión se ejercen a través de los canales oficiales de la Alcaldía, con las excepciones y obligaciones de conservación aplicables. Después de agotar la consulta o reclamación ante el responsable podrá acudir a la SIC cuando proceda. La política definitiva debe incorporar las condiciones institucionales de custodia, retención, encargados y transmisión, previa aprobación.",
   "privacy": "El portal público permite consultar el catálogo sin iniciar sesión. En la zona autenticada se verifica el correo y la identidad de la cuenta; la consulta de expedientes exige autorización. Los avisos por correo son voluntarios cuando corresponda y no equivalen automáticamente a notificación administrativa. No se ha habilitado la recepción de documentos clínicos reales. Consulta la política institucional, las finalidades y los canales oficiales antes de proporcionar información. Los derechos del titular se tramitan conforme a la Ley 1581 de 2012.",
   "terms": "SITS Salud es un portal municipal de orientación, consulta y gestión de servicios. La publicación del sitio no constituye por sí misma habilitación de radicación electrónica oficial. La certificación de discapacidad está regulada por la Resolución 1197 de 2024 del Ministerio de Salud y Protección Social; este portal no sustituye el RLCPD ni la valoración multidisciplinaria. Las referencias de validación institucional no constituyen radicados oficiales ni certificados válidos. El uso de medios electrónicos y las notificaciones administrativas se sujetan a la Ley 1437 de 2011, modificada por la Ley 2080 de 2021, y al procedimiento que adopte la entidad. Consulta los canales oficiales si requieres atención.",
-  "storage": "El servicio usa almacenamiento de sesión para preferencias de avisos y Firebase Authentication para mantener la sesión. App Check utiliza reCAPTCHA Enterprise para proteger el acceso. Los formularios se mantienen en memoria y los PDF no se guardan en almacenamiento web. La función de voz utiliza únicamente voces locales disponibles en el dispositivo, voluntariamente, y no lee información personal ni envía texto a servicios de voz externos desde la aplicación. No se inicializa analítica. La información sobre tecnologías del proveedor, conservación y transmisión debe completarse en la política institucional adoptada.",
+  "storage": "El servicio usa almacenamiento de sesión para preferencias de avisos y el almacenamiento de sesión para mantener el ingreso con Google mediante Supabase. Los formularios se mantienen en memoria y los PDF no se guardan en almacenamiento web. La función de voz utiliza únicamente voces locales disponibles en el dispositivo, voluntariamente, y no lee información personal ni envía texto a servicios de voz externos desde la aplicación. No se inicializa analítica. La información sobre tecnologías del proveedor, conservación y transmisión debe completarse en la política institucional adoptada.",
   "accessibility": "El portal incorpora navegación por teclado, foco visible, texto ajustable, contraste, movimiento reducido, transcripciones y una guía de voz local opcional en español cuando el dispositivo dispone de ella. Se toma como mínimo aplicable WCAG 2.1 AA según Resolución MinTIC 1519 de 2020 y como objetivo técnico WCAG 2.2 AA, junto con Ley 1618 de 2013 y Resolución 2893 de 2020 según alcance. Las pruebas automáticas no certifican accesibilidad total; se requieren evaluación manual y pruebas con personas usuarias y tecnologías de asistencia. Reporta barreras por los canales oficiales, indicando la página y el obstáculo sin revelar información clínica.",
   "sensitive": "Los datos de salud son sensibles (Ley 1581 de 2012, artículos 5 y 6). Su recolección requiere una finalidad legítima, base jurídica y medidas de protección; cuando la autorización sea exigible deberá ser previa, expresa, informada y diferenciada de otros actos. Se informará el carácter facultativo de las respuestas relativas a datos sensibles conforme al régimen aplicable. La recepción clínica oficial aún no está habilitada. La entidad deberá aprobar las finalidades, las condiciones de representación y apoyos, la custodia, los accesos y la retención antes de habilitarla."
 };
@@ -69,15 +69,15 @@ const section=(id,title,intro)=>{
 };
 function brand(){
   const logo=make('img',null,'institution-logo');
-  logo.src='./assets/brand/alcaldia-san-pedro.png';
+  logo.src='./assets/brand/alcaldia-san-pedro.webp';
   logo.alt='';
-  logo.width=1920;
-  logo.height=1080;
+  logo.width=470;
+  logo.height=160;
   return logo;
 }
 const legalLink=(navigate)=>{
   const link=make('a','Centro legal');
-  link.href='#legal';
+  link.href='#legal';link.dataset.view='legal';
   link.onclick=e=>{e.preventDefault();navigate('legal');};
   return link;
 };
@@ -129,22 +129,31 @@ export function portalExperience({demo,navigate,invoke}){
   document.querySelector('.brand .mark')?.replaceWith(brand());
   for(const selector of ['#adminLogin','#authCitizen','.side .panel','#receipt','footer']){
     const item=document.querySelector(selector);
-    if(item)item.prepend(brand());
+    if(item&&selector!=='footer')item.prepend(brand());
   }
   document.querySelector('footer').append(legalLink(navigate));
   for(const area of ['#authCitizen','#adminLogin'])document.querySelector(area)?.append(legalLink(navigate));
   const nav=document.querySelector('.nav');
-  for(const [view,label] of [['communications','Avisos'],['legal','Centro legal']]){
-    const entry=button(label,()=>navigate(view),'navbtn');entry.dataset.view=view;nav.append(entry);
+  for(const [view,label] of [['communications','Avisos']]){
+    const entry=button(label,()=>navigate(view),'quiet footer-view');entry.dataset.view=view;document.querySelector('footer').append(entry);
   }
   const context=make('span','Portada', 'portal-context');
   nav.after(context);
   const controls=document.querySelector('.tools');
-  controls.insertBefore(button('Reducir texto',()=>{document.documentElement.classList.remove('large');document.documentElement.classList.toggle('small-text');byId('scale').setAttribute('aria-pressed','false');},'quiet'),byId('signout'));
-  controls.insertBefore(button('Restablecer',()=>{
+  const visualControl=(id,text,run)=>{
+    const existing=byId(id);
+    if(existing)existing.addEventListener('click',run);
+    else controls.insertBefore(button(text,run,'quiet'),byId('signout'));
+  };
+  visualControl('reduceText','Reducir texto',()=>{
+    document.documentElement.classList.remove('large');
+    document.documentElement.classList.toggle('small-text');
+    byId('scale').setAttribute('aria-pressed','false');
+  });
+  visualControl('resetVisual','Restablecer',()=>{
     document.body.classList.remove('hc');document.documentElement.classList.remove('large','small-text');
     for(const id of ['contrast','scale'])byId(id).setAttribute('aria-pressed','false');
-  },'quiet'),byId('signout'));
+  });
   byId('scale').addEventListener('click',()=>document.documentElement.classList.remove('small-text'));
   let session=null, capability=false, publicContent={notices:[],policies:[]}, privateContent=null, selectedView='citizen';
   let focusBeforeDialog, toastTimer, rightsKey, noticeTimer, publicEndpoint;
@@ -524,15 +533,15 @@ export function portalExperience({demo,navigate,invoke}){
     },
     view(view){
       selectedView=view;
-      context.textContent='Portal de Salud / '+({citizen:'Solicitud ciudadana',catalog:'Catálogo de trámites',service:'Información del servicio',tracking:'Mis solicitudes',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
+      context.textContent='SITS Salud / '+({home:'Inicio',help:'Ayuda',citizen:'Solicitud ciudadana',catalog:'Catálogo de trámites',service:'Información del servicio',tracking:'Mis solicitudes',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
       if(view==='legal')void loadAccount();
       if(!['citizen','catalog'].includes(view)&&dialog.open)dialog.close();
-      if(['citizen','catalog'].includes(view))render(true);
+      if(['home','citizen','catalog'].includes(view))render(true);
     },
     async publicEndpoint(endpoint){
       publicEndpoint=endpoint;
       try{
-        const response=await fetch(endpoint+'?content=public',{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(6000)});
+        const response=await fetch(endpoint+'?content=public&probe=sits-supabase-v1',{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(6000)});
         const body=await response.json();
         if(response.ok&&body.ok&&Array.isArray(body.notices)&&Array.isArray(body.policies)){publicContent=body;render(true);}
       }catch{}

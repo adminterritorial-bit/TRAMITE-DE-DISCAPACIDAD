@@ -66,19 +66,21 @@ try {
  await page.getByRole('button',{name:'Previsualizar'}).click();
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByRole('button',{name:'Publicar o programar'}).click();
- await page.locator('.navbtn[data-view=citizen]').click();
+ await page.locator('.navbtn[data-view=home]').click();
+ await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
  const popup=page.getByRole('dialog',{name:'Horario de prueba'});
  await popup.waitFor();
  await page.keyboard.press('Escape');
  assert.equal(await popup.isVisible(),false);
- await page.locator('.navbtn[data-view=legal]').click();
+ await page.locator('footer [data-view=legal]').click();
  await page.getByRole('heading',{name:'Política de tratamiento de datos personales'}).waitFor();
  await checkAccessibility('Centro legal');
  await page.screenshot({path:'screenshots/07-centro-legal.png',fullPage:true});
- await page.locator('.navbtn[data-view=communications]').click();
+ await page.locator('footer [data-view=communications]').click();
  await page.getByRole('heading',{name:'Horario de prueba'}).waitFor();
  assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
- await page.locator('.navbtn[data-view=citizen]').click();
+ await page.locator('.navbtn[data-view=home]').click();
+ await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
  await page.emulateMedia({reducedMotion:'reduce'});
  for(const width of [1024,768,390,360,320]){
   await page.setViewportSize({width,height:900});await page.reload({waitUntil:'networkidle'});

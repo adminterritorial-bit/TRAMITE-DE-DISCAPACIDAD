@@ -1,12 +1,10 @@
 /* SITS Salud: institutional electronic reception. Never use the synthetic fixture path. */
-import {renderOfficialTracking} from './official-tracking.js?v=2';
-import {renderOfficialStaffInbox} from './official-staff.js?v=2';
-const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
-const btn=(label,fn,cls='primary')=>{const b=el('button',label,cls);b.type='button';b.addEventListener('click',fn);return b};
+import {element as el,action as btn,icon,pdfField,validatePdf,downloadLocal} from './ui-components.js';
 function row(parent,label,name,opts={}){
  const wrap=el('label');wrap.append(el('span',label));
  const input=document.createElement(opts.select?'select':opts.multiline?'textarea':'input');
- input.name=name;
+ input.name=name;input.id='intake-'+name;
+ if(opts.max)input.maxLength=opts.max;
  if(opts.select){for(const choice of opts.select){const o=el('option',choice||'Seleccionar');o.value=choice;input.append(o);}}
  else if(!opts.multiline){input.type=opts.type||'text';input.maxLength=opts.max||120;input.placeholder=opts.placeholder||'';}
  if(opts.required)input.required=true;
@@ -18,121 +16,242 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  const mount=document.getElementById('applicationForm');if(!mount)throw Error('application_form_missing');
  if(labMode)return {live:false,connect:async()=>{},session:()=>{},tracking:async()=>{},inbox:async()=>{}};
  const shell=el('section',undefined,'live-intake');shell.setAttribute('aria-label','Recepción electrónica de solicitudes');mount.before(shell);
- let ready={enabled:false,documents:[]},authenticated=false,busy=false,lastKey=null,currentStep=0;
+ let ready={enabled:false,documents:[]},authenticated=false,pilotAccess=false,builtFor=null;
+ let tracker,staffInbox;
  function note(title,message,link=true){
-  const area=el('div',undefined,'intake-state'),mark=el('span','◎','intake-state-icon'),body=el('div');
+  const area=el('div',undefined,'intake-state'),mark=el('span',undefined,'ui-icon'),body=el('div');
+  mark.append(icon('shield'));
   body.append(el('h2',title),el('p',message));
-  if(link){const a=el('a','Consultar atención municipal','secondary');a.href='https://www.sanpedro-valle.gov.co/';body.append(a);}
+  if(link){body.append(btn('Canales de atención',()=>navigate('help'),'secondary'));}
   area.append(mark,body);shell.replaceChildren(area);
  }
  function render(){
-  if(!ready.enabled){note('Atención y orientación','La recepción electrónica de esta solicitud no está disponible temporalmente. Consulta los requisitos y canales de la Secretaría de Salud.');return;}
-  if(!authenticated||!getUser()){note('Inicia sesión para presentar tu solicitud','Ingresa con tu cuenta de Google y utiliza el correo verificado para consultar el seguimiento de tu expediente.',false);return;}
-  buildForm();
+  if(!ready.enabled){note('Atención y orientación','La recepción electrónica no está disponible en este momento. Consulta los requisitos y canales de la Secretaría de Salud.');return;}
+  if(ready.accepting!==true&&!pilotAccess){note('Recepción electrónica restringida','Consulta los canales de la Secretaría de Salud para presentar una solicitud.');return;}
+  const account=getUser();
+  if(!authenticated||!account){note('Inicia sesión para presentar tu solicitud','Ingresa con Google para presentar una solicitud y consultar tu expediente desde la cuenta asociada.',false);return;}
+  if(builtFor!==account.uid){builtFor=account.uid;buildForm(account);}
  }
- async function connect(endpoint){
+ async function connect(endpoint,expectedBuild=''){
   try{
-   const response=await fetch(endpoint+'?content=official-intake',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
+   const response=await fetch(endpoint+'?content=official-intake'+(expectedBuild?'&probe=sits-supabase-v1':''),{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
    const value=await response.json();
-   ready={enabled:response.ok&&value.ok===true&&value.enabled===true&&Array.isArray(value.documents)&&value.documents.length===4&&value.documents.every(x=>/^[a-f0-9]{64}$/.test(x.hash||'')&&Number.isInteger(x.version)),documents:Array.isArray(value.documents)?value.documents:[]};
+   ready={accepting:value.acceptingRequests===true?true:value.acceptingRequests===false?false:null,enabled:response.ok&&value.ok===true&&(!expectedBuild||value.build===expectedBuild)&&value.enabled===true&&Array.isArray(value.documents)&&value.documents.length===4&&value.documents.every(x=>/^[a-f0-9]{64}$/.test(x.hash||'')&&Number.isInteger(x.version)),documents:Array.isArray(value.documents)?value.documents:[]};
   }catch{ready={enabled:false,documents:[]};}
   render();return ready.enabled;
  }
- function session(value){authenticated=value===true;render();}
- async function validatePdf(file,kind){
-  if(!file||file.size<20||file.size>4.5*1024*1024||!/\.pdf$/i.test(file.name))throw Error('Selecciona un PDF de hasta 4,5 MB.');
-  const buf=await file.arrayBuffer(),bytes=new Uint8Array(buf);
-  if(String.fromCharCode(...bytes.slice(0,5))!=='%PDF-')throw Error('El archivo seleccionado no es un PDF válido.');
-  const hash=await crypto.subtle.digest('SHA-256',buf),sha=[...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');
-  const base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('No se pudo leer el PDF.'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(file);});
-  return {kind,sha,size:file.size,base64};
+ function session(value,{testIntake=false}={}){
+  authenticated=value===true;
+  pilotAccess=authenticated&&testIntake;
+  if(!authenticated){
+   if(builtFor){builtFor=null;shell.replaceChildren();}
+   tracker?.clear();staffInbox?.clear();
+  }
+  render();
  }
- function buildForm(){
-  const form=el('form',undefined,'intake-form');form.noValidate=true;form.setAttribute('aria-label','Solicitud de certificación de discapacidad');
-  const title=el('div',undefined,'intake-title');title.append(el('span','SOLICITUD ELECTRÓNICA · SECRETARÍA DE SALUD','intake-kicker'),el('h2','Presenta tu solicitud'),el('p','Completa la información, adjunta los soportes PDF y revisa las condiciones antes de enviarla.'));
-  const steps=el('div',undefined,'intake-steps');steps.setAttribute('role','status');
-  const first=el('section',undefined,'intake-step'),second=el('section',undefined,'intake-step'),third=el('section',undefined,'intake-step');
-  first.append(el('h3','1. Identificación y contacto'),el('p','Indica la información de la persona que solicita el trámite.','module-intro'));
-  const basic=el('div',undefined,'intake-fields');
-  row(basic,'Nombre completo *','name',{required:true,max:120,autocomplete:'name'});
-  row(basic,'Tipo de documento *','documentType',{select:['','CC','TI','RC','CE','PA','OTRO'],required:true});
-  row(basic,'Número de documento *','documentNumber',{required:true,max:25,pattern:'[A-Za-z0-9-]{3,25}'});
-  row(basic,'Teléfono de contacto','phone',{type:'tel',max:25,autocomplete:'tel'});
-  row(basic,'Zona de residencia *','zone',{select:['','Cabecera municipal','Centro poblado','Zona rural dispersa'],required:true});
-  row(basic,'¿Quién presenta la solicitud? *','representation',{select:['propia','apoyo'],required:true});
-  first.append(basic);
-  second.append(el('h3','2. Documentos de soporte'),el('p','Los archivos deben estar en formato PDF. Se validarán antes del envío.','module-intro'));
-  const box=el('div',undefined,'intake-filegrid');
-  function upload(label,name,required){
-   const labelEl=el('label',undefined,'intake-upload');
-   labelEl.append(el('span',label+(required?' *':'')),el('small','PDF · hasta 4,5 MB por archivo'));
-   const file=el('input');file.type='file';file.name=name;file.accept='.pdf,application/pdf';file.required=required;
-   const filename=el('small','Ningún documento seleccionado','file-name');file.addEventListener('change',()=>{filename.textContent=file.files[0]?file.files[0].name:'Ningún documento seleccionado';});
-   labelEl.append(file,filename);box.append(labelEl);return file;
+ function buildForm(account){
+  const form=el('form',undefined,'intake-form');form.noValidate=true;
+  form.setAttribute('aria-label','Solicitud de certificación de discapacidad');
+  const labels=['Identificación','Contacto y representación','Documentos','Autorizaciones','Revisión y envío'];
+  const panels=labels.map((label,i)=>{
+   const panel=el('section',undefined,'intake-step');
+   panel.id='intake-step-'+i;
+   const heading=el('h3',label);heading.tabIndex=-1;
+   panel.append(heading);return panel;
+  });
+  const [identity,contact,filesPanel,permissions,review]=panels;
+  const title=el('div',undefined,'intake-title');
+  title.append(el('h2','Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
+  if(ready.accepting!==true&&pilotAccess)title.append(el('p','Prueba institucional. Usa únicamente datos y PDF ficticios.','ui-service-status'));
+  const progress=el('ol',undefined,'intake-progress');
+  progress.setAttribute('aria-label','Pasos de la solicitud');
+  const progressItems=labels.map(label=>el('li',label));progress.append(...progressItems);
+  const stepStatus=el('p',undefined,'intake-step-number');stepStatus.setAttribute('role','status');
+  const fields=el('div',undefined,'intake-fields');
+  row(fields,'Nombre completo *','name',{required:true,max:120,autocomplete:'name'});
+  row(fields,'Tipo de documento *','documentType',{select:['','CC','TI','RC','CE','PA','OTRO'],required:true});
+  row(fields,'Número de documento *','documentNumber',{required:true,max:25,pattern:'[A-Za-z0-9\\-]{3,25}'});
+  identity.append(fields);
+  const contactFields=el('div',undefined,'intake-fields');
+  contact.append(el('p','Correo verificado: '+account.email,'intake-email'),contactFields);
+  row(contactFields,'Teléfono de contacto','phone',{type:'tel',max:25,autocomplete:'tel'});
+  row(contactFields,'Zona de residencia *','zone',{select:['','Cabecera municipal','Centro poblado','Zona rural dispersa'],required:true});
+  const representative=row(contactFields,'¿Quién presenta la solicitud? *','representation',{select:['propia','apoyo'],required:true});
+  representative.options[0].textContent='La propia persona';
+  representative.options[1].textContent='Una persona de apoyo';
+  row(contact,'Ajustes de movilidad o comunicación solicitados','support',{multiline:true,max:300});
+  filesPanel.append(el('p','Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
+  const fileGrid=el('div',undefined,'intake-filegrid');
+  const history=pdfField({label:'Historia clínica o soporte médico',kind:'historia',required:true});
+  const extra=pdfField({label:'Soporte adicional, si aplica',kind:'apoyo'});
+  fileGrid.append(history.group,extra.group);filesPanel.append(fileGrid);
+  permissions.append(el('p','Lee las condiciones institucionales y selecciona las autorizaciones que apliquen.'));
+  function check(parent,text,required=false){
+   const wrapper=el('label',undefined,'intake-policy'),box=el('input');
+   box.type='checkbox';box.required=required;
+   wrapper.append(box,el('span',text));parent.append(wrapper);
+   return box;
   }
-  const history=upload('Historia clínica o soporte médico','historia',true),extra=upload('Soporte adicional, si aplica','apoyo',false);
-  second.append(box);
-  row(second,'Ajustes de movilidad o comunicación solicitados','support',{multiline:true,max:300});
-  third.append(el('h3','3. Tratamiento de datos y confirmación'),el('p','Verifica las condiciones aprobadas de la entidad y expresa tu decisión de manera informada.','module-intro'));
-  const policyBoxes=[];
-  for(const policy of ready.documents){
-   const label=el('label',undefined,'intake-policy'),cb=el('input');cb.type='checkbox';cb.required=true;
-   const text=el('span',undefined,'intake-policy-copy');
-   text.append(el('strong',policy.title),el('span',policy.body));
-   label.append(cb,text);third.append(label);policyBoxes.push({cb,policy});
-  }
-  const sensitive=el('label',undefined,'intake-policy'),consent=el('input');consent.type='checkbox';consent.required=true;
-  sensitive.append(consent,el('span','Confirmo que comprendo el carácter sensible de la información de salud que presento y autorizo su tratamiento en las condiciones institucionales informadas, cuando corresponda.'));third.append(sensitive);
-  const notify=el('label',undefined,'intake-policy'),notifyBox=el('input');notifyBox.type='checkbox';
-  notify.append(notifyBox,el('span','Deseo recibir actualizaciones informativas por correo electrónico (opcional).'));third.append(notify);
-  const certificateEmail=el('label',undefined,'intake-policy'),certificateEmailBox=el('input');certificateEmailBox.type='checkbox';
-  certificateEmail.append(certificateEmailBox,el('span','Autorizo expresamente que el certificado expedido me sea enviado como PDF adjunto al correo verificado. Si no autorizo el envío, podré descargarlo de forma privada desde el portal.'));third.append(certificateEmail);
-  const summary=el('p','Correo asociado: '+getUser().email,'intake-email');third.prepend(summary);
-  const errors=el('p','','error');errors.setAttribute('role','alert');
-  const actions=el('div',undefined,'intake-actions'),back=btn('Atrás',()=>setStep(currentStep-1),'secondary'),forward=btn('Continuar',()=>{if(!validateCurrent())return;setStep(currentStep+1);}),send=el('button','Enviar solicitud','primary');send.type='submit';
-  actions.append(back,forward,send);form.append(title,steps,first,second,third,errors,actions);shell.replaceChildren(form);
-  function setStep(value){currentStep=Math.max(0,Math.min(2,value));[first,second,third].forEach((part,i)=>part.hidden=i!==currentStep);steps.textContent='Paso '+(currentStep+1)+' de 3';back.hidden=currentStep===0;forward.hidden=currentStep===2;send.hidden=currentStep!==2;errors.textContent='';}
-  function validateCurrent(){
-   const section=[first,second,third][currentStep];
-   for(const element of section.querySelectorAll('input,select,textarea'))if(!element.reportValidity())return false;
-   if(currentStep===1){
-    const files=[history.files[0],extra.files[0]].filter(Boolean);
-    if(files.some(f=>f.size>4.5*1024*1024||!/\.pdf$/i.test(f.name))||files.reduce((n,f)=>n+f.size,0)>7*1024*1024){errors.textContent='Adjunta PDF de máximo 4,5 MB cada uno y 7 MB en conjunto.';return false;}
+  const policyBoxes=ready.documents.map(policy=>{
+   const detail=el('details',undefined,'intake-policy-details');
+   detail.append(el('summary',policy.title),el('p',policy.body));
+   permissions.append(detail);
+   return {policy,cb:check(permissions,'He leído: '+policy.title,true)};
+  });
+  const consent=check(permissions,'Autorizo el tratamiento de mis datos sensibles de salud para gestionar esta solicitud, según las condiciones informadas.',true);
+  const notify=check(permissions,'Deseo recibir avisos sobre mi solicitud por correo. (Opcional)');
+  const certificateEmail=check(permissions,'Autorizo el envío del certificado PDF al correo verificado. (Opcional)');
+  const answerList=el('dl',undefined,'intake-review');
+  review.append(el('p','Puedes editar cualquier sección antes de enviar.'),answerList);
+  const errors=el('div','','error intake-errors');errors.setAttribute('role','alert');errors.tabIndex=-1;
+  const activity=el('p','','case-feedback');activity.setAttribute('role','status');
+  const actions=el('div',undefined,'intake-actions');
+  let step=0,furthest=0,busy=false,key;
+  const previous=btn('Atrás',()=>showStep(step-1),'secondary');
+  const next=btn('Continuar',async()=>{if(await validateStep(step))showStep(step+1);});
+  const send=el('button','Enviar solicitud','primary');send.type='submit';
+  actions.append(previous,next,send);form.append(title,progress,stepStatus,panels[0],panels[1],panels[2],panels[3],panels[4],errors,activity,actions);
+  shell.replaceChildren(form);
+  const fieldErrors=new Map();
+  function setError(input,message){
+   let hint=fieldErrors.get(input);
+   if(!hint){
+    input.id||='campo-'+crypto.randomUUID();
+    hint=el('small','','field-error error');hint.id=input.id+'-error';
+    input.setAttribute('aria-describedby',hint.id);
+    input.closest('label')?.after(hint);fieldErrors.set(input,hint);
    }
-   return true;
+   hint.textContent=message;hint.hidden=!message;
+   if(message)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');
+  }
+  form.addEventListener('input',event=>{if(fieldErrors.has(event.target))setError(event.target,'');});
+  function summarize(issues){
+   errors.replaceChildren();
+   if(!issues.length)return;
+   errors.append(el('strong','Revisa la información antes de continuar.'));
+   const list=el('ul');
+   for(const [input,message] of issues){
+    const item=el('li'),jump=btn(message,()=>input.focus(),'quiet');
+    item.append(jump);list.append(item);
+   }
+   errors.append(list);errors.focus();
+  }
+  function showStep(n,focus=true){
+   step=Math.max(0,Math.min(panels.length-1,n));furthest=Math.max(furthest,step);
+   panels.forEach((panel,i)=>panel.hidden=i!==step);
+   progressItems.forEach((item,i)=>{
+    if(i===step)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
+    item.dataset.complete=String(i<furthest&&i!==step);
+   });
+   stepStatus.textContent='Paso '+(step+1)+' de '+panels.length;
+   previous.hidden=step===0;next.hidden=step===panels.length-1;send.hidden=!next.hidden;
+   errors.replaceChildren();
+   if(step===panels.length-1)fillReview();
+   if(focus)panels[step].querySelector('h3').focus();
+  }
+  function fillReview(){
+   const data=new FormData(form);
+   const labelValues=[
+    ['Nombre',data.get('name'),0],['Identificación',data.get('documentType')+' '+data.get('documentNumber'),0],
+    ['Correo verificado',account.email,1],['Teléfono',data.get('phone')||'Sin registrar',1],
+    ['Zona',data.get('zone'),1],['Presentación',representative.selectedOptions[0].textContent,1],
+    ['Ajustes solicitados',data.get('support')||'Ninguno registrado',1],
+    ['Soporte médico',history.input.files[0]?.name,2],['Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2],
+    ['Avisos por correo',notify.checked?'Autorizados':'Sin autorización',3],
+    ['Entrega del certificado',certificateEmail.checked?'Correo verificado y portal':'Portal autenticado',3]
+   ];
+   answerList.replaceChildren(...labelValues.map(([label,value,from])=>{
+    const line=el('div'),answer=el('dd',String(value||'—'));
+    const edit=btn('Editar',()=>showStep(from),'quiet');edit.setAttribute('aria-label','Editar '+label);
+    answer.append(edit);line.append(el('dt',label),answer);return line;
+   }));
+  }
+  async function validateStep(n){
+   const issues=[];
+   if(n===2){
+    const attachments=[history,extra];
+    for(const item of attachments){
+     const file=item.input.files[0];
+     if(!file&&!item.input.required)continue;
+     try{await validatePdf(file,item.input.name);item.report('');}
+     catch(e){item.report(e.message);issues.push([item.input,e.message]);}
+    }
+    if(!issues.length&&attachments.reduce((total,item)=>total+(item.input.files[0]?.size||0),0)>7*1024*1024){
+     const reason='El total de los dos PDF debe ser de máximo 7 MB.';
+     extra.report(reason);issues.push([extra.input,reason]);
+    }
+   }else{
+    for(const input of panels[n].querySelectorAll('input,select,textarea')){
+     const fieldLabel=input.closest('label')?.textContent.replace(/\s*\*\s*$/,'').trim();
+     const message=input.validity.valid?'':input.type==='checkbox'
+      ?'Marca la autorización o lectura obligatoria.'
+      :fieldLabel+': '+(input.validity.valueMissing?'Completa este campo.':'Revisa el formato del dato.');
+     setError(input,message);
+     if(message)issues.push([input,message]);
+    }
+   }
+   summarize(issues);return !issues.length;
   }
   form.addEventListener('submit',async event=>{
-   event.preventDefault();if(busy||!ready.enabled||!getAuthorized()||!validateCurrent())return;busy=true;send.disabled=true;errors.textContent='';send.textContent='Verificando y enviando…';
+   event.preventDefault();
+   if(busy||step!==panels.length-1||!getAuthorized()||getUser()?.uid!==account.uid)return;
+   busy=true;send.disabled=true;previous.disabled=true;send.textContent='Enviando solicitud…';
    try{
-    const files=[await validatePdf(history.files[0],'historia')];
-    if(extra.files[0])files.push(await validatePdf(extra.files[0],'apoyo'));
-    if(files.reduce((n,f)=>n+f.size,0)>7*1024*1024)throw Error('El tamaño total supera 7 MB.');
-    const data=Object.fromEntries(new FormData(form));
-    lastKey??=crypto.randomUUID();
-    const result=await invoke('officialSubmit',{...data,key:lastKey,files,medicalConsent:consent.checked,notifyByEmail:notifyBox.checked,certificateEmailConsent:certificateEmailBox.checked,
+    activity.textContent='Preparando archivos y verificando su integridad.';
+    const attachments=[history.input.files[0],extra.input.files[0]].filter(Boolean);
+    const payloads=await Promise.all(attachments.map((file,i)=>validatePdf(file,i===0?'historia':'apoyo')));
+    const fields=Object.fromEntries([...new FormData(form)].filter(([,value])=>typeof value==='string'));
+    key??=crypto.randomUUID();
+    activity.textContent='Enviando los soportes para almacenamiento y verificación.';
+    const result=await invoke('officialSubmit',{...fields,key,files:payloads,medicalConsent:consent.checked,notifyByEmail:notify.checked,certificateEmailConsent:certificateEmail.checked,
       legalDecisions:policyBoxes.map(({cb,policy})=>({id:policy.id,version:policy.version,hash:policy.hash,accepted:cb.checked}))});
-    const status=result.status,success=status==='received'||status==='reviewing';
-    const card=el('div',undefined,'intake-receipt');
-    card.append(el('h2',success?'Documentación recibida':'Documentación pendiente de verificación'),
-      el('p',success?'Conserva esta referencia para consultar el seguimiento desde tu cuenta.':'No repitas el envío. Comunícate con Salud si la verificación de almacenamiento no se completa.'),
-      el('strong',result.reference||'Referencia no disponible'),
-      el('p','La referencia no equivale al certificado de discapacidad ni sustituye un número oficial de radicación.'));
-    card.append(btn('Consultar mis solicitudes',()=>navigate('tracking')));shell.replaceChildren(card);
-   }catch(e){errors.textContent=e?.message||'No fue posible enviar la solicitud. No se ha confirmado su recepción.';}
-   finally{busy=false;send.disabled=false;send.textContent='Enviar solicitud';}
+    if(!form.isConnected)return;
+    if(!result?.reference)throw Error('La recepción aún no pudo verificarse. Reintenta este envío para consultar la misma referencia.');
+    const confirmed=['received','reviewing'].includes(result.status);
+    const receipt=el('article',undefined,'intake-receipt');
+    const heading=el('h2',confirmed?'Documentación recibida':'Documentación pendiente de verificación');heading.tabIndex=-1;
+    const reference=el('strong',result.reference,'intake-reference');
+    receipt.append(heading,el('p',confirmed?'Conserva tu referencia para consultar el expediente.':'Salud debe verificar el almacenamiento. Conserva la referencia y revisa el estado antes de enviar nuevamente.'),reference);
+    const date=Date.parse(result.createdAt)||Number(result.createdAt)||0;
+    if(date)receipt.append(el('p','Fecha de registro: '+new Date(date).toLocaleString('es-CO',{dateStyle:'long',timeStyle:'short'})));
+    receipt.append(el('p','La referencia de seguimiento no sustituye una radicación oficial.'));
+    const controls=el('div',undefined,'intake-actions');
+    controls.append(btn('Consultar mis solicitudes',()=>navigate('tracking')));
+    if(confirmed)controls.append(btn('Guardar constancia',()=>{
+     const content=Array.from(receipt.children).filter(item=>item.matches('h2,p,strong')).map(item=>item.textContent).join('\n');
+     downloadLocal('SITS Salud · Secretaría de Salud de San Pedro\n'+content+'\n','constancia-sits.txt','text/plain;charset=utf-8');
+    },'secondary'));
+    receipt.append(controls);shell.replaceChildren(receipt);heading.focus();
+   }catch(error){
+    if(!form.isConnected)return;
+    activity.textContent='';
+    const code=error?.message||'';
+    const message=code.includes('pilot_disabled')
+     ?'La recepción de solicitudes reales está restringida en este momento. Consulta los canales de Salud.'
+     :code.includes('legal_version_changed')
+       ?'Las condiciones del trámite cambiaron. Actualiza la página antes de volver a continuar.'
+       :'No se confirmó la recepción. Puedes reintentar con esta misma solicitud o consultar con Salud.';
+    errors.textContent=message;errors.focus();
+   }finally{busy=false;send.disabled=false;previous.disabled=false;send.textContent='Enviar solicitud';}
   });
-  setStep(0);
+  showStep(0,false);
  }
  async function tracking(){
-  if(!ready.enabled||!authenticated||!getUser())return;
-  await renderOfficialTracking({invoke,validatePdf});
+  if(!authenticated||!getUser())return;
+  if(!tracker){const {createOfficialTracking}=await import('./official-tracking.js');tracker??=createOfficialTracking({invoke,validatePdf});}
+  if(authenticated)await tracker.show();
  }
-
  async function inbox(){
-  if(!ready.enabled||!authenticated||!getUser())return;
-  await renderOfficialStaffInbox({invoke,validatePdf});
+  if(!authenticated||!getUser())return;
+  if(!staffInbox){const {renderOfficialStaffInbox}=await import('./official-staff.js');staffInbox??={show:()=>renderOfficialStaffInbox({invoke,validatePdf,sessionUserId:getUser()?.uid}),clear:()=>document.getElementById('officialInbox')?.remove()};}
+  if(authenticated)await staffInbox.show();
  }
-
+ function receptionStatus(){
+  if(!ready.enabled)return 'Recepción electrónica no disponible';
+  if(ready.accepting===false)return 'Recepción real restringida';
+  if(ready.accepting===true)return 'Recepción electrónica disponible';
+  return 'Disponibilidad de recepción por confirmar';
+ }
  note('Consultando disponibilidad','Verificando los canales habilitados para este trámite.',false);
- return {get live(){return ready.enabled},connect,session,tracking,inbox};
+ return {get live(){return !labMode;},connect,session,tracking,inbox,receptionStatus,get accepting(){return ready.accepting;}};
 }

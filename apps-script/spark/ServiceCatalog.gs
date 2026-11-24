@@ -216,6 +216,10 @@ function catNotify_(doc,u,phase){
  spCommit_([spPut_('serviceRequests',row.id,{[field]:sent?'sent':'review'},current,['updatedAt']),
   spAudit_(row.id,u.uid,sent?'service-mail:sent':'service-mail:review')]);
 }
+function catActiveAssignee_(id){
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalAssignee_(id);
+ return sparkDoc_('admins',id)?.active===true;
+}
 function catCaseAction_(u,action,d){
  if(!/^[a-f0-9]{64}$/.test(d.id||''))throw Error('invalid_request');
  const {doc,data:row}=instRead_('serviceRequests',d.id);
@@ -270,7 +274,7 @@ function catCaseAction_(u,action,d){
  }else if(action==='serviceAssign'){
   instManager_(u);instRecent_(u);
   const id=catUid_(d.uid);
-  if(!row.operators.includes(id)||sparkDoc_('admins',id)?.active!==true)throw Error('forbidden');
+  if(!row.operators.includes(id)||!catActiveAssignee_(id))throw Error('forbidden');
   update={assignedTo:id};event='assigned';
  }else if(action==='serviceNote'){
   const notes=row.notes||[];

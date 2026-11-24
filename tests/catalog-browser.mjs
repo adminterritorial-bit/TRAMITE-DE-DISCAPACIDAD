@@ -11,13 +11,18 @@ try{
   Object.defineProperty(window,'SpeechSynthesisUtterance',{configurable:true,value:Speech});
   Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>[{lang:'es-CO',localService:true}],speak:u=>{window.__spoken.push(u.text);queueMicrotask(()=>u.onend?.());},cancel(){},addEventListener(){}}});
  });
- const sdk={
-  'firebase-app':'export const initializeApp=x=>x;',
-  'firebase-auth':`export const browserSessionPersistence={};export const getAuth=()=>({});
-  export const setPersistence=async()=>{};export const onAuthStateChanged=(a,fn)=>queueMicrotask(()=>fn({uid:'supervisor',email:'salud@example.invalid',emailVerified:true,getIdToken:async()=> 'local-test'}));`,
-  'firebase-app-check':'export const initializeAppCheck=()=>({});export const ReCaptchaEnterpriseProvider=class {};export const getLimitedUseToken=async()=>({token:"local-test"});'
- };
- await page.route('https://www.gstatic.com/firebasejs/**',r=>r.fulfill({contentType:'text/javascript',headers:{'Access-Control-Allow-Origin':'*'},body:sdk[r.request().url().split('/').at(-1).replace('.js','')]}));
+ await page.addInitScript(()=>sessionStorage.setItem('sb-ovppffchdkwbikdppuzh-auth-token','fixture-session'));
+ await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm',r=>r.fulfill({
+  contentType:'application/javascript',headers:{'Access-Control-Allow-Origin':'*'},
+  body:`export function createClient(){
+   const session={user:{id:'supervisor',email:'cuenta@example.invalid',email_confirmed_at:'2026-11-24T12:00:00Z'},access_token:'local-test'};
+   return {auth:{onAuthStateChange(fn){queueMicrotask(()=>fn('INITIAL_SESSION',session));},
+    getSession:async()=>({data:{session},error:null}),signInWithOAuth:async()=>({error:null}),signOut:async()=>({error:null})}};
+  }`
+ }));
+ const intakeDocuments=['processing','privacy','terms','sensitive'].map(kind=>({
+  id:'intake-'+kind,kind,version:1,hash:'a'.repeat(64),title:kind,body:'Documento de prueba'
+ }));
  const baseline={id:'discapacidad',title:'Certificación de discapacidad',description:'Orientación de solicitud.',category:'certificacion',standard:true};
  const allCategories=[{id:'certificacion',title:'Certificación'}], categories=[], services=[];
  const statements=[
@@ -27,7 +32,7 @@ try{
  let application;const staffInvites=[];
  await page.route('https://script.google.com/macros/s/**',r=>{
   const method=r.request().method(),url=new URL(r.request().url());
-  let output={ok:true,build:'spark-unified-2.0',enabled:true};
+  let output={ok:true,build:'sits-supabase-1.0',enabled:true,acceptingRequests:true,documents:intakeDocuments};
   if(method==='GET'&&url.searchParams.get('content')==='public')Object.assign(output,{notices:[],policies:[]});
   if(method==='GET'&&url.searchParams.get('content')==='catalog')Object.assign(output,{items:[baseline,...services.filter(x=>x.live).map(x=>({id:x.id,...x.live}))],categories:[...allCategories,...categories]});
   if(method==='POST'){
@@ -46,12 +51,13 @@ try{
   }
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
  });
- await page.goto('http://127.0.0.1:8080/');
+ await page.goto('http://127.0.0.1:8080/#admin');
  await page.locator('body.staff-workspace').waitFor();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
- await page.locator('.navbtn[data-view=citizen]').click();
- await page.locator('.intake-state').waitFor();
+ await page.locator('.navbtn[data-view=home]').click();
+ await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
+ await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).waitFor();
  assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
  await page.locator('.navbtn[data-view=catalog]').click();
  await page.getByRole('button',{name:'Escuchar guía'}).click();
@@ -62,7 +68,7 @@ try{
  await page.getByLabel('Buscar trámite').fill('NO-LEER-DATO-PRIVADO');
  assert.equal(await page.evaluate(()=>window.__spoken.some(x=>x.includes('NO-LEER-DATO-PRIVADO'))),false);
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
- await page.locator('.navbtn[data-view=legal]').click();
+ await page.locator('footer [data-view=legal]').click();
  await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Aquí encuentras información')));
  assert.equal(await page.locator('#voice-guide').isVisible(),true);
  await page.locator('.navbtn[data-view=catalog]').click();

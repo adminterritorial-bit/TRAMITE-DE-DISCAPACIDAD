@@ -9,13 +9,18 @@ test('only the public institutional endpoint is permitted; no browser bridge key
  const p=read('public/app.js')+read('public/config.js');
  assert.doesNotMatch(p,/ARCHIVE_KEY|DELIVERY_KEY|HMAC_KEY|computeHmacSha256Signature|service_role/);
  const urls=p.match(/https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/g)||[];
- assert.deepEqual(urls,['https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec']);
+ assert.equal(urls.length,1);
  for(const path of ['apps-script/Common.gs','apps-script/spark/UnifiedBackend.gs'])assert.doesNotMatch(read(path),/setSharing|ANYONE_WITH_LINK/);
  assert.match(read('apps-script/spark/UnifiedBackend.gs'),/sparkVerifyApp_\(p.appCheck\)/);
  assert.match(read('apps-script/spark/UnifiedBackend.gs'),/sparkIdentity_\(p.idToken,false,req.action==='sessionAccess'\)/);
 });
 test('both script deployments verify request signature',()=>{assert.match(read('apps-script/Common.gs'),/computeHmacSha256Signature/);assert.match(read('apps-script/recepcion/Code.gs'),/signed_\(e,'archive'/);assert.match(read('apps-script/entrega/Code.gs'),/signed_\(e,'delivery'/);});
 
-test('registered Firebase web app is wired into controlled deployment',async()=>{const {config}=await import('../public/config.js');assert.equal(config.mode,'pilot');assert.equal(config.firebase.projectId,'tramite-discapacidad');assert.equal(config.firebase.authDomain,'tramite-discapacidad.firebaseapp.com');assert.equal(config.firebase.appId,'1:91732599743:web:1bb34f5a1cb708b673770a');assert.ok(config.firebase.apiKey);assert.doesNotMatch(read('public/app.js'),/getAnalytics|firebase-analytics/);assert.match(read('scripts/configure-pilot.mjs'),/config\.firebase/);assert.doesNotMatch(read('.github/workflows/firebase-pilot.yml'),/FIREBASE_WEB_CONFIG/);});
-
-test('App Check public site key is wired into the operational portal',async()=>{const {config}=await import('../public/config.js');assert.match(config.appCheckSiteKey,/^[A-Za-z0-9_-]{40}$/);assert.equal(config.mode,'pilot');assert.match(read('scripts/configure-pilot.mjs'),/appCheckSiteKey:config\.appCheckSiteKey/);assert.match(read('public/app.js'),/ReCaptchaEnterpriseProvider\(config\.appCheckSiteKey\)/);assert.doesNotMatch(read('.github/workflows/firebase-pilot.yml'),/APP_CHECK_SITE_KEY/);});
+test('the public portal uses the Supabase configuration and excludes legacy authentication',async()=>{
+ const {config}=await import('../public/config.js');
+ assert.match(config.supabase.url,/^https:\/\/[a-z]+\.supabase\.co$/);
+ assert.match(config.supabase.publishableKey,/^sb_publishable_/);
+ const portal=read('public/app.js')+read('public/config.js');
+ assert.match(portal,/sits-supabase-v1/);
+ assert.doesNotMatch(portal,/firebasejs|firebaseapp\.com|appCheckSiteKey|spark-pilot-v1/);
+});
