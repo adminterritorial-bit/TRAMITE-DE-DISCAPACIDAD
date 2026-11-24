@@ -1,5 +1,6 @@
 import {normalizeSearch, filterServices, categoryCounts, categoryCode} from './catalog-domain.mjs';
 import {selectAdminServices,selectServiceCases} from './admin-collections.mjs';
+import {readStudioDraft,writeStudioDraft,clearStudioDraft} from './studio-draft.mjs';
 
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
@@ -504,7 +505,65 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const footer=node('div',null,'studio-footer');const previewError=errorRegion();
   footer.append(btn('Previsualizar formulario',()=>{try{previewError.textContent='';const values=validateFields();preview.hidden=false;preview.replaceChildren(node('span','VISTA CIUDADANA','studio-kicker'),node('h3',title.value||'Vista previa'));dynamicFields(preview,values,{preview:true});preview.scrollIntoView({block:'nearest'});}catch(e){previewError.textContent=e.message;}}));
   form.append(footer,previewError);
-  submit(form,'Guardar borrador',async()=>{const specs=validateFields();await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,schema:{title:title.value,description:description.value,channel:channel.value,category:category.value,operators:lines(operators.value),messages:Object.fromEntries(Object.entries(messages).map(([k,v])=>[k,v.value])),fields:specs,states:Array.from(states.children,x=>x.value())}}),()=>openAdmin('catalog'));});
+  // Restore only unsubmitted design metadata, never citizen health records.
+  let localStorageScope;
+  try{localStorageScope=window.sessionStorage;}catch{}
+  const draftKey='sits:studio:v1:'+String(user?.id||user?.uid||user?.email||'demo')+':new';
+  let savedRemotely=false,saveTimer=0;
+  const draftSnapshot=()=>({
+   id:id.value,title:title.value,description:description.value,category:category.value,
+   channel:channel.value,operators:operators.value,
+   messages:Object.fromEntries(Object.entries(messages).map(([key,input])=>[key,input.value])),
+   fields:groups().map(group=>group.value()),
+   states:Array.from(states.children,x=>x.value())
+  });
+  const scheduleLocalSave=()=>{
+   if(current||savedRemotely)return;
+   clearTimeout(saveTimer);
+   saveTimer=setTimeout(()=>writeStudioDraft(localStorageScope,draftKey,draftSnapshot()),350);
+  };
+  if(!current){
+   for(const name of ['input','change','click'])form.addEventListener(name,scheduleLocalSave);
+  }
+  submit(form,'Guardar borrador',async()=>{
+   const specs=validateFields();
+   await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,
+    schema:{title:title.value,description:description.value,channel:channel.value,category:category.value,
+     operators:lines(operators.value),
+     messages:Object.fromEntries(Object.entries(messages).map(([key,input])=>[key,input.value])),
+     fields:specs,states:Array.from(states.children,x=>x.value())}}),
+   async()=>{
+    savedRemotely=true;clearTimeout(saveTimer);
+    clearStudioDraft(localStorageScope,draftKey);
+    await openAdmin('catalog');
+   });
+  });
+  if(!current){
+   const previous=readStudioDraft(localStorageScope,draftKey);
+   if(previous){
+    const recovery=node('div',null,'studio-recovery');
+    recovery.setAttribute('role','status');
+    recovery.append(node('strong','Hay un diseño sin guardar en esta sesión'),
+     node('p','Puedes recuperarlo o descartarlo. No contiene datos de ciudadanos ni documentos clínicos.'));
+    const restore=btn('Recuperar diseño',()=>{
+     id.value=String(previous.id||'');title.value=String(previous.title||'');
+     description.value=String(previous.description||'');channel.value=String(previous.channel||'');
+     category.value=String(previous.category||'');operators.value=String(previous.operators||'');
+     for(const [key,input] of Object.entries(messages))input.value=String(previous.messages?.[key]||'');
+     fields.replaceChildren();
+     for(const spec of Array.isArray(previous.fields)?previous.fields.slice(0,16):[])addField(spec);
+     states.replaceChildren();
+     for(const spec of Array.isArray(previous.states)?previous.states.slice(0,10):[])addState(spec);
+     if(!states.children.length)draft.states.forEach(addState);
+     refreshOrder();recovery.remove();title.focus();scheduleLocalSave();
+    },'primary');
+    const discard=btn('Descartar borrador local',()=>{
+     clearStudioDraft(localStorageScope,draftKey);recovery.remove();
+    },'secondary');
+    recovery.append(restore,discard);
+    manager.append(recovery);
+   }
+  }
   manager.append(form,preview);
  }
  function adminCatalog(data){
