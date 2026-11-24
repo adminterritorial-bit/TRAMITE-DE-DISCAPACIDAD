@@ -49,7 +49,7 @@ try{
  await page.getByRole('heading',{name:'Gestión integral de expedientes'}).waitFor({timeout:25000});
  assert.ok(called.includes('sessionAccess'));
  assert.ok(called.includes('officialInbox'));
- assert.equal(await page.locator('#adminNav').isVisible(),true);
+ assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('staff-workspace')),true);
  assert.deepEqual(pageErrors,[]);
  console.log('Supabase OAuth adapter: verified staff session and read-only inbox routing in browser.');
 }finally{await browser.close();}
