@@ -27,6 +27,11 @@ test('las categorías usan únicamente los trámites realmente disponibles', () 
  assert.deepEqual(categoryCounts({categories:[],items:[]}).map(x=>x.count),[0]);
 });
 
+test('categorías sin servicios no saturan el catálogo público',()=>{
+  const data={categories:[{id:'sin-servicios',title:'Aún no habilitados'},...catalogue.categories],items:catalogue.items};
+  assert.equal(categoryCounts(data).some(x=>x.id==='sin-servicios'),false);
+  assert.equal(categoryCounts(data,{includeEmpty:true}).some(x=>x.id==='sin-servicios'),true);
+});
 test('código automático válido, único y sin palabras reservadas',()=>{
  assert.equal(categoryCode('Gestión de EPS'),'gestion-de-eps');
  assert.equal(categoryCode('Vacunación', ['vacunacion']),'vacunacion-2');
