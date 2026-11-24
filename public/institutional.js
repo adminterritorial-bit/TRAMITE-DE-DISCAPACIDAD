@@ -529,10 +529,10 @@ export function portalExperience({demo,navigate,invoke}){
       if(!['citizen','catalog'].includes(view)&&dialog.open)dialog.close();
       if(['citizen','catalog'].includes(view))render(true);
     },
-    async publicEndpoint(endpoint,useSupabase){
+    async publicEndpoint(endpoint){
       publicEndpoint=endpoint;
       try{
-        const response=await fetch(endpoint+'?content=public'+(useSupabase?'&probe=sits-supabase-v1':''),{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(6000)});
+        const response=await fetch(endpoint+'?content=public&probe=sits-supabase-v1',{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(6000)});
         const body=await response.json();
         if(response.ok&&body.ok&&Array.isArray(body.notices)&&Array.isArray(body.policies)){publicContent=body;render(true);}
       }catch{}

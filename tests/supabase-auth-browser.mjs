@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1280,height:900}});
- const pageErrors=[],called=[];
+ const pageErrors=[],called=[],diagnostics=[];
+ let signedIn=true;
+ page.on('console',message=>diagnostics.push(message.text()));
  page.on('pageerror',e=>pageErrors.push(e.message));
  page.on('request',r=>{if(r.url().includes('firebasejs'))pageErrors.push('Unexpected Firebase SDK request');});
  const policies=['processing','privacy','terms','sensitive'].map((kind,i)=>({
@@ -15,7 +17,7 @@ try{
   body:`export function createClient(){
    const user={id:'staff-test-google',email:'adminterritorial@sanpedro-valle.gov.co',
     email_confirmed_at:'2026-11-24T12:00:00.000Z'};
-   const session={user,access_token:'test-user-token'};
+   const session=${signedIn ? "{user,access_token:'test-user-token'}" : 'null'};
    return {auth:{onAuthStateChange(fn){queueMicrotask(()=>fn('INITIAL_SESSION',session));return {data:{subscription:{unsubscribe(){}}}};},
     getSession:async()=>({data:{session},error:null}),
     signInWithOAuth:async()=>({error:null}),signOut:async()=>({error:null})}};
@@ -55,5 +57,21 @@ try{
  assert.ok(called.includes('institutionalPublic'));
  assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('staff-workspace')),true);
  assert.deepEqual(pageErrors,[]);
- console.log('Supabase OAuth adapter: verified staff session and read-only inbox routing in browser.');
+ signedIn=false;
+ await page.evaluate(()=>sessionStorage.setItem('sits-login-destination','admin'));
+ const callback=new URL('http://127.0.0.1:8080/');
+ callback.searchParams.set('error','server_error');
+ callback.searchParams.set('error_code','unexpected_failure');
+ callback.searchParams.set('error_description','Unable to exchange external code: fictitious-code-marker');
+ await page.goto(callback.href,{waitUntil:'domcontentloaded'});
+ const failure=page.getByRole('alert').filter({hasText:'unexpected_failure'});
+ await failure.waitFor();
+ assert.match(await failure.innerText(),/Supabase no pudo completar el ingreso/);
+ assert.equal(new URL(page.url()).search,'');
+ assert.equal(new URL(page.url()).hash,'#admin');
+ await page.waitForFunction(()=>document.getElementById('googleLogin')?.disabled===false);
+ assert.ok(diagnostics.some(message=>message.includes('provider_code_exchange_failed')));
+ assert.ok(diagnostics.every(message=>!message.includes('fictitious-code-marker')));
+ assert.deepEqual(pageErrors,[]);
+ console.log('Supabase OAuth adapter: staff session and sanitized callback failure verified in browser.');
 }finally{await browser.close();}

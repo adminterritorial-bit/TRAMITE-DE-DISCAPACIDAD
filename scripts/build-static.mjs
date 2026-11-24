@@ -13,7 +13,7 @@ if(endpoint){
  }
  const configPath='dist/config.js';
  const config=readFileSync(configPath,'utf8');
- writeFileSync(configPath,config.replace('export const config = {','export const config = {\n  appsScriptEndpoint:'+JSON.stringify(endpoint)+','));
+ writeFileSync(configPath,config.replace(/appsScriptEndpoint:[^\n]+/,'appsScriptEndpoint:'+JSON.stringify(endpoint)+','));
 }
 writeFileSync('dist/robots.txt','User-agent: *\nDisallow: /pilot.html\n');
 console.log('Static portal packaged.');

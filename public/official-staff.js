@@ -18,9 +18,8 @@ const field=(title,control)=>{const label=e('label',undefined,'case-field');labe
 const errorText=err=>{
  const code=err?.message||'operation_failed';
  const messages={
-  firestore_permission_denied:'Firestore no autorizó guardar el cambio. Revisa el acceso del proyecto de Apps Script a la base de datos.',
-  firestore_precondition:'Firestore rechazó la operación o requiere un índice. Consulta las ejecuciones del proyecto Apps Script.',
-  firestore_unavailable:'No fue posible guardar la actuación en Firestore. El estado anterior se conserva hasta verificar la operación.',
+  database_unavailable:'No fue posible guardar la actuación en Supabase.',
+  revision_conflict:'El expediente cambió durante la operación. Actualiza el registro.',
   content_version_changed:'El expediente fue actualizado por otra persona. Recarga el registro antes de continuar.',
   invalid_transition:'La operación no corresponde al estado actual. Actualiza el expediente.',
   recent_login_required:'Para esta actuación debes salir e ingresar nuevamente con Google.',
@@ -114,8 +113,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
  search.addEventListener('input',drawList);filter.addEventListener('change',drawList);
  async function openCase(id){
   selectedId=id;drawList();
-  // The authorized inbox already supplies full staff details; avoid another
-  // round-trip to Apps Script, App Check and Firestore for each selection.
+  // The authorized inbox already includes the details needed to open a case.
   const available=records.find(item=>item.id===id);
   if(available?.email&&available?.documentNumber&&Array.isArray(available.history)){
    selectedDetail=available;renderDetail(available);return;

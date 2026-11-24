@@ -1,4 +1,3 @@
-import {config} from './config.js';
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
  if(text!=null)element.textContent=text;
@@ -185,10 +184,10 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  search.oninput=renderCatalog;
  category.onchange=renderCatalog;
- async function connect(url,useSupabase=config.backend==='supabase'){
+ async function connect(url){
   endpoint=url;
   try{
-   const response=await fetch(url+'?content=catalog'+(useSupabase?'&probe=sits-supabase-v1':''),{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(7000)});
+   const response=await fetch(url+'?content=catalog&probe=sits-supabase-v1',{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(7000)});
    const data=await response.json();
    if(!response.ok||!Array.isArray(data.items)||!Array.isArray(data.categories))throw Error('Catálogo no disponible.');
    publicCatalog=data;cacheError=false;

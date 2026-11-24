@@ -1,3 +1,4 @@
+import {consumeGoogleOAuthFailure} from './supabase-auth.js';
 import {config} from './config.js';
 import {portalExperience} from './institutional.js?v=studio-1';
 import {serviceCatalog} from './catalog.js?v=studio-1';
@@ -77,22 +78,14 @@ function fixtureAttach(kind,input,label,onReady){
 
 async function invoke(name,data={}){
  if(!api||!user)throw Error('Inicia sesión con una cuenta habilitada.');
- let fields,expected;
- if(api.mode==='supabase'){
-  const accessToken=await user.getIdToken();
-  if(!accessToken)throw Error('La sesión expiró. Ingresa nuevamente.');
-  fields={probe:'sits-supabase-v1',accessToken,payload:JSON.stringify({action:name,data})};
-  expected='sits-supabase-1.0';
- }else{
-  const idToken=await user.getIdToken(),appCheck=(await api.check.getLimitedUseToken(api.appCheck)).token;
-  fields={probe:'spark-pilot-v1',idToken,appCheck,payload:JSON.stringify({action:name,data})};
-  expected='spark-unified-2.0';
- }
+ const accessToken=await user.getIdToken();
+ if(!accessToken)throw Error('La sesión expiró. Ingresa nuevamente.');
+ const fields={probe:'sits-supabase-v1',accessToken,payload:JSON.stringify({action:name,data})};
  const res=await fetch(api.endpoint,{method:'POST',body:new URLSearchParams(fields),
   credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(110000)});
  if(!res.ok)throw Error('Backend HTTP '+res.status);
  const result=await res.json();
- if(result.build!==expected)throw Error('Apps Script todavía no tiene la versión compatible con Supabase. No se enviaron documentos.');
+ if(result.build!=='sits-supabase-1.0')throw Error('Apps Script todavía no tiene la versión compatible con Supabase. No se enviaron documentos.');
  if(result.ok!==true)throw Error('Operación rechazada: '+(result.error||'sin detalle')+' · '+(result.stage||'backend'));
  return result.data;
 }
@@ -189,7 +182,7 @@ async function handleUser(u){
  experience.setSession(u,access.role,access.institutional===true);
  catalog.setSession(u,access.role);
  void experience.prepare(u);
- if(user!==u)return;hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(api?.mode==='supabase'&&!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
+ if(user!==u)return;clearSupabaseAuthError();hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
  catch(e){if(user!==u)return;msg('authMessage',e.message.includes('not_enabled')?'Tu acceso aún no está habilitado en el servicio. Consulta con Salud si el problema persiste.':e.message);msg('loginError',e.message);}
 }
 async function init(){resetProfile();if(demo){$('institutionalAccess').textContent='Demostración del panel de Salud';$('googleLogin').textContent='Ver panel de demostración';$('googleLogin').onclick=loadAdmin;return}for (const field of ['name','documentNumber','phone','support']) form.elements[field].readOnly=true;
@@ -201,13 +194,12 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  fixturePanel.classList.add('fixture-panel');
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
-const endpoint=config.appsScriptEndpoint||'https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
-const useSupabase=config.backend==='supabase';
-void catalog.connect(endpoint,useSupabase);
-void experience.publicEndpoint(endpoint,useSupabase);if(config.backend!=='supabase')void officialUI.connect(endpoint).then(enabled=>{catalog.setIntakeAvailability(enabled);if(enabled){const notice=document.querySelector('.notice span:last-child');if(notice)notice.textContent='Recepción electrónica disponible. Consulta los requisitos y comienza tu solicitud.';}});
+const endpoint=config.appsScriptEndpoint;
+void catalog.connect(endpoint);
+void experience.publicEndpoint(endpoint);
 try{
-if(config.backend==='supabase'){
- api={mode:'supabase',endpoint};
+ api={endpoint};
+ console.info('[SITS Salud] Backend activo',{backend:'Supabase'});
  $('emailForm').hidden=true;
  const citizenLogin=button('Ingresar con Google',async()=>login(false),'primary');
  $('authCitizen').querySelector('h2').textContent='Ingresa a SITS Salud';
@@ -219,35 +211,35 @@ if(config.backend==='supabase'){
  const {createSupabaseController}=await import('./supabase-auth.js');
  const controller=await createSupabaseController(config.supabase,{onUser:handleUser});
  experience.connection('ready');
- async function login(admin){try{await controller.login(admin);}
- catch(err){msg(admin?'loginError':'authMessage',err.message||'No se pudo iniciar sesión con Google.');}}
+ async function login(admin){
+  clearSupabaseAuthError();
+  try{await controller.login(admin);}
+  catch(_){showSupabaseAuthError('start',{
+   code:'oauth_start_failed',reason:'oauth_start_failed',
+   message:'No se pudo abrir el ingreso con Google.'
+  });}
+ }
  trackingLogin=()=>login(false);
  $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);
  $('signout').onclick=()=>controller.logout();
  return;
-}
-const version='11.10.0';const [app,auth,check]=await Promise.all([import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app-check.js')]);
-const a=app.initializeApp(config.firebase),au=auth.getAuth(a),appCheck=check.initializeAppCheck(a,{provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),isTokenAutoRefreshEnabled:false});
-await auth.setPersistence(au,auth.browserSessionPersistence);
-api={check,appCheck,endpoint,mode:'firebase'};
-$('emailForm').hidden=true;
-const citizenLogin=button('Ingresar con Google',async()=>login(false),'primary');
-$('authCitizen').querySelector('h2').textContent='Ingresa a SITS Salud';
-$('authCitizen').querySelector('p').textContent='Ingresa con tu cuenta de Google. Si es tu primera visita, tu acceso ciudadano se registrará cuando el servicio de registro esté habilitado.';
-$('authCitizen').insertBefore(citizenLogin,$('authMessage'));
-const healthResponse=await fetch(api.endpoint+'?v=2.0',{credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(20000)});
-if(!healthResponse.ok)throw Error('Recepción HTTP '+healthResponse.status);
-const health=await healthResponse.json();
-if(health.build!=='spark-unified-2.0')throw Error('Recepción aún utiliza una versión anterior. No se han enviado archivos.');
-if(health.enabled!==true)throw Error('El servicio de recepción no está disponible temporalmente.');
-experience.connection('ready');
-async function login(admin,propagate=false){try{const p=new auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account',...(admin?{hd:'sanpedro-valle.gov.co'}:{})});await auth.signInWithPopup(au,p);}catch(err){const message='No se pudo iniciar sesión: '+(err.code||'verifica la cuenta');msg(admin?'loginError':'authMessage',message);if(propagate)throw Error(message);}}
-trackingLogin=()=>login(false,true);
-$('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);$('signout').onclick=()=>auth.signOut(au);
-auth.onAuthStateChanged(au,handleUser);
 }catch(e){experience.connection('failed');msg('authMessage',e.message||'No fue posible conectar con Recepción.');msg('loginError',e.message||'Recepción no disponible.');}}
+function clearSupabaseAuthError(){
+ const alert=$('supabaseAuthError');
+ alert.hidden=true;
+ alert.textContent='';
+}
+function showSupabaseAuthError(stage,{code,reason,message}){
+ const alert=$('supabaseAuthError');
+ alert.textContent=message+' Código de diagnóstico: '+code+'.';
+ alert.hidden=false;
+ console.error('[SITS Salud] Falló el ingreso con Google',{backend:'Supabase',stage,code,reason});
+}
 phase(0);
+const authFailure=consumeGoogleOAuthFailure();
+if(authFailure)showSupabaseAuthError('callback',authFailure);
 const initial=location.hash.slice(1);
 if(['legal','communications','catalog','citizen','tracking','admin'].includes(initial))showView(initial);
+else if(authFailure&&sessionStorage.getItem('sits-login-destination')==='admin')showView('admin');
 else if(!demo)showView(location.pathname.endsWith('/pilot.html')?'citizen':'catalog');
 void init();

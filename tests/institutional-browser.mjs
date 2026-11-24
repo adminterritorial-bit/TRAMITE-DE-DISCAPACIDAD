@@ -10,17 +10,21 @@ try{
   {id:'policy-terms',act:'terms',version:4,required:true,title:'Aceptación de términos',body:'Condiciones de prueba.'},
   {id:'policy-electronic',act:'electronic_notice',version:1,required:false,title:'Comunicaciones opcionales',body:'Correo de prueba.'}
  ].map(x=>({...x,hash:'a'.repeat(64)}));
- const sdk={
-  'firebase-app':'export const initializeApp=x=>x;',
-  'firebase-auth':`export const browserSessionPersistence={};export const getAuth=()=>({});
-  export const setPersistence=async()=>{};export const onAuthStateChanged=(a,fn)=>queueMicrotask(()=>fn({uid:'citizen',email:'ciudadano@example.invalid',emailVerified:true,getIdToken:async()=> 'local-test'}));`,
-  'firebase-app-check':'export const initializeAppCheck=()=>({});export const ReCaptchaEnterpriseProvider=class {};export const getLimitedUseToken=async()=>({token:"local-test"});'
- };
- await page.route('https://www.gstatic.com/firebasejs/**',r=>r.fulfill({contentType:'text/javascript',headers:{'Access-Control-Allow-Origin':'*'},body:sdk[r.request().url().split('/').at(-1).replace('.js','')]}));
+ await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm',r=>r.fulfill({
+  contentType:'application/javascript',headers:{'Access-Control-Allow-Origin':'*'},
+  body:`export function createClient(){
+   const session={user:{id:'citizen',email:'cuenta@example.invalid',email_confirmed_at:'2026-11-24T12:00:00Z'},access_token:'local-test'};
+   return {auth:{onAuthStateChange(fn){queueMicrotask(()=>fn('INITIAL_SESSION',session));},
+    getSession:async()=>({data:{session},error:null}),signInWithOAuth:async()=>({error:null}),signOut:async()=>({error:null})}};
+  }`
+ }));
+ const intakeDocuments=['processing','privacy','terms','sensitive'].map(kind=>({
+  id:'intake-'+kind,kind,version:1,hash:'a'.repeat(64),title:kind,body:'Documento de prueba'
+ }));
  let sent=null;
  await page.route('https://script.google.com/macros/s/**',r=>{
   const method=r.request().method();
-  let output={ok:true,build:'spark-unified-2.0',enabled:true};
+  let output={ok:true,build:'sits-supabase-1.0',enabled:true,documents:intakeDocuments};
   if(method==='GET'&&r.request().url().includes('content=public'))Object.assign(output,{notices:[],policies:[]});
   if(method==='POST'){
    const {action,data}=JSON.parse(new URLSearchParams(r.request().postData()).get('payload'));
@@ -29,13 +33,6 @@ try{
    output.data=result;
   }
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
- });
- // This legacy regression suite verifies the original Firebase path explicitly.
- // Production uses Supabase only after the Apps Script version handshake succeeds.
- await page.route(/\/config\.js(?:\?.*)?$/,async route=>{
-  const response=await route.fetch();
-  const original=await response.text();
-  await route.fulfill({response,body:original.replace("backend:'supabase'","backend:'firebase'")});
  });
  await page.goto('http://127.0.0.1:8080/pilot.html');
  await page.locator('#next').click();
@@ -56,5 +53,5 @@ try{
  const download=await downloading;
  assert.equal(download.suggestedFilename(),'constancia-del-piloto.html');
  assert.deepEqual(remoteErrors,[]);
- console.log('Pilot browser test with stubbed Firebase/Apps Script verified decisions and branded receipt.');
+ console.log('Pilot browser test with stubbed Supabase/Apps Script verified decisions and branded receipt.');
 }finally{await browser.close();}

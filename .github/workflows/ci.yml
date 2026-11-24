@@ -79,27 +79,9 @@ jobs:
           name: portal-preview
           path: screenshots/
           if-no-files-found: ignore
-  firebase-emulator:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      GCLOUD_PROJECT: demo-discapacidad
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Install locked dependencies
-        run: npm ci --prefix functions --ignore-scripts
-      - name: Run authorization and workflow integration tests
-        run: npx --yes firebase-tools@15.22.1 emulators:exec --only auth,firestore --project demo-discapacidad 'node --test tests/firebase-emulator.mjs && node tests/spark-catalog-firestore.mjs'
   publish-portal:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [static, browser, firebase-emulator]
+    needs: [static, browser]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
