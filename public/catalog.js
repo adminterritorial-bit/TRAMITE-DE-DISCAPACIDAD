@@ -598,22 +598,40 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   renderServices();manager.append(serviceSection);
  }
  function caseList(target,items,staff){
-  const list=node('div',null,'records');
-  const filter=staff?field(target,'Buscar en esta página por referencia o trámite','buscar'):null;
-  target.append(list);
-  const render=()=>{
+  const source=Array.isArray(items)?items:[];
+  const container=node('section',null,'admin-case-browser'),toolbar=node('div',null,'admin-list-filters');
+  const search=field(toolbar,staff?'Buscar radicado o trámite':'Buscar en mis solicitudes','query','',{type:'search'});
+  search.placeholder='Radicado o nombre del trámite';
+  const current=field(toolbar,'Estado','state','',{options:Object.fromEntries([['','Todos los estados'],...Array.from(new Set(source.map(x=>x.status))).sort().map(s=>[s,caseStates[s]||s])])});
+  const order=field(toolbar,'Ordenar por','order','recent',{options:{recent:'Más recientes',old:'Más antiguos',activity:'Último movimiento',name:'Nombre del trámite'}});
+  if(staff)toolbar.append();
+  container.append(toolbar);
+  const count=node('p',null,'admin-collection-count');count.setAttribute('role','status');
+  const list=node('div',null,'admin-case-grid');container.append(count,list);target.append(container);
+  function render(){
+   const visible=selectServiceCases(source,{query:search.value,state:current.value,sort:order.value});
+   count.textContent=visible.length+' de '+source.length+' expedientes en esta página';
    list.replaceChildren();
-   const needle=filter?.value.trim().toLocaleLowerCase('es-CO')||'';
-   const visible=items.filter(x=>(x.radicado+' '+x.title).toLocaleLowerCase('es-CO').includes(needle));
-   if(!visible.length)list.append(node('p','No hay solicitudes de servicios configurados.'));
+   if(!visible.length){
+    const empty=node('div',null,'admin-empty-state');empty.append(node('h4','Sin solicitudes con esos filtros'),
+      node('p','Pruebe otro estado o limpie los filtros para consultar los expedientes de esta página.'));
+    empty.append(btn('Limpiar filtros',()=>{search.value='';current.value='';order.value='recent';render();}));
+    list.append(empty);return;
+   }
    for(const item of visible){
-   const row=node('article',null,'record');
-   row.append(node('strong',item.title),node('p',item.radicado+' · '+(caseStates[item.status]||item.status)),
-    action('Abrir expediente',async()=>{const data=await invoke('serviceCase',{id:item.id});renderCase(row,data,staff);}));
+    const row=node('article',null,'admin-service-case-card');
+    const top=node('div',null,'admin-service-case-top');
+    top.append(node('strong',item.radicado||'Sin radicado'),node('span',caseStates[item.status]||item.status||'Estado por verificar','state-label'));
+    row.append(top,node('h3',item.title||'Trámite configurado'));
+    const created=item.createdAt||item.updatedAt;
+    if(created&&!Number.isNaN(new Date(created).getTime())){
+     row.append(node('p','Actualizado: '+new Date(created).toLocaleDateString('es-CO'),'admin-service-case-date'));
+    }
+    row.append(action('Abrir expediente',async()=>{const data=await invoke('serviceCase',{id:item.id});renderCase(row,data,staff);}));
     list.append(row);
    }
-  };
-  if(filter)filter.oninput=render;
+  }
+  for(const control of [search,current,order])control.addEventListener(control===search?'input':'change',render);
   render();
  }
  function renderCase(target,item,staff){
@@ -722,7 +740,8 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    manager.replaceChildren(node('h2',title));
    if(module==='catalog')adminCatalog(value);
    else if(module==='cases'){
-    manager.append(node('p','Expedientes de esta página: '+value.items.length));
+    manager.append(node('p','Los filtros y las cifras se aplican a los expedientes cargados en esta página.','admin-scope-note'));
+
     caseList(manager,value.items,true);
     if(value.next)manager.append(btn('Siguiente página',()=>openAdmin('cases',value.next)));
     if(after)manager.append(btn('Volver al inicio',()=>openAdmin('cases')));
