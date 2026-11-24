@@ -210,7 +210,10 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     ['Correo verificado',account.email,1],['Teléfono',data.get('phone')||'Sin registrar',1],
     ['Zona',data.get('zone'),1],['Presentación',representative.selectedOptions[0].textContent,1],
     ['Ajustes solicitados',data.get('support')||'Ninguno registrado',1],
-    ['Soporte médico',history.input.files[0]?.name,2],['Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2],
+    ...(!configured||mainDoc?[[mainDoc?.label||'Soporte médico',history.input.files[0]?.name,2]]:[]),
+    ...(!configured||extraDoc?[[extraDoc?.label||'Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2]]:[]),
+    ...Array.from(dynamicInputs.values(),({input,spec})=>[spec.label,
+      input.disabled?'No aplica':spec.type==='checkbox'?(input.checked?'Sí':'No'):input.value||'Sin registrar',1]),
     ['Avisos por correo',notify.checked?'Autorizados':'Sin autorización',3],
     ['Entrega del certificado',certificateEmail.checked?'Correo verificado y portal':'Portal autenticado',3]
    ];
@@ -223,7 +226,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   async function validateStep(n){
    const issues=[];
    if(n===2){
-    const attachments=[history,extra];
+    const attachments=pdfSlots;
     for(const item of attachments){
      const file=item.input.files[0];
      if(!file&&!item.input.required)continue;
@@ -232,7 +235,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     }
     if(!issues.length&&attachments.reduce((total,item)=>total+(item.input.files[0]?.size||0),0)>7*1024*1024){
      const reason='El total de los dos PDF debe ser de máximo 7 MB.';
-     extra.report(reason);issues.push([extra.input,reason]);
+     const last=attachments[attachments.length-1];last.report(reason);issues.push([last.input,reason]);
     }
    }else{
     for(const input of panels[n].querySelectorAll('input,select,textarea')){
@@ -252,12 +255,21 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
    busy=true;send.disabled=true;previous.disabled=true;send.textContent='Enviando solicitud…';
    try{
     activity.textContent='Preparando archivos y verificando su integridad.';
-    const attachments=[history.input.files[0],extra.input.files[0]].filter(Boolean);
-    const payloads=await Promise.all(attachments.map((file,i)=>validatePdf(file,i===0?'historia':'apoyo')));
+    const attachments=pdfSlots.filter(slot=>slot.input.files[0]);
+    const payloads=await Promise.all(attachments.map(slot=>validatePdf(slot.input.files[0],slot.kind)));
     const fields=Object.fromEntries([...new FormData(form)].filter(([,value])=>typeof value==='string'));
     key??=crypto.randomUUID();
     activity.textContent='Enviando los soportes para almacenamiento y verificación.';
-    const result=await invoke('officialSubmit',{...fields,key,files:payloads,medicalConsent:consent.checked,notifyByEmail:notify.checked,certificateEmailConsent:certificateEmail.checked,
+    const answers={};
+    for(const [id,{input,spec}] of dynamicInputs){
+     if(input.disabled)continue;
+     if(spec.type==='checkbox')answers[id]=input.checked;
+     else if(input.value!=='')answers[id]=input.value;
+    }
+    const operation=configured?'configuredSubmit':'officialSubmit';
+    const result=await invoke(operation,{...fields,key,files:payloads,
+      ...(configured?{serviceId:selectedService.id,serviceVersion:serviceSchema.version,answers}:{}),
+      medicalConsent:consent.checked,notifyByEmail:notify.checked,certificateEmailConsent:certificateEmail.checked,
       legalDecisions:policyBoxes.map(({cb,policy})=>({id:policy.id,version:policy.version,hash:policy.hash,accepted:cb.checked}))});
     if(!form.isConnected)return;
     if(!result?.reference)throw Error('La recepción aún no pudo verificarse. Reintenta este envío para consultar la misma referencia.');
