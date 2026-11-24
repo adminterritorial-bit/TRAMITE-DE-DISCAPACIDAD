@@ -1,7 +1,7 @@
 import {consumeGoogleOAuthFailure} from './supabase-auth.js';
 import {config} from './config.js';
 import {portalExperience} from './institutional.js?v=studio-1';
-import {serviceCatalog} from './catalog.js?v=studio-1';
+import {serviceCatalog} from './catalog.js?v=catalog-access-1';
 import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
 const labMode=demo||location.pathname.endsWith('/pilot.html');document.body.classList.toggle('pilot-mode',labMode);
@@ -41,7 +41,7 @@ function showView(v,{focus=true}={}){
  }
  accessibility.view(v);
  if(!demo)trackingGate.view(v,authorized);
- if(v==='catalog')ensureCatalogue();
+ if(v==='catalog'||v==='home')ensureCatalogue();
  if(v==='tracking'){void loadTracking();void catalog.tracking();}
  if(v==='admin')void loadAdmin();
 }
