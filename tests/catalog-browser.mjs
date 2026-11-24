@@ -115,7 +115,7 @@ try{
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByLabel('Referencia de aprobación de Salud').fill('Aprobación de prueba del entorno local');
  await page.getByRole('button',{name:'Publicar trámite'}).click();
- await page.locator('.navbtn[data-view=catalog]').click();
+ await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByLabel('Buscar trámite').fill('Orientación');
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Orientación de prueba',exact:true})}).getByRole('button',{name:'Ver trámite'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
