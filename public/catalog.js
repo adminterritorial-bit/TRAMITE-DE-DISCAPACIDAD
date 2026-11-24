@@ -604,7 +604,6 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   search.placeholder='Radicado o nombre del trámite';
   const current=field(toolbar,'Estado','state','',{options:Object.fromEntries([['','Todos los estados'],...Array.from(new Set(source.map(x=>x.status))).sort().map(s=>[s,caseStates[s]||s])])});
   const order=field(toolbar,'Ordenar por','order','recent',{options:{recent:'Más recientes',old:'Más antiguos',activity:'Último movimiento',name:'Nombre del trámite'}});
-  if(staff)toolbar.append();
   container.append(toolbar);
   const count=node('p',null,'admin-collection-count');count.setAttribute('role','status');
   const list=node('div',null,'admin-case-grid');container.append(count,list);target.append(container);
