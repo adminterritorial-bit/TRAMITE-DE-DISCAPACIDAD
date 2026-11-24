@@ -127,9 +127,18 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   filesPanel.append(el('p',configured?'Adjunta los soportes indicados para este trámite. Máximo 4,5 MB por PDF y 7 MB en total.':
     'Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
   const fileGrid=el('div',undefined,'intake-filegrid');
-  const history=pdfField({label:'Historia clínica o soporte médico',kind:'historia',required:true});
-  const extra=pdfField({label:'Soporte adicional, si aplica',kind:'apoyo'});
-  fileGrid.append(history.group,extra.group);filesPanel.append(fileGrid);
+  const requestedDocs=configured?serviceSchema.fields.filter(spec=>spec.type==='document'):[];
+  const mainDoc=requestedDocs.find(spec=>spec.fixture==='historia');
+  const extraDoc=requestedDocs.find(spec=>spec.fixture==='apoyo');
+  const history=pdfField({label:mainDoc?.label||'Historia clínica o soporte médico',kind:'historia',
+   required:configured?mainDoc?.required===true:true});
+  const extra=pdfField({label:extraDoc?.label||'Soporte adicional, si aplica',kind:'apoyo',
+   required:configured?extraDoc?.required===true:false});
+  const pdfSlots=[];
+  if(!configured||mainDoc){fileGrid.append(history.group);pdfSlots.push({kind:'historia',...history});}
+  if(!configured||extraDoc){fileGrid.append(extra.group);pdfSlots.push({kind:'apoyo',...extra});}
+  if(pdfSlots.length)filesPanel.append(fileGrid);
+  else filesPanel.append(el('p','Este trámite no requiere adjuntar documentos PDF.','ui-service-status'));
   permissions.append(el('p','Lee las condiciones institucionales y selecciona las autorizaciones que apliquen.'));
   function check(parent,text,required=false){
    const wrapper=el('label',undefined,'intake-policy'),box=el('input');
