@@ -209,7 +209,12 @@ try{
  catalog.setIntakeAvailability(ready);
  if(!ready)throw Error('Apps Script compatible con Supabase todavía no está desplegado. No se enviaron documentos.');
  const {createSupabaseController}=await import('./supabase-auth.js');
- const controller=await createSupabaseController(config.supabase,{onUser:handleUser});
+ const controller=await createSupabaseController(config.supabase,{
+  onUser:handleUser,
+  onAuthError:(stage,code)=>showSupabaseAuthError(stage,{
+   code,reason:code,message:'No se pudo completar el ingreso con Google.'
+  })
+ });
  experience.connection('ready');
  async function login(admin){
   clearSupabaseAuthError();

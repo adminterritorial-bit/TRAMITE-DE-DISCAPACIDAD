@@ -27,13 +27,45 @@ export function consumeGoogleOAuthFailure(){
  };
 }
 
-// Google OAuth through Supabase, using the publishable key only.
-export async function createSupabaseController(settings,{onUser}){
- if(!settings?.url||!settings?.publishableKey)throw Error('Configuración de autenticación incompleta.');
+const GOOGLE_IDENTITY_SCRIPT='https://accounts.google.com/gsi/client';
+let identityLoader;
+function loadGoogleIdentity(){
+ if(window.google?.accounts?.id)return Promise.resolve(window.google.accounts.id);
+ if(!identityLoader)identityLoader=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src=GOOGLE_IDENTITY_SCRIPT;
+  script.async=true;
+  const fail=()=>{
+   clearTimeout(timeout);
+   script.remove();
+   identityLoader=null;
+   reject(Error('google_script_unavailable'));
+  };
+  const timeout=setTimeout(fail,12000);
+  script.onload=()=>{
+   clearTimeout(timeout);
+   const identity=window.google?.accounts?.id;
+   if(identity)resolve(identity);else fail();
+  };
+  script.onerror=fail;
+  document.head.append(script);
+ });
+ return identityLoader;
+}
+
+async function googleNonce(){
+ const raw=crypto.randomUUID();
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));
+ const hashed=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+ return {raw,hashed};
+}
+
+// Supabase validates a signed Google identity token using the configured audience.
+export async function createSupabaseController(settings,{onUser,onAuthError}){
+ if(!settings?.url||!settings?.publishableKey||!settings?.googleClientId)throw Error('Configuración de autenticación incompleta.');
  const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm');
  const client=createClient(settings.url,settings.publishableKey,{
-  auth:{flowType:'pkce',autoRefreshToken:true,persistSession:true,
-   detectSessionInUrl:true,storage:window.sessionStorage}
+  auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:false,storage:window.sessionStorage}
  });
  let previousId;
  function adapted(session){
@@ -53,19 +85,66 @@ export async function createSupabaseController(settings,{onUser}){
   previousId=id;
   queueMicrotask(()=>{void onUser(adapted(session));});
  });
+ const dialog=document.createElement('dialog');
+ dialog.className='institution-dialog';
+ const title=document.createElement('h2');
+ title.id='googleIdentityTitle';
+ title.textContent='Ingresa con Google';
+ dialog.setAttribute('aria-labelledby',title.id);
+ const message=document.createElement('p');
+ message.setAttribute('role','status');
+ const mount=document.createElement('div');
+ const close=document.createElement('button');
+ close.type='button';
+ close.className='secondary';
+ close.textContent='Cerrar';
+ close.addEventListener('click',()=>dialog.close());
+ dialog.append(title,message,mount,close);
+ document.body.append(dialog);
+ let attempt;
+ dialog.addEventListener('close',()=>{if(!dialog.open){attempt=null;mount.replaceChildren();}});
  return {
   async login(institutional=false){
-   sessionStorage.setItem('sits-login-destination',institutional?'admin':'citizen');
-   const {error}=await client.auth.signInWithOAuth({
-    provider:'google',options:{
-     redirectTo:location.origin+'/',
-     queryParams:{prompt:'select_account',
-      ...(institutional?{hd:'sanpedro-valle.gov.co'}:{})}
-    }
-   });
-   if(error)throw Error('Google no permitió iniciar sesión: '+error.message);
+   if(dialog.open)return;
+   const current={};
+   attempt=current;
+   message.textContent='Cargando el acceso de Google…';
+   mount.replaceChildren();
+   dialog.showModal();
+   try{
+    const [identity,nonce]=await Promise.all([loadGoogleIdentity(),googleNonce()]);
+    if(attempt!==current||!dialog.open)return;
+    identity.initialize({
+     client_id:settings.googleClientId,nonce:nonce.hashed,auto_select:false,ux_mode:'popup',
+     ...(institutional?{hd:'sanpedro-valle.gov.co'}:{}),
+     callback:async ({credential})=>{
+      if(attempt!==current||!dialog.open||current.used||!credential)return;
+      current.used=true;
+      mount.replaceChildren();
+      close.disabled=true;
+      message.textContent='Verificando tu cuenta en Supabase…';
+      sessionStorage.setItem('sits-login-destination',institutional?'admin':'citizen');
+      try{
+       const {error}=await client.auth.signInWithIdToken({provider:'google',token:credential,nonce:nonce.raw});
+       if(error)throw error;
+       if(dialog.open)dialog.close();
+      }catch(_){
+       sessionStorage.removeItem('sits-login-destination');
+       message.textContent='Supabase no pudo validar tu cuenta. Cierra esta ventana e intenta nuevamente.';
+       onAuthError?.('identity_token','google_identity_rejected');
+      }finally{close.disabled=false;}
+     }
+    });
+    message.textContent=institutional?'Elige tu cuenta institucional.':'Elige tu cuenta de Google.';
+    identity.renderButton(mount,{type:'standard',theme:'outline',size:'large',text:'signin_with'});
+   }catch(err){
+    if(attempt!==current||!dialog.open)return;
+    message.textContent='No se pudo cargar el ingreso de Google. Cierra esta ventana e intenta nuevamente.';
+    onAuthError?.('start',err.message==='google_script_unavailable'?'google_script_unavailable':'google_start_failed');
+   }
   },
   async logout(){
+   window.google?.accounts?.id?.disableAutoSelect();
    const {error}=await client.auth.signOut();
    if(error)throw Error('No se pudo cerrar la sesión.');
   }

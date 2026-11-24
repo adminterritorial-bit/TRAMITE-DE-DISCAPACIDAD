@@ -1,11 +1,13 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 // Controlled browser contract: no real account, documents, Drive or email.
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1280,height:900}});
  const pageErrors=[],called=[],diagnostics=[];
  let signedIn=true;
+ let rejectedIdentity=false;
  page.on('console',message=>diagnostics.push(message.text()));
  page.on('pageerror',e=>pageErrors.push(e.message));
  page.on('request',r=>{if(r.url().includes('firebasejs'))pageErrors.push('Unexpected Firebase SDK request');});
@@ -17,11 +19,29 @@ try{
   body:`export function createClient(){
    const user={id:'staff-test-google',email:'adminterritorial@sanpedro-valle.gov.co',
     email_confirmed_at:'2026-11-24T12:00:00.000Z'};
-   const session=${signedIn ? "{user,access_token:'test-user-token'}" : 'null'};
-   return {auth:{onAuthStateChange(fn){queueMicrotask(()=>fn('INITIAL_SESSION',session));return {data:{subscription:{unsubscribe(){}}}};},
+   const signedSession={user,access_token:'test-user-token'};
+   let session=${signedIn ? 'signedSession' : 'null'}, subscribe;
+   return {auth:{onAuthStateChange(fn){subscribe=fn;queueMicrotask(()=>fn('INITIAL_SESSION',session));return {data:{subscription:{unsubscribe(){}}}};},
     getSession:async()=>({data:{session},error:null}),
-    signInWithOAuth:async()=>({error:null}),signOut:async()=>({error:null})}};
+    async signInWithIdToken(options){
+     window.testTokenOptions=options;
+     if(${rejectedIdentity})return {error:new Error('test-sensitive-provider-message')};
+     session=signedSession;subscribe('SIGNED_IN',session);return {data:{session},error:null};
+    },
+    signOut:async()=>({error:null})}};
   }`
+ }));
+ await page.route('https://accounts.google.com/gsi/client',r=>r.fulfill({
+  contentType:'application/javascript',
+  body:`window.google={accounts:{id:{
+   initialize(options){window.googleIdentityOptions=options;},
+   renderButton(mount){
+    const button=document.createElement('button');
+    button.textContent='Continuar con Google';
+    button.onclick=()=>window.googleIdentityOptions.callback({credential:'fixture.google.identity'});
+    mount.append(button);
+   }
+  }}};`
  }));
  await page.route('https://script.google.com/macros/s/**',route=>{
   const req=route.request(),url=new URL(req.url());
@@ -73,5 +93,21 @@ try{
  assert.ok(diagnostics.some(message=>message.includes('provider_code_exchange_failed')));
  assert.ok(diagnostics.every(message=>!message.includes('fictitious-code-marker')));
  assert.deepEqual(pageErrors,[]);
- console.log('Supabase OAuth adapter: staff session and sanitized callback failure verified in browser.');
+ await page.locator('#googleLogin').click();
+ await page.getByRole('button',{name:'Continuar con Google'}).click();
+ await page.getByRole('heading',{name:'Gestión integral de expedientes'}).waitFor();
+ const identity=await page.evaluate(()=>({google:window.googleIdentityOptions.nonce,input:window.testTokenOptions}));
+ assert.equal(identity.input.provider,'google');
+ assert.equal(identity.input.token,'fixture.google.identity');
+ assert.equal(identity.google,createHash('sha256').update(identity.input.nonce).digest('hex'));
+ assert.equal(await page.getByRole('dialog',{name:'Ingresa con Google'}).isVisible(),false);
+ rejectedIdentity=true;
+ await page.goto('http://127.0.0.1:8080/?identityRetry=1#admin');
+ await page.locator('#googleLogin').click();
+ await page.getByRole('button',{name:'Continuar con Google'}).click();
+ await page.getByText(/Supabase no pudo validar tu cuenta/).waitFor();
+ assert.ok(diagnostics.some(line=>line.includes('google_identity_rejected')));
+ assert.ok(diagnostics.every(line=>!line.includes('test-sensitive-provider-message')&&!line.includes('fixture.google.identity')));
+ assert.deepEqual(pageErrors,[]);
+ console.log('Supabase Google identity token, nonce and sanitized errors verified in browser.');
 }finally{await browser.close();}
