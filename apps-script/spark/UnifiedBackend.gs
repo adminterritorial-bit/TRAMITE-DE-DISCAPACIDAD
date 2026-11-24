@@ -81,6 +81,10 @@ const SPARK_BUILD_='spark-unified-2.0';
 const SPARK_PORTAL_='https://sits-salud-san-pedro.vercel.app/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ if(typeof sitsSbOn_==='function'&&sitsSbOn_()&&e?.parameter?.content==='official-intake'){
+  try{root_();return output_({ok:true,...sitsSbCapabilities_()});}
+  catch(_){return output_({ok:true,enabled:false,documents:[]});}
+ }
  if(e?.parameter?.content==='official-intake'){
   try{return output_({ok:true,...officialCapabilities_()});}
   catch(_){return output_({ok:true,enabled:false,documents:[]});}
@@ -109,7 +113,7 @@ function doGet(e){
  }
  return output_({ok:true,build:SPARK_BUILD_,enabled:true,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
 }
-function doPost(e){return spHandle_(e);}
+function doPost(e){return typeof sitsSbOn_==='function'&&sitsSbOn_()?sitsSbHandle_(e):spHandle_(e);}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
 const SPARK_REST_='https://firestore.googleapis.com/v1/'+SPARK_DB_;
 const SPARK_FIXTURE_='2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf';
