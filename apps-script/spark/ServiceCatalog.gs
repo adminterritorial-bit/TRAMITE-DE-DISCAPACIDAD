@@ -76,7 +76,21 @@ function catSummary_(view){
 }
 function catPublic_(){
  const {categories,services}=catStore_();
- return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>catSummary_({id:x.id,...x.live}))],
+ // Real intake is independently authorized in the relational catalog.
+ // An approved public information sheet is not sufficient to accept cases.
+ const enabled=new Set();
+ if(typeof sitsSbOn_==='function'&&sitsSbOn_()){
+  try{
+   for(const row of sitsSbRows_('sits_services',
+    'select=id&active=eq.true&intake_enabled=eq.true&limit=100',null,true))
+    enabled.add(row.id);
+  }catch(_){} // Fail closed; still show public information.
+ }
+ return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>({
+   ...catSummary_({id:x.id,...x.live}),
+   intakeEnabled:enabled.has(x.id),
+   ...(enabled.has(x.id)?{intakeSchema:x.live}:{})
+  }))],
   categories:categories.filter(x=>x.active).map(({id,title})=>({id,title}))};
 }
 function catService_(id){
