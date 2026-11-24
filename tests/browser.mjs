@@ -68,6 +68,7 @@ try {
  await page.getByRole('button',{name:'Previsualizar'}).click();
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByRole('button',{name:'Publicar o programar'}).click();
+ await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.locator('.navbtn[data-view=home]').click();
  await page.locator('.home-guidance [data-view=citizen]').click();
  const popup=page.getByRole('dialog',{name:'Horario de prueba'});
