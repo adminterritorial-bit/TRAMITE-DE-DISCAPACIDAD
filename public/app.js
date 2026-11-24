@@ -180,7 +180,7 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
 const endpoint='https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
-void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);void officialUI.connect(endpoint);
+void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);void officialUI.connect(endpoint).then(enabled=>{catalog.setIntakeAvailability(enabled);if(enabled){const notice=document.querySelector('.notice span:last-child');if(notice)notice.textContent='Recepción electrónica disponible. Consulta los requisitos y comienza tu solicitud.';}});
 try{
 const version='11.10.0';const [app,auth,check]=await Promise.all([import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app-check.js')]);
 const a=app.initializeApp(config.firebase),au=auth.getAuth(a),appCheck=check.initializeAppCheck(a,{provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),isTokenAutoRefreshEnabled:false});

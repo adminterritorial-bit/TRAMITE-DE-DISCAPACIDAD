@@ -132,7 +132,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const serviceBody=node('div');
  service.append(serviceBody);
  let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
- let endpoint,activeService,user,role,serviceKey,cacheError,pendingService;
+ let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=false;
  const menu=document.querySelector('.admin-module-menu');
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
@@ -283,13 +283,13 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   activeService=item;serviceKey=null;
   service.querySelector('h1').textContent=item.title;service.querySelector('h1').dataset.voiceHint=item.title;
   const description=node('div',null,'service-overview');description.append(node('h2','Sobre este servicio'),node('p',item.description,'plain-content'),node('p','Canal de atención: '+(item.channel||'Secretaría de Salud')));
-  const status=node('div',null,'service-availability');status.append(glyph('shield'),node('p','Radicación electrónica pendiente de habilitación oficial. Los usuarios autorizados pueden acceder a la validación institucional.'));
+  const status=node('div',null,'service-availability');status.append(glyph('shield'),node('p',officialActive?'La recepción de solicitudes está disponible por este portal.':'El canal de recepción electrónica no está disponible en este momento. Consulta los canales oficiales de Salud.'));
   serviceBody.replaceChildren(description,status);
   navigate('service');
   if(item.standard){
    const requirements=node('section',null,'service-overview');requirements.append(node('h2','Antes de continuar'),node('p','La certificación de discapacidad se realiza a través del procedimiento y las entidades competentes. La Secretaría de Salud orienta la gestión de los documentos.'));
    const items=node('ul');for(const text of ['Consulta los requisitos aplicables con la Secretaría de Salud.','Ten disponible un correo electrónico para el seguimiento cuando se habilite la recepción.','Verifica el canal oficial antes de entregar documentación clínica.'])items.append(node('li',text));
-   requirements.append(items,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn('Acceso autorizado',()=>navigate('citizen'),'primary'));serviceBody.append(requirements);return;
+   requirements.append(items,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive?'Iniciar solicitud':'Consultar canales de atención',()=>navigate('citizen'),'primary'));serviceBody.append(requirements);return;
   }
   if(!user){serviceBody.append(btn('Ingresar para continuar',()=>{pendingService=item;navigate('citizen');},'primary'));return;}
   const load=node('div');serviceBody.append(load);experience.loading(load);
@@ -595,7 +595,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   }catch(e){area.replaceChildren(node('p',e.message,'error'),btn('Reintentar',()=>tracking(after)));}
  }
  renderCatalog();
- return {connect,tracking,setSession(next,nextRole){
+ return {connect,tracking,setIntakeAvailability(enabled){officialActive=enabled===true;},setSession(next,nextRole){
   user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';
