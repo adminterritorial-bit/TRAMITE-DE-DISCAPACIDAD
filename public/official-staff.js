@@ -62,7 +62,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
  const status=e('p','','case-feedback');status.setAttribute('role','status');
  const counts=e('div',undefined,'case-counts');
  const tools=e('div',undefined,'case-tools');
- const search=e('input');search.type='search';search.placeholder='Nombre o referencia';search.setAttribute('aria-label','Buscar por nombre o referencia');
+ const search=e('input');search.type='search';search.placeholder='Nombre, documento o radicado';search.setAttribute('aria-label','Buscar por nombre, documento o radicado');
  const filter=e('select');filter.setAttribute('aria-label','Filtrar por estado');
  for(const [value,name] of [['','Todos los estados'],...Object.entries(STATES)]){
   const o=e('option',name);o.value=value;filter.append(o);
@@ -92,7 +92,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
  function drawList(){
   list.replaceChildren();const term=search.value.trim().toLocaleLowerCase('es-CO');
   const filtered=records.filter(x=>(!filter.value||filter.value===x.status)&&
-    (!term||(x.reference+' '+x.name).toLocaleLowerCase('es-CO').includes(term)));
+    (!term||(x.reference+' '+x.name+' '+(x.documentNumber||'')).toLocaleLowerCase('es-CO').includes(term)));
   for(const item of filtered){
    const card=b('',()=>openCase(item.id),'case-list-card');
    card.setAttribute('aria-label','Gestionar '+item.reference);

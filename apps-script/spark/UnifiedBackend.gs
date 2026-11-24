@@ -736,20 +736,20 @@ function officialDispatch_(u,action,d){
   return {items:spQuery_('officialRequests','ownerUid',u.uid,'ownerUid',100).filter(x=>spData_(x.fields).ownerUid===u.uid).sort((a,b)=>(spData_(b.fields).createdAt||0)-(spData_(a.fields).createdAt||0)).slice(0,50).map(x=>officialView_(x))};
  }
  if(action==='officialInbox'){
-  officialStaff_(u);spLimit_(u,'officialInbox',60);
-  return {items:spQuery_('officialRequests',null,null,'createdAt',50).map(x=>officialView_(x,true))};
+  officialStaff_(u);spLimit_(u,'officialInbox',500);
+  return {items:spQuery_('officialRequests',null,null,'createdAt',100).map(x=>officialView_(x,true))};
  }
  const id=d.id;
  if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw Error('invalid_request');
  const doc=spRead_('officialRequests',id);if(!doc)throw Error('not_found');
  const row=spData_(doc.fields),owner=row.ownerUid===u.uid;
- if(action==='officialRead'){if(!owner)officialStaff_(u);spLimit_(u,'officialRead',80);return officialView_(doc,!owner);}
+ if(action==='officialRead'){if(!owner)officialStaff_(u);spLimit_(u,'officialRead',500);return officialView_(doc,!owner);}
  if(action==='officialDownload'){
   if(!owner)officialStaff_(u);
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
   if(d.kind==='certificate'&&owner&&!['delivered','available','delivery_review','closed'].includes(row.status))throw Error('not_found');
   if(!owner)instRecent_(u);
-  spLimit_(u,'officialDownload',50);
+  spLimit_(u,'officialDownload',250);
   const result=officialPdf_(id,d.kind==='certificate'?row.certificate:(row.files||[]).find(f=>f.kind===d.kind),d.kind);
   spCommit_([spAudit_(id,u.uid,'official:download:'+d.kind)]);
   return result;
@@ -770,7 +770,7 @@ function officialDispatch_(u,action,d){
   officialStaff_(u);instRecent_(u);
   if(row.status!=='awaiting_certificate'||d.revision!==row.revision||d.confirm!==true)throw Error('invalid_transition');
   const pdf=officialCertificateFile_(d.file);
-  spLimit_(u,'officialSendCertificate',10);
+  spLimit_(u,'officialSendCertificate',100);
   const saved=savePdf_(existingFolder_(root_(),'official-'+id),pdf);
   spCommit_([spPut_('officialRequests',id,{certificate:saved,status:'sending',revision:row.revision+1,
    history:officialHistory_(row,'sending','Certificado incorporado al expediente')},doc,['updatedAt']),
@@ -799,7 +799,7 @@ function officialDispatch_(u,action,d){
     delivered:['closed'],available:['closed'],not_proceed:['closed']};
   if(!allowed[row.status]?.includes(d.status)||d.revision!==row.revision)throw Error('invalid_transition');
   const comment=instText_(d.comment,450),kind=d.status==='needs_documents'?instEnum_(d.documentKind,['historia','apoyo']):null;
-  spLimit_(u,'officialTransition',50);
+  spLimit_(u,'officialTransition',300);
   spCommit_([spPut_('officialRequests',id,{status:d.status,revision:row.revision+1,lastAction:comment,
     updatedBy:u.uid,correctionKind:kind,history:officialHistory_(row,d.status,comment)},doc,['updatedAt']),
    spAudit_(id,u.uid,'official:status:'+d.status)]);

@@ -30,6 +30,8 @@ export async function renderOfficialTracking({invoke,validatePdf}){
     const label=entry.correctionKind==='historia'?'Soporte médico':'Soporte adicional';
     const area=el('div',undefined,'case-correction');
     area.append(el('h3','Actualizar documento'),el('p','Salud solicita corregir o adjuntar: '+label+'.'));
+    const guidance=(entry.history||[]).slice().reverse().find(x=>x.status==='needs_documents')?.comment;
+    if(guidance)area.append(el('p',guidance,'case-guidance'));
     const file=el('input');file.type='file';file.accept='.pdf,application/pdf';
     file.setAttribute('aria-label','Nuevo '+label+' para '+entry.reference);
     const send=el('button','Enviar soporte corregido','primary');send.type='button';
