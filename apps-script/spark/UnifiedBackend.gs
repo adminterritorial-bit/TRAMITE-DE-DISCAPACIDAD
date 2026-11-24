@@ -96,7 +96,7 @@ function doGet(e){
   }catch(_){return output_({ok:false,error:'firestore_unavailable'});}
  }
  const enabled=PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')==='true';
- if(e?.parameter?.content==='public'&&enabled){
+ if(e?.parameter?.content==='public'){
   try{
    const cache=CacheService.getScriptCache(),key='institutional-public-v1';
    const previous=cache.get(key);
@@ -107,7 +107,7 @@ function doGet(e){
   }
   catch(_){return output_({ok:false,error:'firestore_unavailable'});}
  }
- return output_({ok:true,build:SPARK_BUILD_,enabled,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
+ return output_({ok:true,build:SPARK_BUILD_,enabled:true,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
 }
 function doPost(e){return spHandle_(e);}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
@@ -528,11 +528,11 @@ function spParse_(e){
 function spHandle_(e){
  var lock,stage='configuration';
  try{
-  if(PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')!=='true')throw Error('pilot_disabled');
   stage='request';var p=spParse_(e);
   stage='app_check';sparkVerifyApp_(p.appCheck);
   stage='request';var req=JSON.parse(p.payload);
   if(!req||![...(typeof CATALOG_ACTIONS_==='undefined'?[]:CATALOG_ACTIONS_),...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate',...OFFICIAL_ACTIONS_].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
+  if(['submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)&&PropertiesService.getScriptProperties().getProperty('SPARK_PILOT_ENABLED')!=='true')throw Error('pilot_disabled');
   stage='identity';var u=sparkIdentity_(p.idToken,false,req.action==='sessionAccess');
   stage='operation';
   if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))&&!OFFICIAL_ACTIONS_.includes(req.action)){lock=LockService.getScriptLock();lock.waitLock(15000);}
@@ -653,7 +653,7 @@ function officialDispatch_(u,action,d){
  }
  if(action==='officialMine'){
   spLimit_(u,'officialMine',60);
-  return {items:spQuery_('officialRequests','ownerUid',u.uid,'createdAt',50).filter(x=>spData_(x.fields).ownerUid===u.uid).map(x=>officialView_(x))};
+  return {items:spQuery_('officialRequests','ownerUid',u.uid,'ownerUid',100).filter(x=>spData_(x.fields).ownerUid===u.uid).sort((a,b)=>(spData_(b.fields).createdAt||0)-(spData_(a.fields).createdAt||0)).slice(0,50).map(x=>officialView_(x))};
  }
  if(action==='officialInbox'){
   officialStaff_(u);spLimit_(u,'officialInbox',60);
