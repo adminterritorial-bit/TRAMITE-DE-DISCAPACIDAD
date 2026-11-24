@@ -452,8 +452,6 @@ body .case-citizen-card { margin:0;padding:1rem;border-color:var(--ui-line);bord
 }
 
 /* The header occupies the same space before and after authentication. */
-body.staff-workspace .nav { display:flex; }
-body.staff-workspace .staff-entry { display:inline-flex;align-items:center; }
 body .workspace-strip,
 body.staff-workspace .workspace-strip {
  background:var(--ui-pale);
