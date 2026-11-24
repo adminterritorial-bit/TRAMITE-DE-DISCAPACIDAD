@@ -309,7 +309,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  async function inbox(){
   if(!authenticated||!getUser())return;
-  if(!staffInbox){const {renderOfficialStaffInbox}=await import('./official-staff.js?v=admin-mosaic-1');staffInbox??={show:()=>renderOfficialStaffInbox({invoke,validatePdf,sessionUserId:getUser()?.uid}),clear:()=>document.getElementById('officialInbox')?.remove()};}
+  if(!staffInbox){const {renderOfficialStaffInbox}=await import('./official-staff.js?v=suite-flows-1');staffInbox??={show:()=>renderOfficialStaffInbox({invoke,validatePdf,sessionUserId:getUser()?.uid}),clear:()=>document.getElementById('officialInbox')?.remove()};}
   if(authenticated)await staffInbox.show();
  }
  function receptionStatus(){
