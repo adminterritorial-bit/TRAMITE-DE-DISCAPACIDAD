@@ -183,6 +183,15 @@ body.hc .case-quick-tab[aria-pressed=true]{background:#ffdf74!important;color:#0
 body.hc :is(.studio-category-create,.studio-category-editor){background:#000!important;border-color:#fff!important;color:#fff!important}
 body.hc :is(.studio-category-help,.studio-category-create>summary,.admin-category-tip){color:#fff!important}
 
+.studio-recovery{
+ display:flex;align-items:center;flex-wrap:wrap;gap:.65rem 1rem;
+ margin:0 0 1rem;padding:1rem 1.2rem;border:1px solid #c8a964;
+ border-radius:.85rem;background:#fff8e8;color:#4c3c1f;
+}
+.studio-recovery strong{font-size:1.01rem;flex-basis:100%}
+.studio-recovery p{margin:0;flex-basis:100%;font-size:.9rem;line-height:1.5}
+.studio-recovery button{min-height:2.8rem}
+body.hc .studio-recovery{background:#000!important;color:#fff!important;border-color:#fff!important}
 .studio-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;flex-wrap:wrap;margin-bottom:20px}
 .studio-heading h2{margin:7px 0 0;font-size:1.7rem}.studio-heading p{margin:4px 0}.studio-kicker{font-size:.72rem;font-weight:800;letter-spacing:.12em;color:#15578e}
 .studio-form{gap:16px}.studio-section{padding:21px;border:1px solid #c6d9ec;background:#f6faff;border-radius:18px;min-width:0}
