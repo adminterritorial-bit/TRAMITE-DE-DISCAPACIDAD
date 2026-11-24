@@ -1,3 +1,4 @@
+import {config} from './config.js';
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
  if(text!=null)element.textContent=text;
@@ -184,10 +185,10 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  search.oninput=renderCatalog;
  category.onchange=renderCatalog;
- async function connect(url){
+ async function connect(url,useSupabase=config.backend==='supabase'){
   endpoint=url;
   try{
-   const response=await fetch(url+'?content=catalog',{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(7000)});
+   const response=await fetch(url+'?content=catalog'+(useSupabase?'&probe=sits-supabase-v1':''),{credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(7000)});
    const data=await response.json();
    if(!response.ok||!Array.isArray(data.items)||!Array.isArray(data.categories))throw Error('Catálogo no disponible.');
    publicCatalog=data;cacheError=false;
@@ -507,7 +508,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  function staffSettings(data){
   const head=node('div',null,'management-header');const copy=node('div');copy.append(node('h3','Equipo institucional'),node('p','Gestiona accesos de operadores y administradores. El rol supervisor está protegido.','module-intro'));head.append(copy);manager.append(head);
   const stats=node('div',null,'manager-stats');for(const [label,n] of [['Accesos visibles',data.items.length],['Activos',data.items.filter(x=>x.active).length],['Revocados',data.items.filter(x=>!x.active).length]]){const box=node('div');box.append(node('small',label),node('strong',String(n)));stats.append(box);}manager.append(stats);
-  const editor=node('section',null,'manager-section');editor.append(node('h3','Habilitar o modificar un acceso'),node('p','Utiliza el UID de una cuenta Google institucional ya habilitada en Firebase. No se crean contraseñas ni se comparten credenciales.','module-intro'));
+  const editor=node('section',null,'manager-section');editor.append(node('h3','Habilitar o modificar un acceso'),node('p','Utiliza el UID de una cuenta Google institucional ya habilitada en el portal. No se crean contraseñas ni se comparten credenciales.','module-intro'));
   const form=node('form',null,'compact-form');
   field(form,'UID de cuenta institucional habilitada','uid','',{required:true});
   field(form,'Correo institucional','email','',{type:'email',required:true});

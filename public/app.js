@@ -186,14 +186,9 @@ async function handleUser(u){
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
  try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true);trackingGate.session(true);adminRole=access.canManage?access.role:null;
- if(api?.mode==='supabase'){
-  // The legacy institutional/catalog modules still use Firebase endpoints.
-  // Keep the new authenticated intake/inbox isolated until their own migration.
-  experience.setSession(null,null,false);catalog.setSession(null,null);
- }else{
-  experience.setSession(u,adminRole,access.institutional===true);
-  catalog.setSession(u,adminRole);await experience.prepare(u);
- }
+ experience.setSession(u,access.role,access.institutional===true);
+ catalog.setSession(u,access.role);
+ void experience.prepare(u);
  if(user!==u)return;hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(api?.mode==='supabase'&&!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
  catch(e){if(user!==u)return;msg('authMessage',e.message.includes('not_enabled')?'Tu acceso aún no está habilitado en el servicio. Consulta con Salud si el problema persiste.':e.message);msg('loginError',e.message);}
 }
@@ -206,8 +201,10 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  fixturePanel.classList.add('fixture-panel');
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
-const endpoint='https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
-void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);if(config.backend!=='supabase')void officialUI.connect(endpoint).then(enabled=>{catalog.setIntakeAvailability(enabled);if(enabled){const notice=document.querySelector('.notice span:last-child');if(notice)notice.textContent='Recepción electrónica disponible. Consulta los requisitos y comienza tu solicitud.';}});
+const endpoint=config.appsScriptEndpoint||'https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
+const useSupabase=config.backend==='supabase';
+void catalog.connect(endpoint,useSupabase);
+void experience.publicEndpoint(endpoint,useSupabase);if(config.backend!=='supabase')void officialUI.connect(endpoint).then(enabled=>{catalog.setIntakeAvailability(enabled);if(enabled){const notice=document.querySelector('.notice span:last-child');if(notice)notice.textContent='Recepción electrónica disponible. Consulta los requisitos y comienza tu solicitud.';}});
 try{
 if(config.backend==='supabase'){
  api={mode:'supabase',endpoint};

@@ -85,16 +85,19 @@ function doGet(e){
  if(e?.parameter?.probe==='sits-supabase-v1'){
   if(typeof sitsSbOn_!=='function'||!sitsSbOn_())
    return output_({ok:false,build:SPARK_BUILD_,enabled:false});
+  if(e?.parameter?.content==='catalog'||e?.parameter?.content==='public'){
+   try{return output_({ok:true,build:'sits-supabase-1.0',
+    ...sitsPortalRun_(()=>e.parameter.content==='catalog'?catPublic_():{notices:instNotices_('public'),policies:instPublished_()})});}
+   catch(_){return output_({ok:false,error:'database_unavailable'});}
+  }
   if(e?.parameter?.content==='official-intake'){
    try{root_();return output_({ok:true,build:'sits-supabase-1.0',...sitsSbCapabilities_()});}
    catch(_){return output_({ok:true,build:'sits-supabase-1.0',enabled:false,documents:[]});}
   }
   return output_({ok:true,build:'sits-supabase-1.0',enabled:true});
  }
- if(typeof sitsSbOn_==='function'&&sitsSbOn_()&&e?.parameter?.content==='official-intake'){
-  try{root_();return output_({ok:true,...sitsSbCapabilities_()});}
-  catch(_){return output_({ok:true,enabled:false,documents:[]});}
- }
+ if(PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='supabase')
+  return output_({ok:false,build:'sits-supabase-1.0',error:'legacy_backend_disabled'});
  if(e?.parameter?.content==='official-intake'){
   try{return output_({ok:true,...officialCapabilities_()});}
   catch(_){return output_({ok:true,enabled:false,documents:[]});}
@@ -185,6 +188,7 @@ function spName_(collection,id){
 }
 function spRead_(collection,id){
  var name=spName_(collection,id);
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalRead_(collection,id);
  return spRest_('/'+name.slice(SPARK_DB_.length+1),'get',undefined,true);
 }
 function spPut_(collection,id,data,prior,timestamps){
@@ -193,9 +197,13 @@ function spPut_(collection,id,data,prior,timestamps){
  if(timestamps&&timestamps.length)w.updateTransforms=timestamps.map(fieldPath=>({fieldPath,setToServerValue:'REQUEST_TIME'}));
  return w;
 }
-function spCommit_(writes){return spRest_(':commit','post',{writes});}
+function spCommit_(writes){
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalCommit_(writes);
+ return spRest_(':commit','post',{writes});
+}
 function spAudit_(id,uid,action){return spPut_('audit',Utilities.getUuid(),{requestId:id,actorUid:uid,action},null,['at']);}
 function spQuery_(collection,field,value,sort,max,{op='EQUAL',cursor}={}){
+ if(typeof sitsPortalActive_!=='undefined'&&sitsPortalActive_)return sitsPortalQuery_(collection,field,value,sort,max,op,cursor);
  var q={from:[{collectionId:collection}],orderBy:[{field:{fieldPath:sort},direction:'DESCENDING'}],limit:max};
  if(field)q.where={fieldFilter:{field:{fieldPath:field},op,value:spValue_(value)}};
  if(cursor){
@@ -680,12 +688,13 @@ function officialCertificateFile_(f){
  const accepted=officialFiles_([{...f,kind:'historia'}])[0];
  return {...accepted,kind:'certificate'};
 }
-function officialCertificateMail_(to,reference,file){
+function officialCertificateMail_(to,reference,file,test=false){
  if(!isValidEmail_(to))throw Error('invalid_request');
  const bytes=Utilities.base64Decode(file.base64);
  const attachment=Utilities.newBlob(bytes,'application/pdf','Certificado-'+reference+'.pdf');
- MailApp.sendEmail({to,subject:'Certificado de discapacidad · '+reference,
+ MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+'Certificado de discapacidad · '+reference,
   body:'Secretaría de Salud de San Pedro, Valle del Cauca\n\n'
+   +(test?'Documento ficticio usado para verificar el servicio.\n\n':'')
    +'Adjuntamos el certificado correspondiente a tu solicitud '+reference+'. '
    +'Este correo se remite a la dirección verificada que autorizaste para recibir el certificado.\n\n'
    +'Si no reconoces la solicitud, comunícate con la Secretaría de Salud mediante los canales oficiales.\n\n'

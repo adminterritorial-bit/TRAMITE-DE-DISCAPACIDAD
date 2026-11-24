@@ -43,7 +43,7 @@ function sitsSbCall_(path,method,data,accessToken,server){
   // Only generic codes leave the server; don't log or echo SQL, PII, tokens or internal traces.
   if(status===401)throw Error('not_authenticated');
   if(status===403)throw Error('forbidden');
-  if(status===409)throw Error('revision_conflict');
+  if(status===409||parsed?.code==='23505')throw Error('revision_conflict');
   if(status>=500)throw Error('database_unavailable');
   throw Error('invalid_request');
  }
@@ -64,7 +64,10 @@ function sitsSbSession_(token){
  if(!access.role&&user.email.toLowerCase().endsWith('@sanpedro-valle.gov.co')){
   try{access=sitsSbRpc_('sits_claim_staff_invitation',{},token,false);}catch(_){}
  }
- return {uid:user.id,email:user.email,role:access.role||null,
+ // Supabase Auth has already validated this JWT and resolved the user.
+ const claims=sparkClaims_(token),authTime=Math.max(0,...(claims.amr||[])
+  .map(entry=>Number(entry.timestamp)).filter(Number.isFinite));
+ return {uid:user.id,email:user.email,authTime,role:access.role||null,
   canManage:access.canManage===true,institutional:access.institutional===true};
 }
 function sitsSbCapabilities_(){
@@ -152,6 +155,13 @@ function sitsSbDispatch_(u,action,d,token){
  if(action==='sessionAccess')return {
   role:u.role,canManage:u.canManage,institutional:u.institutional
  };
+ if(INST_ACTIONS_.includes(action)||CATALOG_ACTIONS_.includes(action)){
+  return sitsPortalRun_(()=>{
+   if(['staffList','staffSave','staffInvite','staffRevokeInvite'].includes(action))
+    return sitsPortalStaff_(u,action,d);
+   return INST_ACTIONS_.includes(action)?instDispatch_(u,action,d):catDispatch_(u,action,d);
+  });
+ }
  if(action==='officialSubmit'){
   const files=officialFiles_(d.files);
   const payload=JSON.parse(JSON.stringify(d));delete payload.files;
@@ -175,7 +185,7 @@ function sitsSbDispatch_(u,action,d,token){
  }
  const c=sitsSbCase_(d.id,token),isOwner=c.owner_user_id===u.uid;
  if(!isOwner&&!u.canManage)throw Error('forbidden');
- if(action==='officialRead')return sitsSbView_(c,!isOwner);
+ if(action==='officialRead')return sitsSbView_(c,u.canManage);
  if(action==='officialDownload'){
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
   return sitsSbAccessFile_(c,d.kind,token,u);
@@ -204,7 +214,7 @@ function sitsSbDispatch_(u,action,d,token){
    if(sentByEmail){
     const journal='certificado-correo-'+file.sha.slice(0,24)+'.json';
     const accepted=spJournal_(folder,journal,()=>{
-     officialCertificateMail_(c.owner_email,c.reference,file);
+     officialCertificateMail_(c.owner_email,c.reference,file,sitsSbTestMode_());
     },1);
     if(!accepted)throw Error('delivery_uncertain');
    }
@@ -241,25 +251,56 @@ function sitsSbDispatch_(u,action,d,token){
  throw Error('invalid_request');
 }
 function sitsSbHandle_(e){
- let stage='request';
+ let stage='request',lock;
  try{
   if(!sitsSbOn_())throw Error('pilot_disabled');
   if(!e||!e.parameter||e.parameter.probe!=='sits-supabase-v1'
    ||!e.parameter.accessToken||!e.parameter.payload
    ||e.postData&&e.postData.length>12000000)throw Error('invalid_request');
   const req=JSON.parse(e.parameter.payload);
-  if(!req||!SITS_SB_ACTIONS_.includes(req.action)||!req.data
+  if(!req||![...SITS_SB_ACTIONS_,...INST_ACTIONS_,...CATALOG_ACTIONS_].includes(req.action)||!req.data
    ||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
   stage='identity';
   const user=sitsSbSession_(e.parameter.accessToken);
   stage='operation';
+  sitsSbTestGuard_(user,req.action,req.data);
+  if(req.action==='officialSendCertificate'){
+   lock=LockService.getScriptLock();
+   lock.waitLock(15000);
+  }
   const result=sitsSbDispatch_(user,req.action,req.data,e.parameter.accessToken);
   return output_({ok:true,build:'sits-supabase-1.0',data:result});
  }catch(err){
   const known=['not_authenticated','forbidden','not_found','invalid_request',
    'invalid_transition','revision_conflict','database_unavailable','pilot_disabled',
-   'legal_version_changed','delivery_uncertain','invalid_fixture','document_integrity_failed'];
+   'legal_version_changed','delivery_uncertain','invalid_fixture','document_integrity_failed',
+   'content_version_changed','legal_decision_required','rate_limit','recent_login_required',
+   'invalid_profile','not_enabled'];
   return output_({ok:false,build:'sits-supabase-1.0',stage:stage,
    error:known.includes(err.message)?err.message:'operation_failed'});
+ }finally{if(lock&&lock.hasLock())lock.releaseLock();}
+}
+
+// Dual mode defaults to a closed test allowlist and exact bundled PDF hashes.
+function sitsSbTestMode_(){
+ return PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='dual';
+}
+function sitsSbTestGuard_(user,action,data){
+ if(!sitsSbTestMode_())return;
+ const props=PropertiesService.getScriptProperties();
+ const emails=String(props.getProperty('SITS_SB_TEST_EMAILS')||'').split(',')
+  .map(email=>email.trim().toLowerCase()).filter(Boolean);
+ if(!emails.includes(user.email.toLowerCase()))throw Error('not_enabled');
+ if(action==='officialSubmit'){
+  if(data.name!=='Persona de prueba'||data.documentNumber!=='TEST001')throw Error('invalid_profile');
+  officialFiles_(data.files).forEach(file=>{if(file.sha!==SPARK_HASHES_[file.kind])throw Error('invalid_fixture');});
+ }
+ if(action==='officialCorrect'){
+  const [file]=officialFiles_([data.file],true);
+  if(file.sha!==SPARK_HASHES_[file.kind])throw Error('invalid_fixture');
+ }
+ if(action==='officialSendCertificate'){
+  const file=officialCertificateFile_(data.file);
+  if(file.sha!==SPARK_HASHES_.certificate)throw Error('invalid_fixture');
  }
 }
