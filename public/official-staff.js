@@ -172,6 +172,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    metrics=exact?response.metrics:null;
    recent=Array.isArray(response.activity)?response.activity:[...records].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
    drawCounts();drawList();
+   window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{exact,metrics,filtered:!!(search.value||filter.value||from.value||to.value||owner.value||task.value)}}));
    if(reloadSelected&&selectedId)void openCase(selectedId);
    signal(exact?'Bandeja actualizada':records.length>=100?'Mostrando los últimos 100 expedientes disponibles.':'Bandeja actualizada');
   }catch(err){if(run===requestGeneration)signal(errorText(err),true);}
