@@ -1,4 +1,4 @@
-import {normalizeSearch, filterServices, categoryCounts} from './catalog-domain.mjs';
+import {normalizeSearch, filterServices, categoryCounts, categoryCode} from './catalog-domain.mjs';
 import {selectAdminServices,selectServiceCases} from './admin-collections.mjs';
 
 const node=(tag,text,cls)=>{
@@ -45,7 +45,16 @@ function submit(form,label,fn){
  form.onsubmit=async event=>{
   event.preventDefault();button.disabled=true;form.setAttribute('aria-busy','true');error.textContent='';
   try{await fn(Object.fromEntries(new FormData(form)));}
-  catch(e){error.textContent=e.message;}
+  catch(e){
+   const detail={
+    recent_login_required:'Tu cuenta necesita una nueva verificación con Google para guardar. Sal del portal e inicia sesión nuevamente con tu cuenta institucional; después vuelve a esta sección.',
+    forbidden:'Tu cuenta no dispone de permiso para crear o modificar este contenido. Solicita acceso de administración.',
+    rate_limit:'Se alcanzó el límite de registros permitidos. Solicita apoyo al administrador.',
+    content_version_changed:'El registro fue actualizado por otra persona. Actualiza la pantalla antes de guardar.',
+    invalid_request:'Revisa los campos obligatorios, los códigos y la categoría seleccionada.'
+   };
+   error.textContent=detail[e?.code]||detail[e?.message]||e?.message||'No se pudo guardar. Vuelve a intentarlo.';
+  }
   finally{button.disabled=false;form.removeAttribute('aria-busy');}
  };
 }
@@ -400,7 +409,49 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   let idManual=!!current;id.addEventListener('input',()=>{idManual=true});
   title.addEventListener('input',()=>{if(!idManual){const value=slug(title.value);id.value=value?unique(value,data.services.map(x=>x.id)):'';}});
   const description=field(general,'Descripción','description',draft.description||'',{required:true,multi:true,max:1800});
-  const category=field(general,'Categoría','category',draft.category||data.categories.find(x=>x.active)?.id||'',{required:true,options:Object.fromEntries(data.categories.filter(x=>x.active).map(x=>[x.id,x.title]))});
+  const activeCategories=data.categories.filter(x=>x.active).sort((a,b)=>a.title.localeCompare(b.title,'es-CO'));
+  const category=field(general,'Categoría del trámite','category',draft.category||'',{
+   required:true,options:Object.fromEntries([['','Selecciona una categoría de salud'],...activeCategories.map(x=>[x.id,x.title])])
+  });
+  const categoryHelp=node('p','Selecciona el área de salud a la que pertenece este trámite. Si no aparece, créala aquí sin perder la información del formulario.','studio-category-help');
+  const createCategory=node('details',null,'studio-category-create');
+  const createHeading=node('summary','¿No aparece la categoría? Crear una nueva');
+  createCategory.append(createHeading);
+  const categoryEditor=node('div',null,'studio-category-editor');
+  const newCategoryName=field(categoryEditor,'Nombre de la nueva categoría','newCategoryName','',{max:70});
+  const newCategoryCode=field(categoryEditor,'Código automático de categoría','newCategoryCode','',{max:40});
+  newCategoryCode.pattern='[a-z][a-z0-9-]{1,39}';
+  let categoryCodeManual=false;
+  newCategoryCode.addEventListener('input',()=>{categoryCodeManual=true;});
+  newCategoryName.addEventListener('input',()=>{
+   if(!categoryCodeManual)newCategoryCode.value=categoryCode(newCategoryName.value,data.categories.map(x=>x.id));
+  });
+  const categoryError=errorRegion();
+  const saveNewCategory=btn('Guardar y seleccionar categoría',async()=>{
+   const name=newCategoryName.value.trim();
+   if(!name){categoryError.textContent='Escribe el nombre de la categoría.';newCategoryName.focus();return;}
+   const code=newCategoryCode.value.trim();
+   if(!/^[a-z][a-z0-9-]{1,39}$/.test(code)){categoryError.textContent='El código debe tener de 2 a 40 caracteres, comenzar con letra y utilizar minúsculas, números o guiones.';newCategoryCode.focus();return;}
+   if(data.categories.some(x=>x.id===code)){categoryError.textContent='Ya existe una categoría con ese código. Selecciona la existente o cambia el nombre.';return;}
+   saveNewCategory.disabled=true;categoryError.textContent='';
+   try{
+    await invoke('categorySave',{id:code,title:name});
+    data.categories.push({id:code,title:name,active:true});
+    const option=node('option',name);option.value=code;category.append(option);category.value=code;
+    newCategoryName.value='';newCategoryCode.value='';categoryCodeManual=false;createCategory.open=false;
+    experience.toast('Categoría creada y seleccionada. Puedes continuar diseñando el trámite.');
+    category.focus();
+   }catch(e){
+    categoryError.textContent=e?.code==='recent_login_required'
+     ?'Para guardar categorías, vuelve a iniciar sesión con Google y abre nuevamente el constructor.'
+     :e?.code==='forbidden'?'Tu cuenta no tiene permisos para crear categorías.'
+     :e?.code==='rate_limit'?'Se alcanzó el número máximo de categorías. Contacta al administrador.'
+     :e?.message||'No se pudo guardar la categoría.';
+   }finally{saveNewCategory.disabled=false;}
+  },'primary');
+  categoryEditor.append(saveNewCategory,categoryError);
+  createCategory.append(categoryEditor);
+  general.append(categoryHelp,createCategory);
   const channel=field(general,'Canal autorizado','channel',draft.channel||'Secretaría de Salud',{required:true,max:180});
   form.append(general);
   const workspace=node('section',null,'studio-section');const bar=node('div',null,'studio-bar');bar.append(node('h3','2. Constructor de formulario'));const count=node('span','0 campos','state-label');bar.append(count);workspace.append(bar,node('p','Agrega preguntas, marca las obligatorias y ordénalas con las flechas. Los códigos se generan automáticamente.','module-intro'));
@@ -463,7 +514,6 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    node('h3','Organice los trámites municipales'),
    node('p','Administre las categorías, prepare formularios y controle su publicación desde un mismo lugar.','module-intro'));
   const newService=btn('Crear trámite',()=>editService(null,data),'primary');
-  newService.disabled=!enabled;
   const actions=node('div',null,'admin-collection-actions');
   actions.append(newService);
   summary.append(intro,actions);manager.append(summary);
@@ -482,8 +532,16 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const editor=node('details',null,'admin-collection-editor'),summaryButton=node('summary','Nueva categoría');
   editor.append(summaryButton);
   const form=node('form',null,'compact-form admin-category-form');
-  field(form,'Código de categoría','id','',{required:true});
-  field(form,'Nombre de categoría','title','',{required:true,max:70});
+  const name=field(form,'Nombre de categoría','title','',{required:true,max:70});
+  const code=field(form,'Código de categoría (generado automáticamente)','id','',{required:true,max:40});
+  code.pattern='[a-z][a-z0-9-]{1,39}';
+  let manualCode=false;
+  name.addEventListener('input',()=>{
+   if(!manualCode)code.value=categoryCode(name.value,categories.map(x=>x.id));
+  });
+  code.addEventListener('input',()=>{manualCode=true;});
+  const help=node('p','El código se propone automáticamente a partir del nombre. Puedes ajustarlo antes de guardar.','admin-category-tip');
+  form.append(help);
   submit(form,'Guardar categoría',d=>operations(()=>invoke('categorySave',d),()=>openAdmin('catalog')));
   editor.append(form);categoryHeader.append(editor);
   categorySection.append(categoryHeader);
@@ -507,7 +565,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
     statusCell.append(node('span',category.active?'Activa':'Retirada','state-label'));
     const tools=node('td');tools.className='admin-table-actions';
     tools.append(btn('Editar categoría',()=>{
-      editor.open=true;form.elements.id.value=category.id;form.elements.title.value=category.title;
+      editor.open=true;form.elements.id.value=category.id;form.elements.title.value=category.title;manualCode=true;
       form.elements.title.focus();
     },'secondary'));
     if(category.active&&data.canPublish)tools.append(action('Retirar categoría',()=>operations(()=>invoke('categoryRetire',{id:category.id}),()=>openAdmin('catalog'))));
@@ -521,7 +579,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const caption=node('div');
   caption.append(node('h3','Trámites configurados'),node('p','Busque, ordene y gestione cada formulario sin modificar su código.','module-intro'));
   serviceHead.append(caption);serviceSection.append(serviceHead);
-  if(!enabled)serviceSection.append(node('p','Primero cree una categoría activa para habilitar el diseño de trámites.','admin-scope-note'));
+  if(!enabled)serviceSection.append(node('p','Puedes comenzar a crear un trámite y añadir su categoría dentro del mismo formulario.','admin-scope-note'));
   const filters=node('div',null,'admin-list-filters');
   const search=field(filters,'Buscar trámite o código','query','',{type:'search'});
   search.placeholder='Nombre o código';
