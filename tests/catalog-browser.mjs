@@ -138,11 +138,18 @@ try{
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();
  await page.getByRole('heading',{name:'Trámites configurados',exact:true}).waitFor();
  await page.getByRole('button',{name:'Crear primera categoría'}).click();
- await page.getByLabel('Código de categoría').fill('orientacion');
  await page.getByLabel('Nombre de categoría').fill('Orientación');
+ assert.equal(await page.getByLabel('Código de categoría (generado automáticamente)').inputValue(),'orientacion');
  await page.getByRole('button',{name:'Guardar categoría'}).click();
  await page.getByRole('button',{name:'Crear trámite'}).click();
  await page.getByText('CREACIÓN GUIADA DE TRÁMITES').waitFor();
+ const category=page.getByLabel('Categoría del trámite');
+ assert.equal(await category.inputValue(),'','La categoría se elige al crear un trámite');
+ await page.getByText('¿No aparece la categoría? Crear una nueva').click();
+ await page.getByLabel('Nombre de la nueva categoría').fill('Gestión de EPS');
+ assert.equal(await page.getByLabel('Código automático de categoría').inputValue(),'gestion-de-eps');
+ await page.getByRole('button',{name:'Guardar y seleccionar categoría'}).click();
+ assert.equal(await category.inputValue(),'gestion-de-eps','La categoría nueva queda seleccionada');
  await page.getByLabel('Código del trámite').fill('orientacion-prueba');
  await page.getByLabel('Nombre del trámite').fill('Orientación de prueba');
  await page.getByLabel('Descripción').fill('Prueba del trámite configurable.');
@@ -156,6 +163,7 @@ try{
  await page.getByRole('button',{name:'Previsualizar formulario'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('button',{name:'Guardar borrador'}).click();
+ assert.equal(services[0].draft.category,'gestion-de-eps','Se guarda la relación categoría-trámite');
  const createdRow=page.locator('.admin-table tbody tr').filter({hasText:'Orientación de prueba'});
  await createdRow.getByText('Más acciones').click();
  await createdRow.locator('.admin-row-menu > details').filter({hasText:'Publicar trámite'}).locator('summary').click();
