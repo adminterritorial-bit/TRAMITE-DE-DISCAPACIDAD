@@ -134,8 +134,10 @@ try{
  assert.deepEqual(audit.violations.map(x=>[x.id,x.nodes.map(n=>n.target)]),[],'Catálogo accesible');
 
  await page.locator('#adminNav').click();
- if(!await page.locator('.admin-module-nav').evaluate(e=>e.open))await page.getByText('Menú institucional',{exact:true}).click();
+ await page.getByRole('heading',{name:'Áreas de gestión'}).waitFor();
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();
+ await page.getByRole('heading',{name:'Trámites configurados'}).waitFor();
+ await page.getByRole('button',{name:'Crear primera categoría'}).click();
  await page.getByLabel('Código de categoría').fill('orientacion');
  await page.getByLabel('Nombre de categoría').fill('Orientación');
  await page.getByRole('button',{name:'Guardar categoría'}).click();
@@ -154,6 +156,9 @@ try{
  await page.getByRole('button',{name:'Previsualizar formulario'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('button',{name:'Guardar borrador'}).click();
+ const createdRow=page.locator('.admin-table tbody tr').filter({hasText:'Orientación de prueba'});
+ await createdRow.getByText('Más acciones').click();
+ await createdRow.getByText('Publicar trámite',{exact:true}).click();
  await page.getByLabel('Referencia de aprobación de Salud').fill('Aprobación de prueba del entorno local');
  await page.getByRole('button',{name:'Publicar trámite'}).click();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
@@ -171,7 +176,7 @@ try{
  assert.equal(application.answers.tipo,'apoyo');
  assert.equal(application.legalDecisions.length,2);
  await page.locator('#adminNav').click();
- await page.getByRole('button',{name:'Administrar equipo →'}).click();
+ await page.getByRole('button',{name:'Accesos del personal'}).click();
  await page.getByLabel('Correo del nuevo integrante').fill('operador@sanpedro-valle.gov.co');
  await page.getByRole('button',{name:'Crear invitación'}).click();
  await page.getByText('operador@sanpedro-valle.gov.co',{exact:true}).waitFor();
