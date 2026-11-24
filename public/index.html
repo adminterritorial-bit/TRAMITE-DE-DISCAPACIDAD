@@ -9,24 +9,56 @@
 <main id="main" tabindex="-1">
 <p id="supabaseAuthError" class="error" role="alert" hidden></p>
 <section id="home" class="view home-view">
-  <section class="home-hero" aria-labelledby="home-title">
-    <div class="home-intro">
-      <p class="ui-eyebrow">Secretaría de Salud · San Pedro</p>
-      <h1 id="home-title">Trámites de salud<br>en un solo lugar</h1>
-      <p>Consulta los requisitos para tu trámite, presenta solicitudes y haz seguimiento desde tu cuenta.</p>
-      <div class="home-actions">
-        <button class="primary" data-view="catalog">Ver trámites y servicios</button>
-        <button class="secondary" data-view="tracking">Mis solicitudes</button>
-      </div>
+  <section class="citizen-start" aria-labelledby="home-title">
+    <div class="citizen-start-intro">
+      <p class="ui-eyebrow">Alcaldía de San Pedro · Secretaría de Salud</p>
+      <h1 id="home-title">¿Qué trámite de salud necesita realizar?</h1>
+      <p>Encuentre el servicio, conozca los documentos que necesita y comience su solicitud cuando esté disponible. Puede consultar los requisitos sin iniciar sesión.</p>
+      <form id="homeServiceForm" class="citizen-search" role="search" autocomplete="off">
+        <label for="homeServiceSearch">Buscar un trámite</label>
+        <div class="citizen-search-row">
+          <input id="homeServiceSearch" name="busqueda" type="search" enterkeyhint="search" placeholder="Ejemplo: discapacidad, certificación, salud" />
+          <button class="primary" type="submit">Buscar trámite</button>
+        </div>
+        <p>Escriba el nombre del servicio o alguna palabra relacionada.</p>
+      </form>
     </div>
-    <article class="home-service">
-      <span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6m-6 4h6"/></svg></span>
-      <p class="ui-eyebrow">Trámite destacado</p>
+    <aside class="citizen-start-help" aria-labelledby="citizen-start-help-title">
+      <span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01"/></svg></span>
+      <h2 id="citizen-start-help-title">¿Ya tiene una solicitud?</h2>
+      <p>Consulte su radicado, revise si debe aportar documentos o descargue su certificado cuando esté disponible.</p>
+      <button class="secondary" data-view="tracking" type="button">Consultar mis solicitudes</button>
+      <p class="citizen-help-note">Si necesita acompañamiento, puede acudir a la Secretaría de Salud.</p>
+      <button class="quiet" data-view="help" type="button">Ver opciones de ayuda</button>
+    </aside>
+  </section>
+  <section class="home-section home-catalog-section" aria-labelledby="home-catalog-heading">
+    <div class="home-section-heading">
+      <div><p class="ui-eyebrow">Elija lo que necesita</p><h2 id="home-catalog-heading">Catálogo de trámites y servicios</h2></div>
+      <button class="secondary" data-view="catalog" type="button">Explorar catálogo completo</button>
+    </div>
+    <div class="home-catalog-toolbar">
+      <label for="homeServiceCategory">Filtrar por categoría
+        <select id="homeServiceCategory" name="categoria"><option value="">Todas las categorías</option></select>
+      </label>
+      <p id="homeCatalogStatus" role="status">Consultando trámites disponibles…</p>
+    </div>
+    <div id="homeCatalogCards" class="home-catalog-grid" aria-label="Trámites y servicios disponibles"></div>
+    <div class="home-catalog-footer"><button class="secondary" data-view="catalog" type="button">Ver todos los trámites y requisitos</button></div>
+  </section>
+  <section class="home-guidance" aria-label="Información antes de iniciar">
+    <div>
+      <p class="ui-eyebrow">Trámite principal</p>
       <h2>Certificación de discapacidad</h2>
-      <p>Revisa cómo solicitar la valoración y qué documentos debes preparar.</p>
+      <p>Prepare sus documentos y consulte las condiciones antes de solicitar la certificación.</p>
       <p id="homeAvailability" class="ui-service-status" role="status">Consultando disponibilidad del canal</p>
-      <button class="secondary" data-view="citizen">Ver requisitos <span aria-hidden="true">→</span></button>
-    </article>
+      <button class="secondary" data-view="citizen" type="button">Ver el trámite de discapacidad</button>
+    </div>
+    <div>
+      <p class="ui-eyebrow">Su información está protegida</p>
+      <h2>Consulte primero, ingrese después</h2>
+      <p>Los requisitos son públicos. Solo necesita iniciar sesión para presentar solicitudes y consultar su expediente.</p>
+    </div>
   </section>
   <section class="home-section" aria-labelledby="home-actions-heading">
     <div class="home-section-heading"><div><p class="ui-eyebrow">Servicios en línea</p><h2 id="home-actions-heading">Continúa tu gestión</h2></div></div>
