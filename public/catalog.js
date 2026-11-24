@@ -340,7 +340,18 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    next.append(node('h2','Después de enviar'),node('p','Conserva la referencia para consultar la verificación de los documentos y las acciones pendientes. La valoración y el certificado corresponden al proceso autorizado.'),btn('Consultar mis solicitudes',()=>navigate('tracking'),'secondary'));
    serviceBody.append(requirements,next);return;
   }
-  if(!user){serviceBody.append(btn('Ingresar para continuar',()=>{pendingService=item;navigate('citizen');},'primary'));return;}
+  // A published configurable service is a public information page, not
+  // evidence that its synthetic intake workflow is approved for citizens.
+  const publicInfo=node('section',null,'service-overview');
+  publicInfo.append(node('h2','Cómo solicitar este servicio'),
+   node('p','Consulte la información del trámite y comuníquese con la Secretaría de Salud para confirmar requisitos, disponibilidad y forma de atención.'),
+   node('p','Canal autorizado: '+(item.channel||'Secretaría de Salud')));
+  serviceBody.append(publicInfo);
+  if(!user||!['supervisor','admin','operator'].includes(role)){
+   serviceBody.append(btn('Consultar ayuda y canales de atención',()=>navigate('help'),'primary'));
+   return;
+  }
+  serviceBody.append(node('p','Prueba institucional: utilice exclusivamente información y archivos ficticios.','studio-safety'));
   const load=node('div');serviceBody.append(load);experience.loading(load);
   try{
    const [schema,legal]=await Promise.all([invoke('serviceRead',{id:item.id}),invoke('institutionalForm')]);
