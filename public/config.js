@@ -3,6 +3,11 @@
 // No Analytics initialization: minimize data collection in this health-sector portal.
 export const config = {
   mode:'pilot',
+  backend:'supabase',
+  supabase:{
+    url:'https://ovppffchdkwbikdppuzh.supabase.co',
+    publishableKey:'sb_publishable_ML9yMGHlj3dCrrg0FTn2jg_tCJ5vB9R'
+  },
   firebase:{
     apiKey:"AIzaSyBPVOOM7VQHdJgJ7hI3-fOVD3z-x-RT_gs",
     authDomain:"tramite-discapacidad.firebaseapp.com",

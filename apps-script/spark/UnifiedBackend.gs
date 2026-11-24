@@ -81,6 +81,16 @@ const SPARK_BUILD_='spark-unified-2.0';
 const SPARK_PORTAL_='https://sits-salud-san-pedro.vercel.app/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ // Version-specific handshake: never silently accept an old Firebase deployment.
+ if(e?.parameter?.probe==='sits-supabase-v1'){
+  if(typeof sitsSbOn_!=='function'||!sitsSbOn_())
+   return output_({ok:false,build:SPARK_BUILD_,enabled:false});
+  if(e?.parameter?.content==='official-intake'){
+   try{root_();return output_({ok:true,build:'sits-supabase-1.0',...sitsSbCapabilities_()});}
+   catch(_){return output_({ok:true,build:'sits-supabase-1.0',enabled:false,documents:[]});}
+  }
+  return output_({ok:true,build:'sits-supabase-1.0',enabled:true});
+ }
  if(typeof sitsSbOn_==='function'&&sitsSbOn_()&&e?.parameter?.content==='official-intake'){
   try{root_();return output_({ok:true,...sitsSbCapabilities_()});}
   catch(_){return output_({ok:true,enabled:false,documents:[]});}

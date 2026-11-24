@@ -1,7 +1,8 @@
 // SITS Salud / Supabase backend adapter. No clinical file bytes are sent to Supabase.
 // Staged: the original Firebase handlers remain available until an authorized cutover.
 // Script Properties (server-side, never public): SITS_BACKEND_MODE=supabase,
-// SITS_SB_PUBLISHABLE_KEY, SITS_SB_SERVICE_ROLE_JWT. Keep existing ROOT_FOLDER_ID.
+// SITS_SB_PUBLISHABLE_KEY, SITS_SB_SECRET_KEY (or legacy SITS_SB_SERVICE_ROLE_JWT).
+// Keep existing ROOT_FOLDER_ID and Google Drive/MailApp.
 const SITS_SB_URL_='https://ovppffchdkwbikdppuzh.supabase.co';
 const SITS_SB_ACTIONS_=[
  'sessionAccess','officialSubmit','officialMine','officialInbox','officialRead',
@@ -17,7 +18,9 @@ function sitsSbProp_(key){
  return v;
 }
 function sitsSbCall_(path,method,data,accessToken,server){
- const apiKey=sitsSbProp_(server?'SITS_SB_SERVICE_ROLE_JWT':'SITS_SB_PUBLISHABLE_KEY');
+ const props=PropertiesService.getScriptProperties();
+ const apiKey=server?(props.getProperty('SITS_SB_SECRET_KEY')||
+  sitsSbProp_('SITS_SB_SERVICE_ROLE_JWT')):sitsSbProp_('SITS_SB_PUBLISHABLE_KEY');
  const token=server?apiKey:accessToken;
  if(!token)throw Error('not_authenticated');
  const opts={

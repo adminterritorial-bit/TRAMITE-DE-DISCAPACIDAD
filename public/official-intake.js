@@ -30,11 +30,11 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   if(!authenticated||!getUser()){note('Inicia sesión para presentar tu solicitud','Ingresa con tu cuenta de Google y utiliza el correo verificado para consultar el seguimiento de tu expediente.',false);return;}
   buildForm();
  }
- async function connect(endpoint){
+ async function connect(endpoint,expectedBuild=''){
   try{
-   const response=await fetch(endpoint+'?content=official-intake',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
+   const response=await fetch(endpoint+'?content=official-intake'+(expectedBuild?'&probe=sits-supabase-v1':''),{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
    const value=await response.json();
-   ready={enabled:response.ok&&value.ok===true&&value.enabled===true&&Array.isArray(value.documents)&&value.documents.length===4&&value.documents.every(x=>/^[a-f0-9]{64}$/.test(x.hash||'')&&Number.isInteger(x.version)),documents:Array.isArray(value.documents)?value.documents:[]};
+   ready={enabled:response.ok&&value.ok===true&&(!expectedBuild||value.build===expectedBuild)&&value.enabled===true&&Array.isArray(value.documents)&&value.documents.length===4&&value.documents.every(x=>/^[a-f0-9]{64}$/.test(x.hash||'')&&Number.isInteger(x.version)),documents:Array.isArray(value.documents)?value.documents:[]};
   }catch{ready={enabled:false,documents:[]};}
   render();return ready.enabled;
  }
