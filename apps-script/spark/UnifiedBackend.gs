@@ -601,7 +601,7 @@ function officialProfile_(d){
  return {name,documentType:docType,documentNumber,phone,zone:instEnum_(d.zone,['Cabecera municipal','Centro poblado','Zona rural dispersa']),
   representation:instEnum_(d.representation,['propia','apoyo']),support:d.support?instText_(d.support,300):''};
 }
-function officialFiles_(files){
+function officialFiles_(files,allowCorrection=false){
  if(!Array.isArray(files)||files.length<1||files.length>2)throw Error('invalid_request');
  const seen=new Set(),parsed=[],ordered=['historia','apoyo'];
  for(const file of files){
@@ -611,7 +611,7 @@ function officialFiles_(files){
   const sha=digest_(bytes);if(file.sha!==sha||file.size!==size)throw Error('invalid_fixture');
   parsed.push({kind:file.kind,sha,size,base64:file.base64});seen.add(file.kind);
  }
- if(!seen.has('historia')||parsed.reduce((n,x)=>n+x.size,0)>7*1024*1024)throw Error('invalid_fixture');
+ if((!allowCorrection&&!seen.has('historia'))||parsed.reduce((n,x)=>n+x.size,0)>7*1024*1024)throw Error('invalid_fixture');
  return parsed;
 }
 function officialLegal_(u,id,decisions,policies){
@@ -756,7 +756,7 @@ function officialDispatch_(u,action,d){
  }
  if(action==='officialCorrect'){
   if(!owner||row.status!=='needs_documents'||!['historia','apoyo'].includes(row.correctionKind)||row.revision!==d.revision)throw Error('invalid_transition');
-  const uploaded=officialFiles_([d.file])[0];
+  const uploaded=officialFiles_([d.file],true)[0];
   if(uploaded.kind!==row.correctionKind)throw Error('invalid_request');
   spLimit_(u,'officialCorrect',12);
   const saved=savePdf_(existingFolder_(root_(),'official-'+id),uploaded);
