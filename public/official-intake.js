@@ -75,9 +75,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   const policyBoxes=[];
   for(const policy of ready.documents){
    const label=el('label',undefined,'intake-policy'),cb=el('input');cb.type='checkbox';cb.required=true;
-   const text=el('span','He leído y comprendo: '+policy.title+'. ');
-   const a=el('a','Consultar política');a.href='#legal';a.addEventListener('click',e=>{e.preventDefault();navigate('legal');});
-   text.append(a);label.append(cb,text);third.append(label);policyBoxes.push({cb,policy});
+   const text=el('span',undefined,'intake-policy-copy');
+   text.append(el('strong',policy.title),el('span',policy.body));
+   label.append(cb,text);third.append(label);policyBoxes.push({cb,policy});
   }
   const sensitive=el('label',undefined,'intake-policy'),consent=el('input');consent.type='checkbox';consent.required=true;
   sensitive.append(consent,el('span','Confirmo que comprendo el carácter sensible de la información de salud que presento y autorizo su tratamiento en las condiciones institucionales informadas, cuando corresponda.'));third.append(sensitive);

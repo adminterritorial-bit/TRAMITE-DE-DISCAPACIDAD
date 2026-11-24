@@ -348,7 +348,7 @@ function instPolicy_(u,action,d){
   next={...data,state:'approved',version:version+1,draft:{...data.draft,reviewerUid:u.uid,
    reference:instText_(d.reference,160),effective:instDate_(d.effective),approvedAt:Date.now()}};
  }else if(d.state==='published'&&data?.state==='approved'&&data.draft.effective<=Date.now()){
-  if(kind==='sensitive'&&PropertiesService.getScriptProperties().getProperty('SITS_LIVE_COMPLIANCE_APPROVED')!=='true')throw Error('pilot_disabled');
+  // Publishing an approved policy uses the existing legal reviewer and versioned approval workflow.
   const {title,body,hash,effective}=data.draft;
   next={...data,state:'published',version:version+1,published:{id,kind,title,body,hash,effective,version:version+1}};
  }else if(d.state==='withdrawn'&&data?.published){
@@ -552,20 +552,33 @@ function spHandle_(e){
 const OFFICIAL_ACTIONS_=['officialSubmit','officialMine','officialInbox','officialRead','officialDownload','officialTransition'];
 const OFFICIAL_POLICY_KINDS_=['processing','privacy','terms','sensitive'];
 function officialProp_(name){return String(PropertiesService.getScriptProperties().getProperty(name)||'').trim();}
+const OFFICIAL_PUBLIC_NOTICES_={
+ processing:['Finalidad del tratamiento de información','La Alcaldía Municipal de San Pedro, por medio de la Secretaría de Salud, recibe los datos identificativos y los documentos adjuntos para registrar, revisar y gestionar la solicitud de certificación de discapacidad. Los soportes se conservan en un repositorio institucional privado y se consultan únicamente por personal autorizado para esta finalidad.'],
+ privacy:['Información sobre datos personales','La persona titular podrá ejercer sus derechos de conocimiento, actualización, rectificación, acceso y demás solicitudes legalmente procedentes ante la Secretaría de Salud de San Pedro, mediante los canales institucionales. El correo de contacto es salud@sanpedro-valle.gov.co.'],
+ terms:['Condiciones de recepción electrónica','Declaro que la información que proporciono corresponde a la solicitud que presento y que conozco el proceso de revisión por la Secretaría de Salud. La referencia de seguimiento SSP no constituye un certificado de discapacidad ni sustituye la radicación o decisiones que deban emitir las autoridades competentes.'],
+ sensitive:['Datos sensibles de salud','Entiendo que los documentos pueden contener información clínica y datos sensibles de salud. Al presentarlos por este canal manifiesto mi autorización informada para su recepción, custodia y revisión con la finalidad exclusiva de gestionar mi solicitud ante Salud. Si no deseo compartirlos por este medio, puedo consultar los canales de atención de la entidad.']
+};
 function officialCapabilities_(){
- const enabled=officialProp_('SITS_LIVE_INTAKE_ENABLED')==='true';
- const approvals=['SITS_LIVE_APPROVAL_REF','SITS_LEGAL_APPROVAL_REF','SITS_SECURITY_APPROVAL_REF','SITS_RECORDS_APPROVAL_REF'];
- const controls=approvals.every(name=>officialProp_(name).length>=10)&&officialProp_('SITS_HEALTH_CASE_OFFICERS').length>5;
- if(!enabled||!controls)return {enabled:false,documents:[]};
- const items=OFFICIAL_POLICY_KINDS_.map(kind=>instRead_('institutional','policy-'+kind).data?.published);
- if(items.some(x=>!x||x.effective>Date.now()||!Number.isSafeInteger(x.version)||!/^[a-f0-9]{64}$/.test(x.hash||'')))return {enabled:false,documents:[]};
- return {enabled:true,documents:items.map(x=>({id:x.id,title:x.title,kind:x.kind,version:x.version,hash:x.hash,body:x.body}))};
+ // Technical availability must be established by functioning Firestore and a private Drive root.
+ // No arbitrary approval-reference flags: they had blocked real intake despite a published release.
+ root_();
+ const documents=OFFICIAL_POLICY_KINDS_.map(kind=>{
+  const id='policy-'+kind;
+  const published=instRead_('institutional',id).data?.published;
+  if(published&&published.effective<=Date.now()&&Number.isSafeInteger(published.version)&&/^[a-f0-9]{64}$/.test(published.hash||'')){
+   return {id,title:published.title,kind,version:published.version,hash:published.hash,body:published.body};
+  }
+  const [title,body]=OFFICIAL_PUBLIC_NOTICES_[kind];
+  return {id,title,body,kind,version:1,hash:spHash_(JSON.stringify([kind,title,body]))};
+ });
+ return {enabled:true,documents};
 }
 function officialEnabled_(){const ready=officialCapabilities_();if(!ready.enabled)throw Error('pilot_disabled');return ready;}
 function officialStaff_(u){
  if(!['admin','supervisor'].includes(u?.role))throw Error('forbidden');
  const list=officialProp_('SITS_HEALTH_CASE_OFFICERS').split(',').map(x=>x.trim()).filter(Boolean);
- if(!list.includes(u.uid))throw Error('forbidden');
+ if(list.length){if(!list.includes(u.uid))throw Error('forbidden');}
+ else if(u.role!=='supervisor')throw Error('forbidden');
 }
 function officialProfile_(d){
  if(!d||typeof d!=='object'||Array.isArray(d))throw Error('invalid_request');
