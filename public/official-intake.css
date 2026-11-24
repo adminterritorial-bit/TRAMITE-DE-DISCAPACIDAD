@@ -91,8 +91,8 @@ body.hc :is(.official-inbox h2,.official-case-details h3){color:#fff!important}
 .case-correction{display:grid;gap:9px}
 .case-citizen-card>details{border-top:1px solid #cbddeb;padding-top:10px}
 /* No presentar una segunda bandeja histórica de expedientes sintéticos en producción */
-#adminDashboard:not([data-active-module]) .adminlayout,#adminDashboard[data-active-module="cases"] .adminlayout{display:none}
-#adminDashboard:not([data-active-module]) .dashbar,#adminDashboard[data-active-module="cases"] .dashbar{display:none}
+body:not(.pilot-mode) #adminDashboard:not([data-active-module]) .adminlayout,body:not(.pilot-mode) #adminDashboard[data-active-module="cases"] .adminlayout{display:none}
+body:not(.pilot-mode) #adminDashboard:not([data-active-module]) .dashbar,body:not(.pilot-mode) #adminDashboard[data-active-module="cases"] .dashbar{display:none}
 body.hc :is(#officialInbox,.case-stat,.case-list,.case-list-card,.case-detail,.case-facts>div,.case-confirm,.case-delivery-destination){background:#000!important;color:#fff!important;border-color:#fff!important}
 body.hc :is(.case-heading h2,.case-detail-heading h3,.case-section h4,.case-stat strong,.case-facts strong,.case-list-card strong,.case-badge){color:#fff!important}
 @media(max-width:980px){.case-counts{grid-template-columns:repeat(3,minmax(0,1fr))}.case-layout{grid-template-columns:minmax(0,1fr)}.case-list{max-height:320px}}
