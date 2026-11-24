@@ -67,7 +67,7 @@ try {
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByRole('button',{name:'Publicar o programar'}).click();
  await page.locator('.navbtn[data-view=home]').click();
- await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
+ await page.locator('.home-guidance [data-view=citizen]').click();
  const popup=page.getByRole('dialog',{name:'Horario de prueba'});
  await popup.waitFor();
  await page.keyboard.press('Escape');
@@ -80,7 +80,7 @@ try {
  await page.getByRole('heading',{name:'Horario de prueba'}).waitFor();
  assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
  await page.locator('.navbtn[data-view=home]').click();
- await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
+ await page.locator('.home-guidance [data-view=citizen]').click();
  await page.emulateMedia({reducedMotion:'reduce'});
  for(const width of [1024,768,390,360,320]){
   await page.setViewportSize({width,height:900});await page.reload({waitUntil:'networkidle'});
