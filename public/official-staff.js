@@ -8,8 +8,7 @@ const STATES={
 };
 const NEXT={
  received:['reviewing'],reviewing:['needs_documents','awaiting_certificate','not_proceed'],
- needs_documents:['reviewing'],
- delivered:['closed'],available:['closed'],not_proceed:['closed']
+ needs_documents:['reviewing'],not_proceed:['closed']
 };
 const NAMES={historia:'Soporte médico',apoyo:'Soporte adicional',certificate:'Certificado de discapacidad'};
 const safeDate=ms=>ms?new Date(ms).toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'}):'—';
@@ -237,7 +236,19 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
   }
   if(row.certificateAvailable){
    const label=row.deliveryMethod==='email'?'El certificado fue enviado al correo verificado.':'El certificado está disponible para descarga autenticada.';
-   const block=actionBlock('Entrega del certificado',label);block.append(pill(row.status));detail.append(block);
+   const block=actionBlock('Entrega del certificado',label);block.append(pill(row.status));
+   if(['delivered','available'].includes(row.status)){
+    const close=b('Archivar expediente',async()=>{
+     close.disabled=true;signal('Archivando expediente…');
+     try{
+      const updated=await invoke('officialTransition',{id:row.id,revision:row.revision,status:'closed',
+       comment:'Certificado incorporado y expediente finalizado para archivo administrativo.'});
+      applyChange(updated,'Expediente archivado correctamente.');
+     }catch(err){signal(errorText(err),true);}finally{close.disabled=false;}
+    },'secondary');
+    block.append(e('p','Al terminar la entrega, puedes archivar este expediente.','case-section-help'),close);
+   }
+   detail.append(block);
   }
  }
  await load();
