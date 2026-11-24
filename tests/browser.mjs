@@ -39,7 +39,7 @@ try {
  await page.locator('#adminDashboard:not(.hidden)').waitFor();
  await page.getByRole('heading',{name:'Áreas de gestión'}).waitFor();
  assert.equal(await page.locator('.admin-kpi-card').count(),6,'Seis indicadores institucionales visibles');
- assert.match((await page.locator('.admin-kpi-card[data-kind=total] .admin-kpi-value').textContent()).trim(),/^\\d+$/,'Indicadores con datos de la demostración');
+ assert.match((await page.locator('.admin-kpi-card[data-kind=total] .admin-kpi-value').textContent()).trim(),/^\d+$/,'Indicadores con datos de la demostración');
  await checkAccessibility('Bandeja de Salud');
  await page.locator('#statusFilter').selectOption('awaiting_certificate');
  assert.equal(await page.locator('#adminList .record').count(),1);
