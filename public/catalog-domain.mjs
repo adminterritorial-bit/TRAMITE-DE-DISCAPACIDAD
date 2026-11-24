@@ -16,12 +16,15 @@ export function filterServices(catalogue, {query = '', category = ''} = {}) {
     String(a.title).localeCompare(String(b.title), 'es-CO'));
 }
 
-export function categoryCounts(catalogue) {
+export function categoryCounts(catalogue, {includeEmpty = false} = {}) {
   const items = Array.isArray(catalogue?.items) ? catalogue.items : [];
   const categories = Array.isArray(catalogue?.categories) ? catalogue.categories : [];
-  return [{id:'', title:'Todos los trámites', count:items.length}, ...categories.map(item => ({
-    id:item.id, title:item.title, count:items.filter(service => service.category === item.id).length
-  }))];
+  const counts=categories.map(item=>({
+    id:item.id,title:item.title,
+    count:items.filter(service=>service.category===item.id).length
+  }));
+  return [{id:'',title:'Todos los trámites',count:items.length},
+    ...counts.filter(item=>includeEmpty||item.count>0)];
 }
 
 /** Stable, validated category identifiers shared by catalog and form builder. */
