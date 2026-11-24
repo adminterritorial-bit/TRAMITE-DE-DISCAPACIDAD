@@ -1,4 +1,5 @@
 /* SITS Salud: institutional electronic reception. Never use the synthetic fixture path. */
+import {renderOfficialTracking} from './official-tracking.js?v=1';
 import {renderOfficialStaffInbox} from './official-staff.js?v=1';
 const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
 const btn=(label,fn,cls='primary')=>{const b=el('button',label,cls);b.type='button';b.addEventListener('click',fn);return b};
@@ -124,17 +125,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  async function tracking(){
   if(!ready.enabled||!authenticated||!getUser())return;
-  const container=document.getElementById('trackingList');if(!container)return;
-  try{
-   const response=await invoke('officialMine');
-   const result=el('div',undefined,'records official-track'),heading=el('h2','Solicitudes de certificación de discapacidad');
-   result.append(heading);
-   for(const item of response.items||[]){
-    const card=el('article',undefined,'record');card.append(el('strong',item.reference),el('small',new Date(item.createdAt).toLocaleDateString('es-CO')),el('span',item.status));result.append(card);
-   }
-   if(!response.items?.length)result.append(el('p','Aún no hay solicitudes en este canal.','muted'));
-   container.prepend(result);
-  }catch{ /* Do not expose diagnostic or clinical data in a public list. */ }
+  await renderOfficialTracking({invoke,validatePdf});
  }
 
  async function inbox(){
