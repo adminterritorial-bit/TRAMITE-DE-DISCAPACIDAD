@@ -10,7 +10,7 @@ function scene(values={}){
   Utilities:{base64Decode:x=>[...Buffer.from(x,'base64')]},
   digest_:bytes=>createHash('sha256').update(Buffer.from(bytes)).digest('hex')
  });
- vm.runInContext(source,ctx);return {ctx,props};
+ vm.runInContext(source,ctx);ctx.digest_=bytes=>createHash('sha256').update(Buffer.from(bytes)).digest('hex');return {ctx,props};
 }
 const readyProps={SITS_LIVE_INTAKE_ENABLED:'true',SITS_LIVE_APPROVAL_REF:'SALUD-APROBACION-001',SITS_LEGAL_APPROVAL_REF:'JURIDICA-APROBACION-001',SITS_SECURITY_APPROVAL_REF:'TIC-SEGURIDAD-001',SITS_RECORDS_APPROVAL_REF:'ARCHIVO-TRD-001',SITS_HEALTH_CASE_OFFICERS:'supervisor-uid'};
 test('institutional upload is closed by default, even for a verified citizen',()=>{
