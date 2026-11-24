@@ -71,6 +71,8 @@ try{
  }
  await page.setViewportSize({width:1280,height:960});
  await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
+ await page.getByRole('heading',{name:'Sobre este servicio'}).waitFor();
+ await page.getByRole('button',{name:'Iniciar solicitud'}).click();
  await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).waitFor();
  assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
  await page.locator('.navbtn[data-view=catalog]').click();
