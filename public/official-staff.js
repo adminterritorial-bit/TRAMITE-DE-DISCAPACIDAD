@@ -8,7 +8,7 @@ const STATES={
 };
 const NEXT={
  received:['reviewing'],reviewing:['needs_documents','awaiting_certificate','not_proceed'],
- needs_documents:['reviewing'],awaiting_certificate:['reviewing','not_proceed'],
+ needs_documents:['reviewing'],
  delivered:['closed'],available:['closed'],not_proceed:['closed']
 };
 const NAMES={historia:'Soporte médico',apoyo:'Soporte adicional',certificate:'Certificado de discapacidad'};
@@ -114,12 +114,25 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
  }
  search.addEventListener('input',drawList);filter.addEventListener('change',drawList);
  async function openCase(id){
-  selectedId=id;drawList();detail.replaceChildren(e('p','Consultando expediente…','muted'));
+  selectedId=id;drawList();
+  // The authorized inbox already supplies full staff details; avoid another
+  // round-trip to Apps Script, App Check and Firestore for each selection.
+  const available=records.find(item=>item.id===id);
+  if(available?.email&&available?.documentNumber&&Array.isArray(available.history)){
+   selectedDetail=available;renderDetail(available);return;
+  }
+  detail.replaceChildren(e('p','Consultando expediente…','muted'));
   try{
    const row=await invoke('officialRead',{id});
    if(selectedId!==id)return;
    selectedDetail=row;renderDetail(row);
   }catch(err){detail.replaceChildren(e('p',errorText(err),'error'));}
+ }
+ function applyChange(result,message){
+  if(!result?.id||result.id!==selectedId)throw Error('content_version_changed');
+  records=records.map(item=>item.id===result.id?result:item);
+  selectedDetail=result;drawCounts();drawList();renderDetail(result);
+  signal(message);
  }
  function actionBlock(label,description){
   const section=e('section',undefined,'case-section');
@@ -181,9 +194,9 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
     if(!form.reportValidity()||!comments.value.trim())return;
     confirm.disabled=true;signal('Registrando actuación…');
     try{
-     await invoke('officialTransition',{id:row.id,revision:row.revision,status:select.value,comment:comments.value.trim(),
+     const updated=await invoke('officialTransition',{id:row.id,revision:row.revision,status:select.value,comment:comments.value.trim(),
       ...(select.value==='needs_documents'?{documentKind:kind.value}:{})});
-     signal('Actuación registrada correctamente');await load(row.id);
+     applyChange(updated,'Actuación registrada correctamente.');
     }catch(err){signal(errorText(err),true);}finally{confirm.disabled=false;}
    },'primary');
    const update=()=>{kindLabel.hidden=select.value!=='needs_documents';};
@@ -192,7 +205,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
    block.append(form);detail.append(block);
   }
   if(row.status==='awaiting_certificate'){
-   const block=actionBlock('Certificado de discapacidad','Adjunta exclusivamente el certificado expedido por la autoridad competente. Tras confirmar, el sistema lo guardará y realizará la entrega autorizada.');
+   const block=actionBlock('Emisión y entrega del certificado','Adjunta exclusivamente el certificado expedido por la autoridad competente. Tras confirmar, el sistema lo guardará y realizará la entrega autorizada.');
    const destination=e('div',undefined,'case-delivery-destination');
    destination.append(e('strong',row.certificateEmailConsent?'Entrega por correo autorizada':'Entrega disponible en el portal'),
     e('span',row.certificateEmailConsent
@@ -207,10 +220,9 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
     try{
      const payload=await validatePdf(file.files[0],'certificate');
      const result=await invoke('officialSendCertificate',{id:row.id,revision:row.revision,confirm:true,file:payload});
-     if(result.status==='delivered')signal('Certificado guardado y enviado al correo autorizado.');
-     else if(result.status==='available')signal('Certificado guardado y disponible para el ciudadano en el portal.');
-     else signal('Certificado almacenado. El envío debe verificarse antes de cualquier reintento.',true);
-     await load(row.id);
+     if(result.status==='delivered')applyChange(result,'Certificado guardado y enviado al correo autorizado.');
+     else if(result.status==='available')applyChange(result,'Certificado guardado y disponible para el ciudadano en el portal.');
+     else {applyChange(result,'Certificado almacenado; entrega pendiente de comprobación.');signal('El envío debe verificarse antes de cualquier reintento.',true);}
     }catch(err){signal(errorText(err),true);}finally{send.disabled=false;}
    },'primary');
    block.append(destination,field('Certificado expedido (PDF, máximo 4,5 MB)',file),check,send);detail.append(block);
@@ -219,7 +231,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf}){
    const block=actionBlock('Verificación de entrega','El certificado ya está guardado. No se reenviará automáticamente: primero debemos comprobar si el correo anterior fue aceptado.');
    const verify=b('Comprobar registro del envío',async()=>{
     verify.disabled=true;signal('Comprobando evidencia de entrega…');
-    try{await invoke('officialVerifyDelivery',{id:row.id,revision:row.revision,confirm:true});signal('Entrega confirmada.');await load(row.id);}
+    try{const updated=await invoke('officialVerifyDelivery',{id:row.id,revision:row.revision,confirm:true});applyChange(updated,'Entrega confirmada.');}
     catch(err){signal(errorText(err),true);}finally{verify.disabled=false;}
    },'secondary');block.append(verify);detail.append(block);
   }

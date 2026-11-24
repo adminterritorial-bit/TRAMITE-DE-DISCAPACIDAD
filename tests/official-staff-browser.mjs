@@ -43,6 +43,7 @@ try{
  await page.getByPlaceholder('Motivo de la decisión y orientaciones para el ciudadano').fill('Soportes revisados, pendiente de certificado expedido.');
  await page.getByRole('button',{name:'Registrar actuación'}).click();
  await page.getByText('Entrega por correo autorizada',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('heading',{name:'Actualizar estado'}).count(),0,'En certificación no debe aparecer el formulario genérico de estados');
  await page.getByLabel('Adjuntar certificado PDF').setInputFiles({name:'certificado.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7\nContenido de prueba')});
  await page.getByText(/Confirmo que el PDF corresponde/).locator('..').locator('input[type=checkbox]').check();
  await page.getByRole('button',{name:'Cargar y entregar certificado'}).click();
