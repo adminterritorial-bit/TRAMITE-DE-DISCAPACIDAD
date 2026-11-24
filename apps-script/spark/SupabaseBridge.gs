@@ -22,8 +22,11 @@ function sitsSbCall_(path,method,data,accessToken,server){
  if(!token)throw Error('not_authenticated');
  const opts={
   method:method||'get',muteHttpExceptions:true,
-  headers:{apikey:apiKey,Authorization:'Bearer '+token,Accept:'application/json'},
+  headers:{apikey:apiKey,Accept:'application/json'},
  };
+ // Modern sb_publishable/sb_secret keys belong in apikey only, not in Bearer.
+ if(token!==apiKey || token.indexOf('sb_')!==0)
+  opts.headers.Authorization='Bearer '+token;
  if(method==='post'||method==='patch'){
   opts.contentType='application/json';opts.payload=JSON.stringify(data);
   opts.headers.Prefer='return=representation';
@@ -106,6 +109,11 @@ function sitsSbStore_(c,files){
  const folder=folder_(root_(),'official-'+c.id);
  for(let i=0;i<files.length;i++){
   const stored=savePdf_(folder,files[i]);
+  // Check the actual object even when Drive returned a previously named file.
+  const saved=requireRestricted_(DriveApp.getFileById(stored.fileId));
+  if(saved.getMimeType()!=='application/pdf'||saved.getSize()!==stored.size
+   ||digest_(saved.getBlob().getBytes())!==stored.sha)
+   throw Error('document_integrity_failed');
   sitsSbRpc_('sits_drive_document_saved',{
    _case_id:c.id,_kind:stored.kind,_drive_file_id:stored.fileId,
    _sha256:stored.sha,_bytes:stored.size,
