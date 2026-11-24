@@ -5,7 +5,8 @@ import {chromium} from 'playwright';
 const browser=await chromium.launch();
 const page=await browser.newPage({viewport:{width:390,height:840}});
 try{
- const submissions=[];
+ const submissions=[],configuredSubmissions=[];
+ const configuredService={id:'orientacion-eps',title:'Orientación en EPS',description:'Gestiona una orientación de EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',version:2,intakeEnabled:true,intakeSchema:{version:2,title:'Orientación en EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',fields:[{id:'motivo',label:'Motivo de la orientación',type:'select',required:true,options:['Afiliación','Traslado']},{id:'soporte',label:'Soporte PDF',type:'document',fixture:'historia',required:true}],states:[{id:'received',label:'Recibida',next:['reviewing']},{id:'reviewing',label:'Revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]}};
  let acceptingRequests;
  const documents=['processing','privacy','terms','sensitive'].map((kind,i)=>({
   id:kind,kind,title:'Política ficticia '+(i+1),body:'Texto de prueba del asistente.',version:1,hash:String(i+1).repeat(64)
@@ -22,7 +23,7 @@ try{
   const response={ok:true,build:'sits-supabase-1.0',enabled:true,acceptingRequests};
   const request=r.request();
   if(request.method()==='GET'){
-   Object.assign(response,{documents,items:[],categories:[],notices:[],policies:[]});
+   Object.assign(response,{documents,items:[configuredService],categories:[{id:'eps-afiliaciones',title:'EPS y afiliaciones'}],notices:[],policies:[]});
   }else{
    const data=new URLSearchParams(request.postData());
    const req=JSON.parse(data.get('payload'));
@@ -31,6 +32,9 @@ try{
     submissions.push(req.data);
     if(submissions.length===1)return r.fulfill({status:503,body:'',headers:{'Access-Control-Allow-Origin':'*'}});
     response.data={status:'received',reference:'QA-401',createdAt:'2026-11-24T12:00:00Z'};
+   }else if(req.action==='configuredSubmit'){
+    configuredSubmissions.push(req.data);
+    response.data={status:'received',reference:'QA-EPS-402',createdAt:'2026-11-24T12:00:00Z'};
    }else if(req.action==='sessionAccess')response.data={canManage:false};
    else if(req.action==='officialRead')return r.fulfill({json:{ok:false,build:'sits-supabase-1.0',error:'not_found'},headers:{'Access-Control-Allow-Origin':'*'}});
    else if(req.action==='officialMine')response.data={items:[{
@@ -80,5 +84,31 @@ try{
  await page.getByRole('heading',{name:'QA-401'}).waitFor();
  assert.equal(await page.locator('#trackingList').getByText('QA-AJENA').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390);
- console.log('SITS Salud: cinco pasos, errores accesibles, PDF verificado y radicación idempotente en entorno simulado.');
+ // A separately approved service reuses the official five-step citizen wizard.
+ await page.locator('.navbtn[data-view=home]').click();
+ const configured=page.locator('#homeCatalogCards .home-catalog-card[data-service=configured]');
+ await configured.getByRole('button',{name:'Iniciar solicitud'}).click();
+ const generic=page.getByRole('form',{name:'Solicitud de Orientación en EPS'});
+ await generic.waitFor();
+ await generic.getByLabel('Nombre completo').fill('Persona de prueba');
+ await generic.getByLabel('Tipo de documento').selectOption('CC');
+ await generic.getByLabel('Número de documento').fill('TEST002');
+ await generic.getByRole('button',{name:'Continuar',exact:true}).click();
+ await generic.getByLabel('Zona de residencia').selectOption('Cabecera municipal');
+ await generic.getByLabel('Motivo de la orientación').selectOption('Traslado');
+ await generic.getByRole('button',{name:'Continuar',exact:true}).click();
+ await generic.locator('input[name=historia]').setInputFiles({name:'soporte.pdf',mimeType:'application/pdf',buffer:fixture});
+ await generic.getByText(/soporte\.pdf ·/).waitFor();
+ await generic.getByRole('button',{name:'Continuar',exact:true}).click();
+ for(const control of await generic.locator('section:not([hidden]) input[required]').all())await control.check();
+ await generic.getByRole('button',{name:'Continuar',exact:true}).click();
+ await generic.getByText('Motivo de la orientación').waitFor();
+ await generic.getByRole('button',{name:'Enviar solicitud',exact:true}).click();
+ await page.getByText('QA-EPS-402').waitFor();
+ assert.equal(configuredSubmissions.length,1);
+ assert.equal(configuredSubmissions[0].serviceId,'orientacion-eps');
+ assert.equal(configuredSubmissions[0].serviceVersion,2);
+ assert.equal(configuredSubmissions[0].answers.motivo,'Traslado');
+ assert.equal(configuredSubmissions[0].files[0].kind,'historia');
+ console.log('SITS Salud: cinco pasos oficiales y trámite configurable simulado aprobados, sin habilitar servicios nuevos en producción.');
 }finally{await browser.close();}
