@@ -30,6 +30,13 @@ try{
   }
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
  });
+ // This legacy regression suite verifies the original Firebase path explicitly.
+ // Production uses Supabase only after the Apps Script version handshake succeeds.
+ await page.route(/\/config\.js(?:\?.*)?$/,async route=>{
+  const response=await route.fetch();
+  const original=await response.text();
+  await route.fulfill({response,body:original.replace("backend:'supabase'","backend:'firebase'")});
+ });
  await page.goto('http://127.0.0.1:8080/pilot.html');
  await page.locator('#next').click();
  await page.getByRole('button',{name:'Adjuntar PDF ficticio obligatorio'}).click();

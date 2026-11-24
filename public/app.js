@@ -185,7 +185,16 @@ async function handleUser(u){
  user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;clearWorkspace();officialUI.session(false);if(!demo)trackingGate.session(false);hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
- try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true);trackingGate.session(true);adminRole=access.canManage?access.role:null;experience.setSession(u,adminRole,access.institutional===true);catalog.setSession(u,adminRole);await experience.prepare(u);if(user!==u)return;hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(api?.mode==='supabase'&&!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
+ try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true);trackingGate.session(true);adminRole=access.canManage?access.role:null;
+ if(api?.mode==='supabase'){
+  // The legacy institutional/catalog modules still use Firebase endpoints.
+  // Keep the new authenticated intake/inbox isolated until their own migration.
+  experience.setSession(null,null,false);catalog.setSession(null,null);
+ }else{
+  experience.setSession(u,adminRole,access.institutional===true);
+  catalog.setSession(u,adminRole);await experience.prepare(u);
+ }
+ if(user!==u)return;hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(api?.mode==='supabase'&&!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
  catch(e){if(user!==u)return;msg('authMessage',e.message.includes('not_enabled')?'Tu acceso aún no está habilitado en el servicio. Consulta con Salud si el problema persiste.':e.message);msg('loginError',e.message);}
 }
 async function init(){resetProfile();if(demo){$('institutionalAccess').textContent='Demostración del panel de Salud';$('googleLogin').textContent='Ver panel de demostración';$('googleLogin').onclick=loadAdmin;return}for (const field of ['name','documentNumber','phone','support']) form.elements[field].readOnly=true;

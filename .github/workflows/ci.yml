@@ -27,6 +27,7 @@ jobs:
           node scripts/prepare-spark.mjs
           node --check < build/spark-release/Codigo.gs
           node --check public/config.js
+          node --input-type=module --check < public/supabase-auth.js
           node --check < apps-script/Common.gs
           node --check < apps-script/recepcion/Code.gs
           node --check < apps-script/entrega/Code.gs
@@ -68,6 +69,7 @@ jobs:
           node tests/institutional-browser.mjs
           node tests/catalog-browser.mjs
           node tests/official-staff-browser.mjs
+          node tests/supabase-failclosed-browser.mjs
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
