@@ -1,4 +1,5 @@
 /* SITS Salud: institutional electronic reception. Never use the synthetic fixture path. */
+import {renderOfficialStaffInbox} from './official-staff.js?v=1';
 const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
 const btn=(label,fn,cls='primary')=>{const b=el('button',label,cls);b.type='button';b.addEventListener('click',fn);return b};
 function row(parent,label,name,opts={}){
@@ -83,6 +84,8 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   sensitive.append(consent,el('span','Confirmo que comprendo el carácter sensible de la información de salud que presento y autorizo su tratamiento en las condiciones institucionales informadas, cuando corresponda.'));third.append(sensitive);
   const notify=el('label',undefined,'intake-policy'),notifyBox=el('input');notifyBox.type='checkbox';
   notify.append(notifyBox,el('span','Deseo recibir actualizaciones informativas por correo electrónico (opcional).'));third.append(notify);
+  const certificateEmail=el('label',undefined,'intake-policy'),certificateEmailBox=el('input');certificateEmailBox.type='checkbox';
+  certificateEmail.append(certificateEmailBox,el('span','Autorizo expresamente que el certificado expedido me sea enviado como PDF adjunto al correo verificado. Si no autorizo el envío, podré descargarlo de forma privada desde el portal.'));third.append(certificateEmail);
   const summary=el('p','Correo asociado: '+getUser().email,'intake-email');third.prepend(summary);
   const errors=el('p','','error');errors.setAttribute('role','alert');
   const actions=el('div',undefined,'intake-actions'),back=btn('Atrás',()=>setStep(currentStep-1),'secondary'),forward=btn('Continuar',()=>{if(!validateCurrent())return;setStep(currentStep+1);}),send=el('button','Enviar solicitud','primary');send.type='submit';
@@ -105,7 +108,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     if(files.reduce((n,f)=>n+f.size,0)>7*1024*1024)throw Error('El tamaño total supera 7 MB.');
     const data=Object.fromEntries(new FormData(form));
     lastKey??=crypto.randomUUID();
-    const result=await invoke('officialSubmit',{...data,key:lastKey,files,medicalConsent:consent.checked,notifyByEmail:notifyBox.checked,
+    const result=await invoke('officialSubmit',{...data,key:lastKey,files,medicalConsent:consent.checked,notifyByEmail:notifyBox.checked,certificateEmailConsent:certificateEmailBox.checked,
       legalDecisions:policyBoxes.map(({cb,policy})=>({id:policy.id,version:policy.version,hash:policy.hash,accepted:cb.checked}))});
     const status=result.status,success=status==='received'||status==='reviewing';
     const card=el('div',undefined,'intake-receipt');
@@ -136,59 +139,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
 
  async function inbox(){
   if(!ready.enabled||!authenticated||!getUser())return;
-  const dashboard=document.getElementById('adminDashboard');if(!dashboard||dashboard.classList.contains('hidden'))return;
-  let panel=dashboard.querySelector('#officialInbox');
-  if(!panel){panel=el('section',undefined,'module-panel official-inbox');panel.id='officialInbox';dashboard.querySelector('.dashbar')?.after(panel);}
-  panel.replaceChildren(el('h2','Recepción institucional · Certificación de discapacidad'),el('p','Bandeja protegida de documentación recibida. Solo el personal de Salud habilitado puede consultar los expedientes.','module-intro'));
-  const entries=el('div',undefined,'records'),error=el('p','','error');error.setAttribute('role','alert');panel.append(entries,error);
-  let data;
-  try{data=await invoke('officialInbox');}catch(e){panel.hidden=true;return;}
-  panel.hidden=false;
-  const labels={received:'Recibida',reviewing:'En revisión',needs_documents:'Requiere documentos',closed:'Cerrada',storage_review:'Revisión de almacenamiento'};
-  for(const item of data.items||[]){
-   const card=el('article',undefined,'record official-case');
-   card.append(el('strong',item.reference),el('span',item.name),el('small',(labels[item.status]||item.status)+' · '+new Date(item.createdAt).toLocaleDateString('es-CO')));
-   const action=btn('Gestionar expediente',async()=>{
-    const previous=card.querySelector('.official-case-details');if(previous){previous.remove();return;}
-    const area=el('div',undefined,'official-case-details');card.append(area);
-    try{
-     const detail=await invoke('officialRead',{id:item.id});
-     area.append(el('h3','Información del expediente'));
-     for(const [label,value] of [['Nombre',detail.name],['Identificación',detail.documentType+' '+detail.documentNumber],['Correo verificado',detail.email],['Zona',detail.zone],['Estado',labels[detail.status]||detail.status]]){
-      const line=el('p');line.append(el('strong',label+': '),el('span',value||'No informado'));area.append(line);
-     }
-     const downloads=el('div',undefined,'intake-actions');
-     for(const doc of detail.files||[]){
-      downloads.append(btn('Descargar '+(doc.kind==='historia'?'soporte médico':'anexo'),async()=>{
-       try{
-        const result=await invoke('officialDownload',{id:item.id,kind:doc.kind});
-        const bytes=Uint8Array.from(atob(result.base64),c=>c.charCodeAt(0));
-        const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-        const link=el('a');link.href=url;link.download=doc.kind+'-'+item.reference+'.pdf';link.click();
-        setTimeout(()=>URL.revokeObjectURL(url),1000);
-       }catch(e){error.textContent=e.message||'No fue posible recuperar el documento.';}
-      },'secondary'));
-     }
-     area.append(downloads);
-     const allowed={received:['reviewing'],reviewing:['needs_documents','closed'],needs_documents:['reviewing']}[detail.status]||[];
-     if(allowed.length){
-      const form=el('form',undefined,'intake-update');
-      const state=row(form,'Nuevo estado','status',{select:allowed,required:true});
-      const comment=row(form,'Justificación de la actuación','comment',{multiline:true,required:true,max:450});
-      const save=el('button','Registrar actuación','primary');save.type='submit';form.append(save);
-      form.addEventListener('submit',async e=>{
-       e.preventDefault();if(!comment.value.trim()||comment.value.length>450)return;save.disabled=true;error.textContent='';
-       try{await invoke('officialTransition',{id:item.id,status:state.value,revision:detail.revision,comment:comment.value});await inbox();}
-       catch(e){error.textContent=e.message||'No se pudo registrar la actuación.';}
-       finally{save.disabled=false;}
-      });area.append(form);
-     }
-    }catch(e){error.textContent=e.message||'No se pudo consultar el expediente.';}
-   },'secondary');
-   card.append(action);entries.append(card);
-  }
-  if(!data.items?.length)entries.append(el('p','Aún no se han recibido expedientes institucionales.','muted'));
+  await renderOfficialStaffInbox({invoke,validatePdf});
  }
+
  note('Consultando disponibilidad','Verificando los canales habilitados para este trámite.',false);
  return {get live(){return ready.enabled},connect,session,tracking,inbox};
 }
