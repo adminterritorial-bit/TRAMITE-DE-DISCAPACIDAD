@@ -71,8 +71,7 @@ try {
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByRole('button',{name:'Publicar o programar'}).click();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
- await page.locator('.navbtn[data-view=home]').click();
- await page.locator('.home-guidance [data-view=citizen]').click();
+ // A published public notice opens on catalogue entry. Close it before navigating.
  const popup=page.getByRole('dialog',{name:'Horario de prueba'});
  await popup.waitFor();
  await page.keyboard.press('Escape');
