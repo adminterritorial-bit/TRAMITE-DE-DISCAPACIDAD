@@ -448,6 +448,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
      :e?.message||'No se pudo guardar la categoría.';
    }finally{saveNewCategory.disabled=false;}
   },'primary');
+  for(const input of [newCategoryName,newCategoryCode]){
+   input.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();saveNewCategory.click();}
+   });
+  }
   categoryEditor.append(saveNewCategory,categoryError);
   createCategory.append(categoryEditor);
   general.append(categoryHelp,createCategory);
@@ -545,7 +550,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   // The same editor supports create and edit; opening «Nueva categoría»
   // always starts a clean entry after a previous edit.
   summaryButton.addEventListener('click',()=>{
-   if(!editor.open){form.reset();manualCode=false;}
+   if(!editor.open){form.reset();manualCode=false;code.readOnly=false;}
   });
   editor.append(form);categoryHeader.append(editor);
   categorySection.append(categoryHeader);
@@ -569,7 +574,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
     statusCell.append(node('span',category.active?'Activa':'Retirada','state-label'));
     const tools=node('td');tools.className='admin-table-actions';
     tools.append(btn('Editar categoría',()=>{
-      editor.open=true;form.elements.id.value=category.id;form.elements.title.value=category.title;manualCode=true;
+      editor.open=true;form.elements.id.value=category.id;form.elements.title.value=category.title;manualCode=true;code.readOnly=true;
       form.elements.title.focus();
     },'secondary'));
     if(category.active&&data.canPublish)tools.append(action('Retirar categoría',()=>operations(()=>invoke('categoryRetire',{id:category.id}),()=>openAdmin('catalog'))));
