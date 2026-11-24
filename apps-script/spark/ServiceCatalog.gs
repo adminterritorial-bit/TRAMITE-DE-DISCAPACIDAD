@@ -100,7 +100,7 @@ function catChange_(u,action,d){
   const index=categories.findIndex(x=>x.id===id);
   const old=categories[index];
   if(action==='categoryRetire'&&(!old||services.some(x=>x.live?.category===id)))throw Error('invalid_transition');
-  if(!old&&categories.length>=20)throw Error('rate_limit');
+  if(!old&&categories.length>=80)throw Error('rate_limit');
   next={id,title:action==='categorySave'?instText_(d.title,70):old.title,active:action==='categorySave'};
   if(index<0)categories.push(next);else categories[index]=next;
  }else{
