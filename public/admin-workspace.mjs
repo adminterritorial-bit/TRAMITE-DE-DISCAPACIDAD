@@ -108,7 +108,7 @@ export function mountAdminWorkspace({dashboard,menu}){
    return;
   }
   for(const [key,value] of Object.entries(verified))values[key].textContent=value.toLocaleString('es-CO');
-  note.textContent=detail.demo?'Datos ficticios de demostración.':detail.filtered?'Indicadores según los filtros aplicados a la bandeja.':'Indicadores reales · bandeja institucional autorizada.';
+  note.textContent=detail.demo?'Datos ficticios de demostración.':detail.metricsScope==='service'?'Indicadores reales del trámite seleccionado. Otros filtros solo modifican la lista.':'Indicadores globales reales de Salud. Los filtros de estado, fecha y prioridad solo modifican la lista.';
  });
  decorate();
  return {refresh:decorate};

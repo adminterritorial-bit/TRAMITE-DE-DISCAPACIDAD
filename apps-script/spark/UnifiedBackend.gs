@@ -81,6 +81,13 @@ const SPARK_BUILD_='spark-unified-2.0';
 const SPARK_PORTAL_='https://sits-salud-san-pedro.vercel.app/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ // Release fingerprint is public and contains no credentials or citizen data.
+ // The deployment workflow injects SITS_RELEASE_COMMIT_ during packaging.
+ if(e?.parameter?.probe==='sits-supabase-v1'&&e?.parameter?.content==='release-info'){
+  return output_({ok:true,build:'sits-supabase-1.0',
+   sourceCommit:typeof SITS_RELEASE_COMMIT_==='string'?SITS_RELEASE_COMMIT_:'unversioned',
+   backendEnabled:typeof sitsSbOn_==='function'&&sitsSbOn_()});
+ }
  // Version-specific handshake: never silently accept an old Firebase deployment.
  if(e?.parameter?.probe==='sits-supabase-v1'){
   if(typeof sitsSbOn_!=='function'||!sitsSbOn_())
@@ -688,14 +695,17 @@ function officialCertificateFile_(f){
  const accepted=officialFiles_([{...f,kind:'historia'}])[0];
  return {...accepted,kind:'certificate'};
 }
-function officialCertificateMail_(to,reference,file,test=false){
+function officialCertificateMail_(to,reference,file,test=false,serviceId='certificacion-discapacidad'){
  if(!isValidEmail_(to))throw Error('invalid_request');
  const bytes=Utilities.base64Decode(file.base64);
- const attachment=Utilities.newBlob(bytes,'application/pdf','Certificado-'+reference+'.pdf');
- MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+'Certificado de discapacidad · '+reference,
+ const officialDisability=serviceId==='certificacion-discapacidad';
+ const attachment=Utilities.newBlob(bytes,'application/pdf',
+   (officialDisability?'Certificado-':'Documento-')+reference+'.pdf');
+ const subjectLabel=officialDisability?'Certificado de discapacidad':'Documento de resolución del trámite';
+ MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+subjectLabel+' · '+reference,
   body:'Secretaría de Salud de San Pedro, Valle del Cauca\n\n'
    +(test?'Documento ficticio usado para verificar el servicio.\n\n':'')
-   +'Adjuntamos el certificado correspondiente a tu solicitud '+reference+'. '
+   +'Adjuntamos '+(officialDisability?'el certificado':'el documento de resolución')+' correspondiente a tu solicitud '+reference+'. '
    +'Este correo se remite a la dirección verificada que autorizaste para recibir el certificado.\n\n'
    +'Si no reconoces la solicitud, comunícate con la Secretaría de Salud mediante los canales oficiales.\n\n'
    +'Consulta el seguimiento en: '+SPARK_PORTAL_,

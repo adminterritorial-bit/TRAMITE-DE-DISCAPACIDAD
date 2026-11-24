@@ -1,5 +1,7 @@
 import {normalizeSearch, filterServices, categoryCounts, categoryCode} from './catalog-domain.mjs';
 import {selectAdminServices,selectServiceCases} from './admin-collections.mjs';
+import {readStudioDraft,writeStudioDraft,clearStudioDraft} from './studio-draft.mjs';
+import {inspectConfiguredIntake} from './configured-intake-contract.mjs';
 
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
@@ -58,7 +60,7 @@ function submit(form,label,fn){
   finally{button.disabled=false;form.removeAttribute('aria-busy');}
  };
 }
-const standard={id:'discapacidad',title:'Certificación de discapacidad',category:'certificacion',
+const standard={id:'discapacidad',title:'Certificación de discapacidad',category:'discapacidad-apoyos',
  description:'Orientación, solicitud y seguimiento de soportes para la certificación de discapacidad.',channel:'Secretaría de Salud',standard:true};
 const normalize=normalizeSearch;
 const icons={folder:'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',document:'M6 3h8l4 4v14H6z M14 3v5h5 M9 12h6 M9 16h6',heart:'M20.8 8.6c0 4-8.8 10-8.8 10s-8.8-6-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z M7 12h3l1-2 2 4 1-2h3',search:'M10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z M16 16l4 4',clock:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2',help:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M9 9a3 3 0 1 1 4 3v1 M12 17h.01',shield:'M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10z M8 12l3 3 5-6',arrow:'M5 12h14 M13 6l6 6-6 6',grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 5h13 M8 12h13 M8 19h13 M3 5h.01 M3 12h.01 M3 19h.01'};
@@ -71,7 +73,7 @@ const fieldNames={text:'Texto corto',textarea:'Texto amplio',number:'Número',da
  radio:'Opción única',checkbox:'Casilla',document:'Documento PDF'};
 const caseStates={saving:'Archivando soportes',storage_review:'Archivo por verificar',received:'Recibida',closed:'Cerrada'};
 
-export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,downloadContent}){
+export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,downloadContent,startConfiguredService,startOfficialService}){
  const catalogue=region('Trámites y servicios de Salud','Encuentra orientación, consulta los requisitos y realiza el seguimiento de tus solicitudes en un solo lugar.');
  catalogue.id='catalog';catalogue.classList.add('catalog-home');
  const service=region('Ficha de trámite','Consulte los requisitos antes de continuar.');
@@ -129,7 +131,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
 
  const serviceBody=node('div');
  service.append(serviceBody);
- let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
+ let publicCatalog={items:[standard],categories:[{id:'discapacidad-apoyos',title:'Discapacidad y apoyos'}]};
  let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=null,availabilityText='Consulta la disponibilidad al iniciar';
  // The same published catalogue powers home and full catalogue.
  // The detail and action routes remain centralized in openService.
@@ -175,7 +177,9 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
     :'Consulte la ficha y el canal autorizado','home-catalog-availability');
    const actions=node('div',null,'home-catalog-actions');
    actions.append(btn('Ver requisitos',()=>void openService(item),'primary'));
-   if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>navigate('citizen'),'secondary'));
+   if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>{if(startOfficialService)startOfficialService();else navigate('citizen');},'secondary'));
+   if(!item.standard&&item.intakeEnabled&&item.intakeSchema&&startConfiguredService)
+    actions.append(btn('Iniciar solicitud',()=>startConfiguredService(item),'secondary'));
    card.append(identity,heading,summary,availability,actions);
    homeCards.append(card);
   }
@@ -344,7 +348,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    requirements.append(items,node('p','La Secretaría de Salud orienta los requisitos y la valoración. Consulta las condiciones del procedimiento antes de trasladarte.'));
    const terms=node('a','Procedimiento de certificación · Ministerio de Salud','secondary help-link');
    terms.href='https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-1197-de-2024.pdf';
-   requirements.append(terms,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive===true?'Iniciar solicitud':officialActive===false?'Consultar canales de atención':'Consultar disponibilidad',()=>navigate(officialActive===false?'help':'citizen'),'primary'));
+   requirements.append(terms,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive===true?'Iniciar solicitud':officialActive===false?'Consultar canales de atención':'Consultar disponibilidad',()=>{if(officialActive===false)navigate('help');else if(startOfficialService)startOfficialService();else navigate('citizen');},'primary'));
    const next=node('section',null,'service-overview');
    next.append(node('h2','Después de enviar'),node('p','Conserva la referencia para consultar la verificación de los documentos y las acciones pendientes. La valoración y el certificado corresponden al proceso autorizado.'),btn('Consultar mis solicitudes',()=>navigate('tracking'),'secondary'));
    serviceBody.append(requirements,next);return;
@@ -356,6 +360,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    node('p','Consulte la información del trámite y comuníquese con la Secretaría de Salud para confirmar requisitos, disponibilidad y forma de atención.'),
    node('p','Canal autorizado: '+(item.channel||'Secretaría de Salud')));
   serviceBody.append(publicInfo);
+  if(item.intakeEnabled&&item.intakeSchema&&startConfiguredService){
+   serviceBody.append(node('p','Este servicio tiene recepción electrónica autorizada. Sigue los cinco pasos de SITS Salud.','ui-service-status'));
+   serviceBody.append(btn('Iniciar solicitud de '+item.title,()=>startConfiguredService(item),'primary'));
+   return;
+  }
   if(!user||!['supervisor','admin','operator'].includes(role)){
    serviceBody.append(btn('Consultar ayuda y canales de atención',()=>navigate('help'),'primary'));
    return;
@@ -502,9 +511,101 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const preview=node('div',null,'manager-section studio-preview');preview.hidden=true;
   function validateFields(){const list=groups().map(x=>x.value());const seen=new Set(),documents=new Set();for(const [i,f] of list.entries()){if(!/^[a-z][a-z0-9-]{1,39}$/.test(f.id)||seen.has(f.id)||!f.label.trim())throw Error('Revisa el nombre y el código único de la pregunta '+(i+1)+'.');if(f.options&&(!f.options.length||f.options.length>10||new Set(f.options).size!==f.options.length))throw Error('La pregunta '+(i+1)+' necesita de 1 a 10 opciones distintas.');if(f.type==='document'){if(documents.has(f.fixture))throw Error('No repitas el mismo tipo de soporte PDF.');documents.add(f.fixture);}if(f.condition){const prior=list.slice(0,i).find(x=>x.id===f.condition.field);if(!prior?.options?.includes(f.condition.equals))throw Error('La condición de la pregunta '+(i+1)+' debe referirse a una opción de una pregunta anterior.');}seen.add(f.id);}return list;}
   const footer=node('div',null,'studio-footer');const previewError=errorRegion();
-  footer.append(btn('Previsualizar formulario',()=>{try{previewError.textContent='';const values=validateFields();preview.hidden=false;preview.replaceChildren(node('span','VISTA CIUDADANA','studio-kicker'),node('h3',title.value||'Vista previa'));dynamicFields(preview,values,{preview:true});preview.scrollIntoView({block:'nearest'});}catch(e){previewError.textContent=e.message;}}));
+  footer.append(btn('Previsualizar formulario',()=>{
+   try{
+    previewError.textContent='';
+    const values=validateFields();
+    const plan=inspectConfiguredIntake({
+      title:title.value,category:category.value,channel:channel.value,
+      fields:values,states:Array.from(states.children,x=>x.value())
+    });
+    preview.hidden=false;
+    preview.replaceChildren(
+      node('span','VISTA CIUDADANA · CINCO PASOS','studio-kicker'),
+      node('h3',title.value||'Vista previa'),
+      node('p','Los trámites configurables usarán la misma secuencia que la certificación de discapacidad, con las preguntas y soportes propios de cada servicio.','module-intro')
+    );
+    const journey=node('ol',null,'configured-intake-steps');
+    for(const step of plan.stages){
+      const item=node('li');
+      item.append(node('strong',step.title),node('small',step.description));
+      if(step.questions.length)item.append(node('span',step.questions.length+' '+(step.questions.length===1?'campo':'campos')+' configurados','state-label'));
+      journey.append(item);
+    }
+    preview.append(journey);
+    const notice=node('div',null,'studio-safety');
+    notice.append(node('strong',plan.compatible?'Estructura compatible para pruebas':'Configuración por completar'),
+      node('p',plan.explanation));
+    if(plan.warnings.length){
+      const list=node('ul');
+      for(const text of plan.warnings)list.append(node('li',text));
+      notice.append(list);
+    }
+    preview.append(notice,node('h4','Preguntas configuradas'));
+    dynamicFields(preview,values,{preview:true});
+    preview.scrollIntoView({block:'nearest'});
+   }catch(e){previewError.textContent=e.message;}
+  }));
   form.append(footer,previewError);
-  submit(form,'Guardar borrador',async()=>{const specs=validateFields();await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,schema:{title:title.value,description:description.value,channel:channel.value,category:category.value,operators:lines(operators.value),messages:Object.fromEntries(Object.entries(messages).map(([k,v])=>[k,v.value])),fields:specs,states:Array.from(states.children,x=>x.value())}}),()=>openAdmin('catalog'));});
+  // Restore only unsubmitted design metadata, never citizen health records.
+  let localStorageScope;
+  try{localStorageScope=window.sessionStorage;}catch{}
+  const draftKey='sits:studio:v1:'+String(user?.id||user?.uid||user?.email||'demo')+':new';
+  let savedRemotely=false,saveTimer=0;
+  const draftSnapshot=()=>({
+   id:id.value,title:title.value,description:description.value,category:category.value,
+   channel:channel.value,operators:operators.value,
+   messages:Object.fromEntries(Object.entries(messages).map(([key,input])=>[key,input.value])),
+   fields:groups().map(group=>group.value()),
+   states:Array.from(states.children,x=>x.value())
+  });
+  const scheduleLocalSave=()=>{
+   if(current||savedRemotely)return;
+   clearTimeout(saveTimer);
+   saveTimer=setTimeout(()=>writeStudioDraft(localStorageScope,draftKey,draftSnapshot()),350);
+  };
+  if(!current){
+   for(const name of ['input','change','click'])form.addEventListener(name,scheduleLocalSave);
+  }
+  submit(form,'Guardar borrador',async()=>{
+   const specs=validateFields();
+   await operations(()=>invoke('serviceSave',{id:id.value,revision:current?.revision??0,
+    schema:{title:title.value,description:description.value,channel:channel.value,category:category.value,
+     operators:lines(operators.value),
+     messages:Object.fromEntries(Object.entries(messages).map(([key,input])=>[key,input.value])),
+     fields:specs,states:Array.from(states.children,x=>x.value())}}),
+   async()=>{
+    savedRemotely=true;clearTimeout(saveTimer);
+    clearStudioDraft(localStorageScope,draftKey);
+    await openAdmin('catalog');
+   });
+  });
+  if(!current){
+   const previous=readStudioDraft(localStorageScope,draftKey);
+   if(previous){
+    const recovery=node('div',null,'studio-recovery');
+    recovery.setAttribute('role','status');
+    recovery.append(node('strong','Hay un diseño sin guardar en esta sesión'),
+     node('p','Puedes recuperarlo o descartarlo. No contiene datos de ciudadanos ni documentos clínicos.'));
+    const restore=btn('Recuperar diseño',()=>{
+     id.value=String(previous.id||'');title.value=String(previous.title||'');
+     description.value=String(previous.description||'');channel.value=String(previous.channel||'');
+     category.value=String(previous.category||'');operators.value=String(previous.operators||'');
+     for(const [key,input] of Object.entries(messages))input.value=String(previous.messages?.[key]||'');
+     fields.replaceChildren();
+     for(const spec of Array.isArray(previous.fields)?previous.fields.slice(0,16):[])addField(spec);
+     states.replaceChildren();
+     for(const spec of Array.isArray(previous.states)?previous.states.slice(0,10):[])addState(spec);
+     if(!states.children.length)draft.states.forEach(addState);
+     refreshOrder();recovery.remove();title.focus();scheduleLocalSave();
+    },'primary');
+    const discard=btn('Descartar borrador local',()=>{
+     clearStudioDraft(localStorageScope,draftKey);recovery.remove();
+    },'secondary');
+    recovery.append(restore,discard);
+    manager.append(recovery);
+   }
+  }
   manager.append(form,preview);
  }
  function adminCatalog(data){

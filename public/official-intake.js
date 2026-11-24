@@ -14,9 +14,16 @@ function row(parent,label,name,opts={}){
 }
 export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}){
  const mount=document.getElementById('applicationForm');if(!mount)throw Error('application_form_missing');
- if(labMode)return {live:false,connect:async()=>{},session:()=>{},tracking:async()=>{},inbox:async()=>{}};
+ if(labMode)return {live:false,connect:async()=>{},session:()=>{},tracking:async()=>{},inbox:async()=>{},selectService:()=>false,resetService:()=>{}};
  const shell=el('section',undefined,'live-intake');shell.setAttribute('aria-label','Recepción electrónica de solicitudes');mount.before(shell);
  let ready={enabled:false,documents:[]},authenticated=false,pilotAccess=false,builtFor=null;
+ let selectedService=null;
+ function selectService(service){
+  if(!service||service.intakeEnabled!==true||!Array.isArray(service.intakeSchema?.fields)
+     ||service.intakeSchema.version!==service.version)return false;
+  selectedService=service;builtFor=null;render();return true;
+ }
+ function resetService(){selectedService=null;builtFor=null;render();}
  let tracker,staffInbox;
  function note(title,message,link=true){
   const area=el('div',undefined,'intake-state'),mark=el('span',undefined,'ui-icon'),body=el('div');
@@ -30,7 +37,8 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   if(ready.accepting!==true&&!pilotAccess){note('Recepción electrónica restringida','Consulta los canales de la Secretaría de Salud para presentar una solicitud.');return;}
   const account=getUser();
   if(!authenticated||!account){note('Inicia sesión para presentar tu solicitud','Ingresa con Google para presentar una solicitud y consultar tu expediente desde la cuenta asociada.',false);return;}
-  if(builtFor!==account.uid){builtFor=account.uid;buildForm(account);}
+  const formKey=account.uid+':'+(selectedService?.id||'discapacidad');
+  if(builtFor!==formKey){builtFor=formKey;buildForm(account);}
  }
  async function connect(endpoint,expectedBuild=''){
   try{
@@ -51,7 +59,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  function buildForm(account){
   const form=el('form',undefined,'intake-form');form.noValidate=true;
-  form.setAttribute('aria-label','Solicitud de certificación de discapacidad');
+  const configured=selectedService?.intakeEnabled===true;
+  const serviceSchema=configured?selectedService.intakeSchema:null;
+  form.setAttribute('aria-label',configured?'Solicitud de '+selectedService.title:'Solicitud de certificación de discapacidad');
   const labels=['Identificación','Contacto y representación','Documentos','Autorizaciones','Revisión y envío'];
   const panels=labels.map((label,i)=>{
    const panel=el('section',undefined,'intake-step');
@@ -61,7 +71,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   });
   const [identity,contact,filesPanel,permissions,review]=panels;
   const title=el('div',undefined,'intake-title');
-  title.append(el('h2','Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
+  title.append(el('h2',configured?selectedService.title:'Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
   if(ready.accepting!==true&&pilotAccess)title.append(el('p','Prueba institucional. Usa únicamente datos y PDF ficticios.','ui-service-status'));
   const progress=el('ol',undefined,'intake-progress');
   progress.setAttribute('aria-label','Pasos de la solicitud');
@@ -80,11 +90,55 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   representative.options[0].textContent='La propia persona';
   representative.options[1].textContent='Una persona de apoyo';
   row(contact,'Ajustes de movilidad o comunicación solicitados','support',{multiline:true,max:300});
-  filesPanel.append(el('p','Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
+  const dynamicInputs=new Map();
+  const extraSpecs=Array.isArray(serviceSchema?.fields)?
+   serviceSchema.fields.filter(spec=>spec.type!=='document'):[];
+  if(configured&&extraSpecs.length){
+   const additional=el('div',undefined,'configured-service-fields');
+   additional.append(el('h4','Información específica del trámite'));
+   const extraGrid=el('div',undefined,'intake-fields');
+   for(const spec of extraSpecs){
+    const label=spec.label+(spec.required?' *':'');
+    const opts={required:spec.required===true,
+      ...(['select','radio'].includes(spec.type)?{select:['',...(spec.options||[])]}:
+      spec.type==='textarea'?{multiline:true,max:2000}:
+      spec.type==='checkbox'?{type:'checkbox'}:
+      spec.type==='number'?{type:'number',max:20}:
+      spec.type==='date'?{type:'date'}:{max:350})};
+    const input=row(extraGrid,label,'service__'+spec.id,opts);
+    dynamicInputs.set(spec.id,{input,spec});
+   }
+   additional.append(extraGrid);contact.append(additional);
+  }
+  function applyConditions(){
+   for(const {input,spec} of dynamicInputs.values()){
+    if(!spec.condition)continue;
+    const dependent=dynamicInputs.get(spec.condition.field)?.input;
+    const visible=!!dependent&&dependent.value===spec.condition.equals;
+    input.closest('label').hidden=!visible;
+    input.disabled=!visible;
+    input.required=visible&&spec.required===true;
+    if(!visible){if(input.type==='checkbox')input.checked=false;else input.value='';}
+   }
+  }
+  form.addEventListener('change',applyConditions);
+  form.addEventListener('input',applyConditions);
+  applyConditions();
+  filesPanel.append(el('p',configured?'Adjunta los soportes indicados para este trámite. Máximo 4,5 MB por PDF y 7 MB en total.':
+    'Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
   const fileGrid=el('div',undefined,'intake-filegrid');
-  const history=pdfField({label:'Historia clínica o soporte médico',kind:'historia',required:true});
-  const extra=pdfField({label:'Soporte adicional, si aplica',kind:'apoyo'});
-  fileGrid.append(history.group,extra.group);filesPanel.append(fileGrid);
+  const requestedDocs=configured?serviceSchema.fields.filter(spec=>spec.type==='document'):[];
+  const mainDoc=requestedDocs.find(spec=>spec.fixture==='historia');
+  const extraDoc=requestedDocs.find(spec=>spec.fixture==='apoyo');
+  const history=pdfField({label:mainDoc?.label||'Historia clínica o soporte médico',kind:'historia',
+   required:configured?mainDoc?.required===true:true});
+  const extra=pdfField({label:extraDoc?.label||'Soporte adicional, si aplica',kind:'apoyo',
+   required:configured?extraDoc?.required===true:false});
+  const pdfSlots=[];
+  if(!configured||mainDoc){fileGrid.append(history.group);pdfSlots.push({kind:'historia',...history});}
+  if(!configured||extraDoc){fileGrid.append(extra.group);pdfSlots.push({kind:'apoyo',...extra});}
+  if(pdfSlots.length)filesPanel.append(fileGrid);
+  else filesPanel.append(el('p','Este trámite no requiere adjuntar documentos PDF.','ui-service-status'));
   permissions.append(el('p','Lee las condiciones institucionales y selecciona las autorizaciones que apliquen.'));
   function check(parent,text,required=false){
    const wrapper=el('label',undefined,'intake-policy'),box=el('input');
@@ -156,7 +210,10 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     ['Correo verificado',account.email,1],['Teléfono',data.get('phone')||'Sin registrar',1],
     ['Zona',data.get('zone'),1],['Presentación',representative.selectedOptions[0].textContent,1],
     ['Ajustes solicitados',data.get('support')||'Ninguno registrado',1],
-    ['Soporte médico',history.input.files[0]?.name,2],['Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2],
+    ...(!configured||mainDoc?[[mainDoc?.label||'Soporte médico',history.input.files[0]?.name,2]]:[]),
+    ...(!configured||extraDoc?[[extraDoc?.label||'Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2]]:[]),
+    ...Array.from(dynamicInputs.values(),({input,spec})=>[spec.label,
+      input.disabled?'No aplica':spec.type==='checkbox'?(input.checked?'Sí':'No'):input.value||'Sin registrar',1]),
     ['Avisos por correo',notify.checked?'Autorizados':'Sin autorización',3],
     ['Entrega del certificado',certificateEmail.checked?'Correo verificado y portal':'Portal autenticado',3]
    ];
@@ -169,7 +226,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   async function validateStep(n){
    const issues=[];
    if(n===2){
-    const attachments=[history,extra];
+    const attachments=pdfSlots;
     for(const item of attachments){
      const file=item.input.files[0];
      if(!file&&!item.input.required)continue;
@@ -178,7 +235,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     }
     if(!issues.length&&attachments.reduce((total,item)=>total+(item.input.files[0]?.size||0),0)>7*1024*1024){
      const reason='El total de los dos PDF debe ser de máximo 7 MB.';
-     extra.report(reason);issues.push([extra.input,reason]);
+     const last=attachments[attachments.length-1];last.report(reason);issues.push([last.input,reason]);
     }
    }else{
     for(const input of panels[n].querySelectorAll('input,select,textarea')){
@@ -198,12 +255,21 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
    busy=true;send.disabled=true;previous.disabled=true;send.textContent='Enviando solicitud…';
    try{
     activity.textContent='Preparando archivos y verificando su integridad.';
-    const attachments=[history.input.files[0],extra.input.files[0]].filter(Boolean);
-    const payloads=await Promise.all(attachments.map((file,i)=>validatePdf(file,i===0?'historia':'apoyo')));
+    const attachments=pdfSlots.filter(slot=>slot.input.files[0]);
+    const payloads=await Promise.all(attachments.map(slot=>validatePdf(slot.input.files[0],slot.kind)));
     const fields=Object.fromEntries([...new FormData(form)].filter(([,value])=>typeof value==='string'));
     key??=crypto.randomUUID();
     activity.textContent='Enviando los soportes para almacenamiento y verificación.';
-    const result=await invoke('officialSubmit',{...fields,key,files:payloads,medicalConsent:consent.checked,notifyByEmail:notify.checked,certificateEmailConsent:certificateEmail.checked,
+    const answers={};
+    for(const [id,{input,spec}] of dynamicInputs){
+     if(input.disabled)continue;
+     if(spec.type==='checkbox')answers[id]=input.checked;
+     else if(input.value!=='')answers[id]=input.value;
+    }
+    const operation=configured?'configuredSubmit':'officialSubmit';
+    const result=await invoke(operation,{...fields,key,files:payloads,
+      ...(configured?{serviceId:selectedService.id,serviceVersion:serviceSchema.version,answers}:{}),
+      medicalConsent:consent.checked,notifyByEmail:notify.checked,certificateEmailConsent:certificateEmail.checked,
       legalDecisions:policyBoxes.map(({cb,policy})=>({id:policy.id,version:policy.version,hash:policy.hash,accepted:cb.checked}))});
     if(!form.isConnected)return;
     if(!result?.reference)throw Error('La recepción aún no pudo verificarse. Reintenta este envío para consultar la misma referencia.');
@@ -243,7 +309,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  async function inbox(){
   if(!authenticated||!getUser())return;
-  if(!staffInbox){const {renderOfficialStaffInbox}=await import('./official-staff.js?v=admin-mosaic-1');staffInbox??={show:()=>renderOfficialStaffInbox({invoke,validatePdf,sessionUserId:getUser()?.uid}),clear:()=>document.getElementById('officialInbox')?.remove()};}
+  if(!staffInbox){const {renderOfficialStaffInbox}=await import('./official-staff.js?v=suite-flows-1');staffInbox??={show:()=>renderOfficialStaffInbox({invoke,validatePdf,sessionUserId:getUser()?.uid}),clear:()=>document.getElementById('officialInbox')?.remove()};}
   if(authenticated)await staffInbox.show();
  }
  function receptionStatus(){
@@ -253,5 +319,5 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   return 'Disponibilidad de recepción por confirmar';
  }
  note('Consultando disponibilidad','Verificando los canales habilitados para este trámite.',false);
- return {get live(){return !labMode;},connect,session,tracking,inbox,receptionStatus,get accepting(){return ready.accepting;}};
+ return {get live(){return !labMode;},connect,session,tracking,inbox,selectService,resetService,receptionStatus,get accepting(){return ready.accepting;}};
 }

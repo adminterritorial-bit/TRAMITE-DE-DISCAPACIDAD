@@ -1,0 +1,124 @@
+name: Apps Script | despliegue sincronizado
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps-script/spark/**"
+      - ".github/workflows/apps-script-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sits-apps-script-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validar selectores y lógica de formularios
+        run: node --test tests/catalog-domain.test.mjs tests/admin-workspace.test.mjs
+      - name: Comprobar sintaxis Apps Script V8
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in apps-script/spark/*.gs; do
+            node --check --input-type=commonjs < "$source"
+          done
+      - name: Verificar manifest y archivos oficiales
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const f of ['UnifiedBackend.gs','SparkAuth.gs','ServiceCatalog.gs','SupabaseBridge.gs','SupabasePortal.gs','appsscript.json']){
+            if(!fs.existsSync('apps-script/spark/'+f))throw new Error('Falta archivo: '+f);
+          }
+          if(JSON.parse(fs.readFileSync('apps-script/spark/appsscript.json','utf8')).runtimeVersion!=='V8')throw new Error('Runtime incompatible');
+          NODE
+
+  release:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' || vars.SITS_AUTO_APPS_SCRIPT_DEPLOY == 'enabled'
+    runs-on: ubuntu-latest
+    environment: apps-script-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validar configuración sin publicar
+        env:
+          SCRIPT_ID: ${{ secrets.SITS_APPS_SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ secrets.SITS_APPS_SCRIPT_DEPLOYMENT_ID }}
+          CLASPRC_JSON: ${{ secrets.SITS_CLASPRC_JSON }}
+          APP_URL: ${{ vars.SITS_APPS_SCRIPT_WEBAPP_URL }}
+        run: |
+          set -euo pipefail
+          for key in SCRIPT_ID DEPLOYMENT_ID CLASPRC_JSON APP_URL; do
+            if [[ -z "$(printenv "$key")" ]]; then
+              echo "::error::Falta configurar $key; no se modificó Apps Script."
+              exit 1
+            fi
+          done
+      - name: Empaquetar exactamente la fuente revisada
+        env:
+          SCRIPT_ID: ${{ secrets.SITS_APPS_SCRIPT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp apps-script/spark/UnifiedBackend.gs release/Codigo.gs
+          cp apps-script/spark/SparkAuth.gs release/SparkAuth.gs
+          cp apps-script/spark/ServiceCatalog.gs release/ServiceCatalog.gs
+          cp apps-script/spark/SupabaseBridge.gs release/SupabaseBridge.gs
+          cp apps-script/spark/SupabasePortal.gs release/SupabasePortal.gs
+          cp apps-script/spark/appsscript.json release/appsscript.json
+          printf "const SITS_RELEASE_COMMIT_='%s';\n" "$GITHUB_SHA" > release/ReleaseVersion.gs
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > release/.clasp.json
+      - name: Instalar CLI de Google Apps Script
+        run: npm install --global @google/clasp
+      - name: Actualizar versión existente
+        env:
+          CLASPRC_JSON: ${{ secrets.SITS_CLASPRC_JSON }}
+          DEPLOYMENT_ID: ${{ secrets.SITS_APPS_SCRIPT_DEPLOYMENT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          cd release
+          clasp push --force
+          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description "SITS Salud commit $GITHUB_SHA"
+      - name: Confirmar commit publicado
+        env:
+          APP_URL: ${{ vars.SITS_APPS_SCRIPT_WEBAPP_URL }}
+        run: |
+          node - <<'NODE'
+          const url=new URL(process.env.APP_URL);
+          if(url.protocol!=='https:'||!url.hostname.endsWith('.google.com')){
+            throw new Error('Se requiere URL HTTPS de Google Apps Script.');
+          }
+          url.searchParams.set('probe','sits-supabase-v1');
+          url.searchParams.set('content','release-info');
+          (async()=>{
+            for(let attempt=0;attempt<6;attempt++){
+              try{
+                const response=await fetch(url,{redirect:'follow',signal:AbortSignal.timeout(12000)});
+                if(response.ok){
+                  const data=await response.json();
+                  if(data.build==='sits-supabase-1.0'&&data.sourceCommit===process.env.GITHUB_SHA&&data.backendEnabled===true){
+                    console.log('Apps Script sincronizado:',data.sourceCommit);return;
+                  }
+                }
+              }catch(error){console.error('Aún sin confirmación:',error.message);}
+              await new Promise(resolve=>setTimeout(resolve,4000));
+            }
+            throw new Error('No se confirmó el commit en el despliegue de Apps Script.');
+          })().catch(error=>{console.error(error);process.exitCode=1;});
+          NODE

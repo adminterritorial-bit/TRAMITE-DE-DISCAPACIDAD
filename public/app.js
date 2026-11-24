@@ -1,13 +1,13 @@
 import {consumeGoogleOAuthFailure} from './supabase-auth.js';
 import {config} from './config.js';
 import {portalExperience} from './institutional.js?v=admin-mosaic-1';
-import {serviceCatalog} from './catalog.js?v=category-flow-1';
+import {serviceCatalog} from './catalog.js?v=suite-flows-1';
 import {initAmbientMotion} from './ui-motion.mjs';
 import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
 const labMode=demo||location.pathname.endsWith('/pilot.html');document.body.classList.toggle('pilot-mode',labMode);
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
-import {officialIntakeUI} from './official-intake.js?v=admin-mosaic-1';
+import {officialIntakeUI} from './official-intake.js?v=suite-flows-1';
 initAmbientMotion();
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
 const statusNames={saving:'Guardando soportes',received:'Recibida',reviewing:'En revisión',needs_documents:'Requiere documentos',awaiting_certificate:'Pendiente de certificado',sending:'Enviando notificación',sent:'Notificación enviada',archived:'Documento archivado',storage_review:'Revisión de almacenamiento',delivery_review:'Revisión del envío'};
@@ -49,7 +49,13 @@ function showView(v,{focus=true}={}){
 }
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
-const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});
+const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent,
+ startConfiguredService:item=>{
+  if(officialUI.selectService(item))showView('citizen');
+  else experience.toast('Este trámite todavía no tiene recepción electrónica verificada.');
+ },
+ startOfficialService:()=>{officialUI.resetService();showView('citizen');}
+});
 let catalogueStarted=false;
 function ensureCatalogue(){if(!demo&&!catalogueStarted){catalogueStarted=true;void catalog.connect(config.appsScriptEndpoint);}}
 const accessibility=accessiblePortal({navigate:showView});

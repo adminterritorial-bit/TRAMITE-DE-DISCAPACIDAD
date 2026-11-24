@@ -7,7 +7,7 @@ const CATALOG_USER_=/^[A-Za-z0-9_-]{1,128}$/;
 const CATALOG_TYPES_=['text','textarea','number','date','select','radio','checkbox','document'];
 const CATALOG_BASE_=Object.freeze({id:'discapacidad',version:1,title:'Certificación de discapacidad',
  description:'Orientación, solicitud y seguimiento de soportes para la certificación de discapacidad.',
- category:'certificacion',channel:'Secretaría de Salud',standard:true});
+ category:'discapacidad-apoyos',channel:'Secretaría de Salud',standard:true});
 
 function catId_(value){
  if(typeof value!=='string'||!CATALOG_ID_.test(value)||['constructor','prototype','hasownproperty'].includes(value.toLowerCase()))throw Error('invalid_request');
@@ -76,8 +76,30 @@ function catSummary_(view){
 }
 function catPublic_(){
  const {categories,services}=catStore_();
- return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>catSummary_({id:x.id,...x.live}))],
-  categories:[{id:'certificacion',title:'Certificación'},...categories.filter(x=>x.active).map(({id,title})=>({id,title}))]};
+ // Real intake is independently authorized in the relational catalog.
+ // An approved public information sheet is not sufficient to accept cases.
+ const enabled=new Set();
+ if(services.some(item=>item.live)&&typeof sitsSbOn_==='function'&&sitsSbOn_()){
+  try{
+   for(const row of sitsSbRows_('sits_services',
+    'select=id&active=eq.true&intake_enabled=eq.true&limit=100',null,true))
+    enabled.add(row.id);
+  }catch(_){} // Fail closed; still show public information.
+ }
+ return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>({
+   ...catSummary_({id:x.id,...x.live}),
+   intakeEnabled:enabled.has(x.id),
+   ...(enabled.has(x.id)?{intakeSchema:{
+     version:x.live.version,title:x.live.title,category:x.live.category,
+     fields:(x.live.fields||[]).map(field=>({
+      id:field.id,type:field.type,label:field.label,required:field.required,
+      ...(field.options?{options:field.options}:{}),
+      ...(field.condition?{condition:field.condition}:{}),
+      ...(field.type==='document'?{fixture:field.fixture}:{})
+     }))
+    }}:{})
+  }))],
+  categories:categories.filter(x=>x.active).map(({id,title})=>({id,title}))};
 }
 function catService_(id){
  const entry=catStore_().services.find(x=>x.id===catId_(id));
@@ -93,7 +115,7 @@ function catChange_(u,action,d){
  if(privileged)instRecent_(u);
  if(privileged&&u.role!=='supervisor')throw Error('forbidden');
  const id=catId_(d.id),store=catStore_();
- if(['discapacidad','certificacion'].includes(id))throw Error('invalid_request');
+ if(['discapacidad','certificacion','certificacion-discapacidad'].includes(id))throw Error('invalid_request');
  const {doc,categories,services}=store;
  let next;
  if(action==='categorySave'||action==='categoryRetire'){
