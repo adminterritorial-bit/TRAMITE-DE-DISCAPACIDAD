@@ -70,6 +70,8 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desborde de portada '+width);
  }
  await page.setViewportSize({width:1280,height:960});
+ const homeAudit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
+ assert.deepEqual(homeAudit.violations.map(x=>[x.id,x.nodes.map(n=>n.target)]),[],'Inicio accesible');
  await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
  await page.getByRole('heading',{name:'Sobre este servicio'}).waitFor();
  await page.getByRole('button',{name:'Iniciar solicitud'}).click();
