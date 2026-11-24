@@ -695,11 +695,12 @@ function officialCertificateFile_(f){
  const accepted=officialFiles_([{...f,kind:'historia'}])[0];
  return {...accepted,kind:'certificate'};
 }
-function officialCertificateMail_(to,reference,file,test=false){
+function officialCertificateMail_(to,reference,file,test=false,serviceId='certificacion-discapacidad'){
  if(!isValidEmail_(to))throw Error('invalid_request');
  const bytes=Utilities.base64Decode(file.base64);
  const attachment=Utilities.newBlob(bytes,'application/pdf','Certificado-'+reference+'.pdf');
- MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+'Certificado de discapacidad · '+reference,
+ const subjectLabel=serviceId==='certificacion-discapacidad'?'Certificado de discapacidad':'Documento de resolución del trámite';
+ MailApp.sendEmail({to,subject:(test?'[PRUEBA] ':'')+subjectLabel+' · '+reference,
   body:'Secretaría de Salud de San Pedro, Valle del Cauca\n\n'
    +(test?'Documento ficticio usado para verificar el servicio.\n\n':'')
    +'Adjuntamos el certificado correspondiente a tu solicitud '+reference+'. '
