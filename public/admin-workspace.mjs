@@ -76,6 +76,9 @@ export function mountAdminWorkspace({dashboard,menu}){
    const meta=modules[label];if(!meta)continue;
    button.dataset.module=meta.id;
    button.dataset.description=meta.description;
+   // Keep a precise accessible name; the visual subtitle is a description.
+   button.setAttribute('aria-label',label);
+   button.setAttribute('aria-description',meta.description);
    if(!button.querySelector('svg'))button.prepend(icon(meta.icon));
   }
   setActive();
