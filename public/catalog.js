@@ -69,15 +69,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  main.append(catalogue,service);
  const masthead=node('div',null,'catalog-masthead'),copy=node('div');
  copy.append(node('div','ALCALDÍA DE SAN PEDRO · SERVICIOS DIGITALES','catalog-kicker'),catalogue.querySelector('h1'),catalogue.querySelector('.module-intro'));
- const pills=node('div',null,'catalog-pills');
- for(const label of ['Atención ciudadana','Un portal, múltiples servicios','Consulta en línea'])pills.append(node('span',label));
- copy.append(pills);
- const visual=node('div',null,'catalog-illustration');visual.setAttribute('aria-hidden','true');
- const visualCard=node('div',null,'catalog-visual-card');
- const visualIcon=node('div',null,'catalog-icon');visualIcon.append(glyph('heart'));
- visualCard.append(visualIcon,node('strong','SITS Salud'),node('small','Secretaría de Salud'),node('span',null,'visual-line'),node('span',null,'visual-line short'));
- const orbit=node('div',null,'hero-orbit'),badgeA=node('div',null,'hero-mini hero-mini-folder'),badgeB=node('div',null,'hero-mini hero-mini-clock'),badgeIcon=node('span',null,'hero-mini-icon'),clockIcon=node('span',null,'hero-mini-icon');badgeIcon.append(glyph('folder'));clockIcon.append(glyph('clock'));badgeA.append(badgeIcon,node('span','Servicios'));badgeB.append(clockIcon,node('span','Seguimiento'));
- visual.append(orbit,visualCard,badgeA,badgeB,node('span','✓','catalog-visual-check'));masthead.append(copy,visual);catalogue.append(masthead);
+ masthead.append(copy);catalogue.append(masthead);
  const heroActions=node('div',null,'hero-actions');
  const explore=btn('Explorar trámites',()=>{search.focus();search.scrollIntoView({block:'center'});},'primary hero-cta');explore.dataset.voiceHint='Explorar trámites. Abre el buscador de servicios.';
  const follow=btn('Consultar solicitudes',()=>navigate('tracking'),'secondary hero-secondary');follow.dataset.voiceHint='Consultar solicitudes. Accede al seguimiento protegido.';
@@ -91,13 +83,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const tile=btn('',action,'quick-tile'),ico=node('span',null,'quick-glyph');ico.append(glyph(icon));
   const words=node('span');words.append(node('strong',title),node('small',desc));tile.append(ico,words,glyph('arrow','quick-arrow'));tile.dataset.voiceHint=title+'. '+desc;quick.append(tile);
  }
- catalogue.append(quick);
- const route=node('section',null,'citizen-route');route.append(node('h2','Tu ruta de atención'));
- const milestones=node('div',null,'citizen-milestones');
- for(const [number,title,detail,icon] of [['01','Selecciona un servicio','Consulta qué necesitas y qué canal está disponible.','folder'],['02','Prepara tu solicitud','Organiza la información antes de iniciar.','document'],['03','Realiza el seguimiento','Accede con la cuenta asociada a tu solicitud.','clock']]){
-  const step=node('div',null,'citizen-milestone'),symbol=node('span',null,'route-icon');symbol.append(glyph(icon));step.append(symbol,node('span',number,'route-number'),node('strong',title),node('p',detail));step.dataset.voiceHint=title+'. '+detail;milestones.append(step);
- }
- route.append(milestones);catalogue.append(route);
+ catalogue.append(quick);if(document.getElementById('home'))quick.classList.add('catalog-context-tools');
  const searchBar=node('div',null,'catalog-filters');
  const search=field(searchBar,'Buscar trámite','search');
  const category=field(searchBar,'Categoría','category','',{options:{'':'Todas'}});
@@ -109,11 +95,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const controls=node('div',null,'catalog-view-controls'),clear=btn('Limpiar filtros',()=>{search.value='';category.value='';renderCatalog();},'quiet');
  const cards=btn('',()=>setLayout('cards'),'quiet'),rows=btn('',()=>setLayout('rows'),'quiet');
  cards.setAttribute('aria-label','Vista de tarjetas');rows.setAttribute('aria-label','Vista de lista');cards.append(glyph('grid'));rows.append(glyph('list'));controls.append(clear,cards,rows);
- infoRow.append(infoText,controls);catalogue.append(infoRow,list,route);
+ infoRow.append(infoText,controls);catalogue.append(infoRow,list);
  function setLayout(layout){list.classList.toggle('catalog-list-view',layout==='rows');cards.setAttribute('aria-pressed',String(layout==='cards'));rows.setAttribute('aria-pressed',String(layout==='rows'));}
  setLayout('cards');
  const assistance=node('section',null,'citizen-assistance');const assistCopy=node('div');assistCopy.append(node('h2','Estamos para orientarte'),node('p','Si tienes dudas sobre los requisitos o necesitas atención presencial, consulta los canales de la Alcaldía.'));
- const official=node('a','Consultar canales oficiales','secondary help-link');official.href='https://www.sanpedro-valle.gov.co/';assistance.append(assistCopy,official);catalogue.append(assistance);
+ const official=node('a','Consultar canales oficiales','secondary help-link');official.href='https://www.sanpedro-valle.gov.co/';assistance.append(assistCopy,official);catalogue.append(assistance);assistance.hidden=!!document.getElementById('home');
  const faq=node('section',null,'citizen-faq');faq.append(node('h2','Preguntas frecuentes'),node('p','Encuentra respuestas antes de iniciar.','module-intro'));for(const [q,a] of [['¿Necesito iniciar sesión para consultar los trámites?','No. El catálogo, las fichas y la preparación de requisitos están disponibles sin cuenta.'],['¿Cómo consulto el estado de una solicitud?','En Mis solicitudes, inicia sesión con el correo asociado a tu expediente.'],['¿Dónde puedo recibir atención si necesito apoyo?','Consulta los canales oficiales de la Alcaldía y de la Secretaría de Salud.'],['¿Cómo activo la guía por voz?','Selecciona Escuchar guía. Navega con el mouse o con Tab; puedes pausar o desactivar la lectura en cualquier momento.']]){const detail=node('details',null,'faq-item'),summary=node('summary',q);summary.dataset.voiceHint=q;const answer=node('p',a);answer.dataset.voiceHint=a;detail.append(summary,answer);faq.append(detail);}catalogue.append(faq);
  const guide=node('dialog',null,'institution-dialog citizen-guide');guide.setAttribute('aria-labelledby','citizen-guide-title');
  const guideTitle=node('h2','Cómo utilizar SITS Salud');guideTitle.id='citizen-guide-title';const guideClose=btn('Cerrar',()=>guide.close());
@@ -132,7 +118,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const serviceBody=node('div');
  service.append(serviceBody);
  let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
- let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=false;
+ let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=null,availabilityText='Consulta la disponibilidad al iniciar';
  const menu=document.querySelector('.admin-module-menu');
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
@@ -146,8 +132,9 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  dashboard.querySelector('.dashbar').after(shortcuts);
  dashboard.append(manager);
  if(!demo){
-  const tab=btn('Catálogo',()=>navigate('catalog'),'navbtn');tab.dataset.view='catalog';
-  nav.prepend(tab);
+  if(!nav.querySelector('[data-view=catalog]')){
+   const tab=btn('Trámites y servicios',()=>navigate('catalog'),'navbtn');tab.dataset.view='catalog';nav.prepend(tab);
+  }
   menu.append(btn('Catálogo y formularios',()=>void openAdmin('catalog')),
    btn('Expedientes de servicios',()=>void openAdmin('cases')),btn('Accesos del personal',()=>void openAdmin('staff')));
   menu.addEventListener('click',e=>{
@@ -283,13 +270,22 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   activeService=item;serviceKey=null;
   service.querySelector('h1').textContent=item.title;service.querySelector('h1').dataset.voiceHint=item.title;
   const description=node('div',null,'service-overview');description.append(node('h2','Sobre este servicio'),node('p',item.description,'plain-content'),node('p','Canal de atención: '+(item.channel||'Secretaría de Salud')));
-  const status=node('div',null,'service-availability');status.append(glyph('shield'),node('p',officialActive?'La recepción de solicitudes está disponible por este portal.':'El canal de recepción electrónica no está disponible en este momento. Consulta los canales oficiales de Salud.'));
+  const status=node('div',null,'service-availability');status.append(glyph('shield'),node('p',availabilityText));
   serviceBody.replaceChildren(description,status);
   navigate('service');
   if(item.standard){
-   const requirements=node('section',null,'service-overview');requirements.append(node('h2','Antes de continuar'),node('p','La certificación de discapacidad se realiza a través del procedimiento y las entidades competentes. La Secretaría de Salud orienta la gestión de los documentos.'));
-   const items=node('ul');for(const text of ['Consulta los requisitos aplicables con la Secretaría de Salud.','Ten disponible un correo electrónico para el seguimiento cuando se habilite la recepción.','Verifica el canal oficial antes de entregar documentación clínica.'])items.append(node('li',text));
-   requirements.append(items,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive?'Iniciar solicitud':'Consultar canales de atención',()=>navigate('citizen'),'primary'));serviceBody.append(requirements);return;
+   const requirements=node('section',null,'service-overview');
+   requirements.append(node('h2','Quién puede solicitarlo'),node('p','La persona que requiere una valoración puede presentar la solicitud. Cuando corresponda, puede contar con una persona de apoyo.'));
+   requirements.append(node('h2','Documentos para preparar'));
+   const items=node('ul');
+   for(const text of ['Información de identificación y contacto de la persona solicitante.','Historia clínica o soporte del médico tratante, en PDF, para la revisión de Salud.','Soporte adicional cuando Salud lo requiera para el caso.'])items.append(node('li',text));
+   requirements.append(items,node('p','La Secretaría de Salud orienta los requisitos y la valoración. Consulta las condiciones del procedimiento antes de trasladarte.'));
+   const terms=node('a','Procedimiento de certificación · Ministerio de Salud','secondary help-link');
+   terms.href='https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-1197-de-2024.pdf';
+   requirements.append(terms,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive===true?'Iniciar solicitud':officialActive===false?'Consultar canales de atención':'Consultar disponibilidad',()=>navigate(officialActive===false?'help':'citizen'),'primary'));
+   const next=node('section',null,'service-overview');
+   next.append(node('h2','Después de enviar'),node('p','Conserva la referencia para consultar la verificación de los documentos y las acciones pendientes. La valoración y el certificado corresponden al proceso autorizado.'),btn('Consultar mis solicitudes',()=>navigate('tracking'),'secondary'));
+   serviceBody.append(requirements,next);return;
   }
   if(!user){serviceBody.append(btn('Ingresar para continuar',()=>{pendingService=item;navigate('citizen');},'primary'));return;}
   const load=node('div');serviceBody.append(load);experience.loading(load);
@@ -595,7 +591,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   }catch(e){area.replaceChildren(node('p',e.message,'error'),btn('Reintentar',()=>tracking(after)));}
  }
  renderCatalog();
- return {connect,tracking,setIntakeAvailability(enabled){officialActive=enabled===true;},setSession(next,nextRole){
+ return {connect,tracking,setIntakeAvailability(enabled,status){officialActive=enabled??null;if(status)availabilityText=status;},setSession(next,nextRole){
   user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';

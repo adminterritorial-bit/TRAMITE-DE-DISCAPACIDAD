@@ -69,15 +69,15 @@ const section=(id,title,intro)=>{
 };
 function brand(){
   const logo=make('img',null,'institution-logo');
-  logo.src='./assets/brand/alcaldia-san-pedro.png';
+  logo.src='./assets/brand/alcaldia-san-pedro.webp';
   logo.alt='';
-  logo.width=1920;
-  logo.height=1080;
+  logo.width=470;
+  logo.height=160;
   return logo;
 }
 const legalLink=(navigate)=>{
   const link=make('a','Centro legal');
-  link.href='#legal';
+  link.href='#legal';link.dataset.view='legal';
   link.onclick=e=>{e.preventDefault();navigate('legal');};
   return link;
 };
@@ -129,22 +129,31 @@ export function portalExperience({demo,navigate,invoke}){
   document.querySelector('.brand .mark')?.replaceWith(brand());
   for(const selector of ['#adminLogin','#authCitizen','.side .panel','#receipt','footer']){
     const item=document.querySelector(selector);
-    if(item)item.prepend(brand());
+    if(item&&selector!=='footer')item.prepend(brand());
   }
   document.querySelector('footer').append(legalLink(navigate));
   for(const area of ['#authCitizen','#adminLogin'])document.querySelector(area)?.append(legalLink(navigate));
   const nav=document.querySelector('.nav');
-  for(const [view,label] of [['communications','Avisos'],['legal','Centro legal']]){
-    const entry=button(label,()=>navigate(view),'navbtn');entry.dataset.view=view;nav.append(entry);
+  for(const [view,label] of [['communications','Avisos']]){
+    const entry=button(label,()=>navigate(view),'quiet footer-view');entry.dataset.view=view;document.querySelector('footer').append(entry);
   }
   const context=make('span','Portada', 'portal-context');
   nav.after(context);
   const controls=document.querySelector('.tools');
-  controls.insertBefore(button('Reducir texto',()=>{document.documentElement.classList.remove('large');document.documentElement.classList.toggle('small-text');byId('scale').setAttribute('aria-pressed','false');},'quiet'),byId('signout'));
-  controls.insertBefore(button('Restablecer',()=>{
+  const visualControl=(id,text,run)=>{
+    const existing=byId(id);
+    if(existing)existing.addEventListener('click',run);
+    else controls.insertBefore(button(text,run,'quiet'),byId('signout'));
+  };
+  visualControl('reduceText','Reducir texto',()=>{
+    document.documentElement.classList.remove('large');
+    document.documentElement.classList.toggle('small-text');
+    byId('scale').setAttribute('aria-pressed','false');
+  });
+  visualControl('resetVisual','Restablecer',()=>{
     document.body.classList.remove('hc');document.documentElement.classList.remove('large','small-text');
     for(const id of ['contrast','scale'])byId(id).setAttribute('aria-pressed','false');
-  },'quiet'),byId('signout'));
+  });
   byId('scale').addEventListener('click',()=>document.documentElement.classList.remove('small-text'));
   let session=null, capability=false, publicContent={notices:[],policies:[]}, privateContent=null, selectedView='citizen';
   let focusBeforeDialog, toastTimer, rightsKey, noticeTimer, publicEndpoint;
@@ -524,10 +533,10 @@ export function portalExperience({demo,navigate,invoke}){
     },
     view(view){
       selectedView=view;
-      context.textContent='Portal de Salud / '+({citizen:'Solicitud ciudadana',catalog:'Catálogo de trámites',service:'Información del servicio',tracking:'Mis solicitudes',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
+      context.textContent='SITS Salud / '+({home:'Inicio',help:'Ayuda',citizen:'Solicitud ciudadana',catalog:'Catálogo de trámites',service:'Información del servicio',tracking:'Mis solicitudes',admin:'Gestión de Salud',communications:'Avisos',legal:'Centro legal'}[view]??'Portada');
       if(view==='legal')void loadAccount();
       if(!['citizen','catalog'].includes(view)&&dialog.open)dialog.close();
-      if(['citizen','catalog'].includes(view))render(true);
+      if(['home','citizen','catalog'].includes(view))render(true);
     },
     async publicEndpoint(endpoint){
       publicEndpoint=endpoint;

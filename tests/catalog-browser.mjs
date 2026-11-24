@@ -11,6 +11,7 @@ try{
   Object.defineProperty(window,'SpeechSynthesisUtterance',{configurable:true,value:Speech});
   Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>[{lang:'es-CO',localService:true}],speak:u=>{window.__spoken.push(u.text);queueMicrotask(()=>u.onend?.());},cancel(){},addEventListener(){}}});
  });
+ await page.addInitScript(()=>sessionStorage.setItem('sb-ovppffchdkwbikdppuzh-auth-token','fixture-session'));
  await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm',r=>r.fulfill({
   contentType:'application/javascript',headers:{'Access-Control-Allow-Origin':'*'},
   body:`export function createClient(){
@@ -31,7 +32,7 @@ try{
  let application;const staffInvites=[];
  await page.route('https://script.google.com/macros/s/**',r=>{
   const method=r.request().method(),url=new URL(r.request().url());
-  let output={ok:true,build:'sits-supabase-1.0',enabled:true,documents:intakeDocuments};
+  let output={ok:true,build:'sits-supabase-1.0',enabled:true,acceptingRequests:true,documents:intakeDocuments};
   if(method==='GET'&&url.searchParams.get('content')==='public')Object.assign(output,{notices:[],policies:[]});
   if(method==='GET'&&url.searchParams.get('content')==='catalog')Object.assign(output,{items:[baseline,...services.filter(x=>x.live).map(x=>({id:x.id,...x.live}))],categories:[...allCategories,...categories]});
   if(method==='POST'){
@@ -50,11 +51,12 @@ try{
   }
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
  });
- await page.goto('http://127.0.0.1:8080/');
+ await page.goto('http://127.0.0.1:8080/#admin');
  await page.locator('body.staff-workspace').waitFor();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
- await page.locator('.navbtn[data-view=citizen]').click();
+ await page.locator('.navbtn[data-view=home]').click();
+ await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
  await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).waitFor();
  assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
  await page.locator('.navbtn[data-view=catalog]').click();
@@ -66,7 +68,7 @@ try{
  await page.getByLabel('Buscar trámite').fill('NO-LEER-DATO-PRIVADO');
  assert.equal(await page.evaluate(()=>window.__spoken.some(x=>x.includes('NO-LEER-DATO-PRIVADO'))),false);
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
- await page.locator('.navbtn[data-view=legal]').click();
+ await page.locator('footer [data-view=legal]').click();
  await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Aquí encuentras información')));
  assert.equal(await page.locator('#voice-guide').isVisible(),true);
  await page.locator('.navbtn[data-view=catalog]').click();

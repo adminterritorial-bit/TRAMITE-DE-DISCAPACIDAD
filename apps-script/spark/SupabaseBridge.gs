@@ -41,6 +41,7 @@ function sitsSbCall_(path,method,data,accessToken,server){
  try{parsed=JSON.parse(response.getContentText());}catch(_){throw Error('database_unavailable');}
  if(status<200||status>=300){
   // Only generic codes leave the server; don't log or echo SQL, PII, tokens or internal traces.
+  if(status===404&&parsed?.code==='PGRST202')throw Error('rpc_unavailable');
   if(status===401)throw Error('not_authenticated');
   if(status===403)throw Error('forbidden');
   if(status===409||parsed?.code==='23505')throw Error('revision_conflict');
@@ -76,7 +77,10 @@ function sitsSbCapabilities_(){
   sitsSbProp_('SITS_SB_PUBLISHABLE_KEY'),false);
  const required=['processing','privacy','terms','sensitive'];
  if(required.some(kind=>list.filter(x=>x.kind===kind).length!==1))throw Error('legal_version_changed');
- return {enabled:true,documents:list.filter(x=>required.includes(x.kind))
+ let acceptingRequests=null;
+ try{acceptingRequests=sitsSbRpc_('sits_intake_availability',{},sitsSbProp_('SITS_SB_PUBLISHABLE_KEY'),false)===true;}
+ catch(e){if(e.message!=='rpc_unavailable')throw e;}
+ return {enabled:true,acceptingRequests:acceptingRequests,documents:list.filter(x=>required.includes(x.kind))
   .map(x=>({id:x.id,kind:x.kind,title:x.title,body:x.body,version:x.version,hash:x.content_hash}))};
 }
 function sitsSbRowsQuery_(){
@@ -184,16 +188,17 @@ function sitsSbDispatch_(u,action,d,token){
   }
   return sitsSbView_(received,false);
  }
- if(action==='officialMine'){
-  const rows=sitsSbRows_('sits_cases',sitsSbRowsQuery_()+
-    '&owner_user_id=eq.'+encodeURIComponent(u.uid)+'&order=created_at.desc&limit=50',token,false);
-  return {items:rows.map(r=>sitsSbView_(r,false))};
- }
- if(action==='officialInbox'){
-  if(!u.canManage)throw Error('forbidden');
-  const rows=sitsSbRows_('sits_cases',sitsSbRowsQuery_()+
-    '&order=created_at.desc&limit=100',token,false);
-  return {items:rows.map(r=>sitsSbView_(r,true))};
+ if(action==='officialMine'||action==='officialInbox'){
+  const staff=action==='officialInbox';
+  if(staff&&!u.canManage)throw Error('forbidden');
+  try{
+   return sitsSbRpc_('sits_case_workspace',{_staff:staff,_filters:d},token,false);
+  }catch(e){if(e.message!=='rpc_unavailable')throw e;}
+  // Compatibility while the read-only database migration is being installed.
+  const query=staff?'&order=created_at.desc&limit=100':
+   '&owner_user_id=eq.'+encodeURIComponent(u.uid)+'&order=created_at.desc&limit=50';
+  const rows=sitsSbRows_('sits_cases',sitsSbRowsQuery_()+query,token,false);
+  return {items:rows.map(r=>sitsSbView_(r,staff))};
  }
  const c=sitsSbCase_(d.id,token),isOwner=c.owner_user_id===u.uid;
  if(!isOwner&&!u.canManage)throw Error('forbidden');

@@ -72,6 +72,7 @@ jobs:
           node tests/official-staff-browser.mjs
           node tests/supabase-failclosed-browser.mjs
           node tests/supabase-auth-browser.mjs
+          node tests/citizen-flow-browser.mjs
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4

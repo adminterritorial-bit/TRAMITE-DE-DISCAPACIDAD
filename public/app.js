@@ -16,16 +16,46 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function append(parent,...children){parent.append(...children);return parent}
 function button(text,fn,klass='secondary'){const b=node('button',text,klass);b.type='button';b.addEventListener('click',fn);return b}
 function displayError(id,e){msg(id,e?.message?.slice(0,220)||'Ocurrió un error. Inténtalo de nuevo.')}
-function showView(v){currentView=v;workspaceMode(v==='admin'&&!!adminRole);experience.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});accessibility.view(v);if(!demo)trackingGate.view(v,authorized);if(v==='tracking'){loadTracking();void catalog.tracking();}if(v==='admin')loadAdmin()}
+const pageTitles={home:'Inicio',catalog:'Trámites y servicios',service:'Ficha del trámite',citizen:'Certificación de discapacidad',tracking:'Mis solicitudes',help:'Ayuda',admin:'Gestión institucional',legal:'Centro legal',communications:'Avisos'};
+function showView(v,{focus=true}={}){
+ const changed=currentView!==v;
+ currentView=v;workspaceMode(v==='admin'&&!!adminRole);experience.view(v);
+ if(pageTitles[v]&&!demo)history.replaceState(null,'',v==='home'?location.pathname+location.search:'#'+v);
+ const heading=$(v)?.querySelector('h1');
+ document.title=(v==='service'?heading?.textContent||pageTitles[v]:pageTitles[v]||'Inicio')+' · SITS Salud, San Pedro';
+ const printDescription=document.querySelector('meta[name="description"]');
+ if(printDescription){
+  const details={home:'Portal municipal de trámites de salud de San Pedro, Valle del Cauca.',catalog:'Consulta los trámites de la Secretaría de Salud, sus requisitos y canales.',tracking:'Seguimiento privado de solicitudes de la Secretaría de Salud de San Pedro.',admin:'Acceso institucional a la mesa de gestión de expedientes de Salud.',help:'Preguntas frecuentes y canales de atención de Salud en San Pedro.',legal:'Políticas, tratamiento de datos y condiciones de uso de SITS Salud.',communications:'Avisos de la Secretaría de Salud de San Pedro.',citizen:'Requisitos, plazos y solicitud de certificación de discapacidad en San Pedro.'};
+  printDescription.content=details[v]||'Consulta la ficha y los requisitos del trámite municipal.';
+ }
+ all('.view').forEach(s=>hide(s,s.id!==v));
+ all('.navbtn').forEach(b=>{
+  const active=b.dataset.view===v;
+  b.classList.toggle('active',active);
+  if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+ });
+ if(focus&&changed){
+  const heading=$(v)?.querySelector('h1')||$('main');
+  heading.tabIndex=-1;heading.focus({preventScroll:true});
+  window.scrollTo({top:0,behavior:'instant'});
+ }
+ accessibility.view(v);
+ if(!demo)trackingGate.view(v,authorized);
+ if(v==='catalog')ensureCatalogue();
+ if(v==='tracking'){void loadTracking();void catalog.tracking();}
+ if(v==='admin')void loadAdmin();
+}
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
 const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});
+let catalogueStarted=false;
+function ensureCatalogue(){if(!demo&&!catalogueStarted){catalogueStarted=true;void catalog.connect(config.appsScriptEndpoint);}}
 const accessibility=accessiblePortal({navigate:showView});
 const officialUI=officialIntakeUI({invoke,getUser:()=>user,getAuthorized:()=>authorized,navigate:showView,labMode});
 const workspaceStrip=node('div',undefined,'workspace-strip');workspaceStrip.hidden=true;
 const workspaceLabel=node('div',undefined,'workspace-identity'),workspaceName=node('strong','SITS Salud · Gestión institucional'),workspaceRole=node('span','');workspaceLabel.append(workspaceName,workspaceRole);
 const publicSwitch=button('Portal ciudadano',()=>showView('catalog'),'secondary');workspaceStrip.append(workspaceLabel,publicSwitch);
-document.querySelector('.nav').after(workspaceStrip);
+$('admin').querySelector('.section-head').append(workspaceStrip);
 function workspaceMode(on){document.body.classList.toggle('staff-workspace',on);workspaceStrip.hidden=!on;if(on){workspaceRole.textContent=({supervisor:'Supervisor',admin:'Administrador funcional',operator:'Operador'}[adminRole]||'Personal autorizado');}}
 function clearWorkspace(){workspaceMode(false);const dashboard=$('adminDashboard');delete dashboard.dataset.activeModule;dashboard.querySelectorAll('.institutional-admin,.catalog-manager').forEach(el=>el.hidden=true);}
 
@@ -86,7 +116,7 @@ async function invoke(name,data={}){
  if(!res.ok)throw Error('Backend HTTP '+res.status);
  const result=await res.json();
  if(result.build!=='sits-supabase-1.0')throw Error('Apps Script todavía no tiene la versión compatible con Supabase. No se enviaron documentos.');
- if(result.ok!==true)throw Error('Operación rechazada: '+(result.error||'sin detalle')+' · '+(result.stage||'backend'));
+ if(result.ok!==true)throw Object.assign(Error('Operación rechazada: '+(result.error||'sin detalle')), {code:result.error||'operation_failed'});
  return result.data;
 }
 form.addEventListener('submit',async e=>{e.preventDefault();if(stage!==2||!validStep(2))return;const b=$('submit');b.disabled=true;const submitLabel=b.textContent;b.textContent='Enviando solicitud…';msg('formError');try{let result;if(demo){result={id:crypto.randomUUID(),radicado:'DEMO-'+Date.now(),status:'received'};demoItems.unshift({...result,name:'Persona de prueba',createdAt:Date.now(),files:[]});}else{if(!user||!authorized)throw Error('Verifica tu cuenta habilitada.');const d=Object.fromEntries(new FormData(form));const files=[await fixtureFile(form.history.files[0],'historia')];if(form.extra.files[0])files.push(await fixtureFile(form.extra.files[0],'apoyo'));requestKey??=crypto.randomUUID();result=await invoke('submitRequest',{legalDecisions:experience.decisions(),key:requestKey,name:d.name,documentType:d.documentType,documentNumber:d.documentNumber,phone:d.phone,zone:d.zone,representation:d.representation,support:d.support,files,consent:true,synthetic:true,noticeVersion:'pilot-v1'});}
@@ -178,11 +208,17 @@ async function handleUser(u){
  user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;clearWorkspace();officialUI.session(false);if(!demo)trackingGate.session(false);hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
- try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true);trackingGate.session(true);adminRole=access.canManage?access.role:null;
+ try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true,{canManage:access.canManage===true});trackingGate.session(true);adminRole=access.canManage?access.role:null;
  experience.setSession(u,access.role,access.institutional===true);
  catalog.setSession(u,access.role);
- void experience.prepare(u);
- if(user!==u)return;clearSupabaseAuthError();hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(!adminRole){const dest=sessionStorage.getItem('sits-login-destination');sessionStorage.removeItem('sits-login-destination');if(['citizen','tracking'].includes(dest))showView(dest);}if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
+ if(labMode)void experience.prepare(u);
+ if(user!==u)return;clearSupabaseAuthError();hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);
+ const dest=sessionStorage.getItem('sits-login-destination');
+ sessionStorage.removeItem('sits-login-destination');
+ if((dest==='admin'||currentView==='admin')&&adminRole)showView('admin');
+ else if(['citizen','tracking'].includes(dest))showView(dest);
+ else if(currentView==='tracking')showView('tracking',{focus:false});
+ else if(currentView==='admin')await loadAdmin();}
  catch(e){if(user!==u)return;msg('authMessage',e.message.includes('not_enabled')?'Tu acceso aún no está habilitado en el servicio. Consulta con Salud si el problema persiste.':e.message);msg('loginError',e.message);}
 }
 async function init(){resetProfile();if(demo){$('institutionalAccess').textContent='Demostración del panel de Salud';$('googleLogin').textContent='Ver panel de demostración';$('googleLogin').onclick=loadAdmin;return}for (const field of ['name','documentNumber','phone','support']) form.elements[field].readOnly=true;
@@ -195,7 +231,6 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
 const endpoint=config.appsScriptEndpoint;
-void catalog.connect(endpoint);
 void experience.publicEndpoint(endpoint);
 try{
  api={endpoint};
@@ -206,27 +241,33 @@ try{
  $('authCitizen').querySelector('p').textContent='Ingresa con tu cuenta de Google y correo verificado.';
  $('authCitizen').insertBefore(citizenLogin,$('authMessage'));
  const ready=labMode||await officialUI.connect(endpoint,'sits-supabase-1.0');
- catalog.setIntakeAvailability(ready);
- if(!ready)throw Error('Apps Script compatible con Supabase todavía no está desplegado. No se enviaron documentos.');
- const {createSupabaseController}=await import('./supabase-auth.js');
- const controller=await createSupabaseController(config.supabase,{
-  onUser:handleUser,
-  onAuthError:(stage,code)=>showSupabaseAuthError(stage,{
-   code,reason:code,message:'No se pudo completar el ingreso con Google.'
-  })
- });
- experience.connection('ready');
+ const status=officialUI.receptionStatus?.();
+ catalog.setIntakeAvailability(officialUI.accepting,status);
+ if($('homeAvailability')){
+  $('homeAvailability').textContent=status||'Consulta los canales de la Secretaría de Salud';
+  $('homeAvailability').dataset.state=status==='Recepción electrónica disponible'?'active':'limited';
+ }
+ const storageKey='sb-'+new URL(config.supabase.url).hostname.split('.')[0]+'-auth-token';
+ let controller;
+ function authController(){
+  controller??=import('./supabase-auth.js').then(({createSupabaseController})=>createSupabaseController(config.supabase,{
+   onUser:handleUser,
+   onAuthError:(stage,code)=>showSupabaseAuthError(stage,{code,reason:code,message:'No se pudo completar el ingreso con Google.'})
+  })).catch(error=>{controller=null;throw error;});
+  return controller;
+ }
+ experience.connection(ready?'ready':'failed');
  async function login(admin){
   clearSupabaseAuthError();
-  try{await controller.login(admin);}
+  try{await (await authController()).login(admin);}
   catch(_){showSupabaseAuthError('start',{
-   code:'oauth_start_failed',reason:'oauth_start_failed',
-   message:'No se pudo abrir el ingreso con Google.'
+   code:'oauth_start_failed',reason:'oauth_start_failed',message:'No se pudo abrir el ingreso con Google.'
   });}
  }
  trackingLogin=()=>login(false);
  $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);
- $('signout').onclick=()=>controller.logout();
+ $('signout').onclick=async()=>{await (await authController()).logout();};
+ if(sessionStorage.getItem(storageKey))void authController().catch(()=>{msg('loginError','No se pudo recuperar tu sesión. Ingresa nuevamente.');});
  return;
 }catch(e){experience.connection('failed');msg('authMessage',e.message||'No fue posible conectar con Recepción.');msg('loginError',e.message||'Recepción no disponible.');}}
 function clearSupabaseAuthError(){
@@ -244,7 +285,7 @@ phase(0);
 const authFailure=consumeGoogleOAuthFailure();
 if(authFailure)showSupabaseAuthError('callback',authFailure);
 const initial=location.hash.slice(1);
-if(['legal','communications','catalog','citizen','tracking','admin'].includes(initial))showView(initial);
+if(initial&&pageTitles[initial]&&initial!=='service')showView(initial,{focus:false});
 else if(authFailure&&sessionStorage.getItem('sits-login-destination')==='admin')showView('admin');
-else if(!demo)showView(location.pathname.endsWith('/pilot.html')?'citizen':'catalog');
+else showView(demo||location.pathname.endsWith('/pilot.html')?'citizen':'home',{focus:false});
 void init();

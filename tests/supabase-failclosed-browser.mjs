@@ -13,8 +13,8 @@ try{
   return route.fulfill({json:reply,headers:{'Access-Control-Allow-Origin':'*'}});
  });
  await page.goto('http://127.0.0.1:8080/',{waitUntil:'domcontentloaded'});
- await page.waitForFunction(()=>document.querySelector('#authMessage')?.textContent?.includes('Apps Script compatible con Supabase todavía no está desplegado'),null,{timeout:20000});
- assert.equal(await page.locator('#googleLogin').isDisabled(),true,'Must not enable institutional login with old backend');
+ await page.getByRole('status').filter({hasText:'Recepción electrónica no disponible'}).waitFor({timeout:20000});
+ assert.equal(await page.locator('#adminDashboard').isVisible(),false,'Must not enable the institutional workspace with old backend');
  assert.equal(await page.locator('#adminNav').isVisible(),false);
  assert.equal(await page.locator('#applicationForm').isVisible(),false);
  assert.deepEqual(jsErrors,[]);

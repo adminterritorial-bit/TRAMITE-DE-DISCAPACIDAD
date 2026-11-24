@@ -15,5 +15,16 @@ if(endpoint){
  const config=readFileSync(configPath,'utf8');
  writeFileSync(configPath,config.replace(/appsScriptEndpoint:[^\n]+/,'appsScriptEndpoint:'+JSON.stringify(endpoint)+','));
 }
+// Assemble the styles in their authoring order into one render-blocking request.
+const entryPath='dist/index.html';
+const entry=readFileSync(entryPath,'utf8');
+const sheets=[...entry.matchAll(/<link rel="stylesheet" href="([a-z-]+\.css)(?:\?[^"]*)?">/g)];
+if(sheets.length){
+ const combined=sheets.map(match=>readFileSync('public/'+match[1],'utf8')).join('\n');
+ writeFileSync('dist/sits.css',combined);
+ let bundled=entry.replace(sheets[0][0],'<link rel="stylesheet" href="sits.css?v=1">');
+ for(const match of sheets.slice(1))bundled=bundled.replace(match[0],'');
+ writeFileSync(entryPath,bundled);
+}
 writeFileSync('dist/robots.txt','User-agent: *\nDisallow: /pilot.html\n');
 console.log('Static portal packaged.');

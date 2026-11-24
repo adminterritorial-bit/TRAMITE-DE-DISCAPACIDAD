@@ -10,6 +10,7 @@ try{
   {id:'policy-terms',act:'terms',version:4,required:true,title:'Aceptación de términos',body:'Condiciones de prueba.'},
   {id:'policy-electronic',act:'electronic_notice',version:1,required:false,title:'Comunicaciones opcionales',body:'Correo de prueba.'}
  ].map(x=>({...x,hash:'a'.repeat(64)}));
+ await page.addInitScript(()=>sessionStorage.setItem('sb-ovppffchdkwbikdppuzh-auth-token','fixture-session'));
  await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm',r=>r.fulfill({
   contentType:'application/javascript',headers:{'Access-Control-Allow-Origin':'*'},
   body:`export function createClient(){

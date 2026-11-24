@@ -14,6 +14,7 @@ try{
  const policies=['processing','privacy','terms','sensitive'].map((kind,i)=>({
   id:'legal-'+kind,kind,title:'Documento '+kind,body:'Texto normativo de prueba',version:1,hash:(i+1).toString().repeat(64)
  }));
+ await page.addInitScript(()=>sessionStorage.setItem('sb-ovppffchdkwbikdppuzh-auth-token','fixture-session'));
  await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm',r=>r.fulfill({
   contentType:'application/javascript',headers:{'Access-Control-Allow-Origin':'*'},
   body:`export function createClient(){
@@ -69,11 +70,11 @@ try{
      :action==='institutionalPublic'?{notices:[],policies:[]}:{}},
     headers:{'Access-Control-Allow-Origin':'*'}});
  });
- await page.goto('http://127.0.0.1:8080/',{waitUntil:'domcontentloaded'});
+ await page.goto('http://127.0.0.1:8080/#admin',{waitUntil:'domcontentloaded'});
  await page.getByRole('heading',{name:'Gestión integral de expedientes'}).waitFor({timeout:25000});
  assert.ok(called.includes('sessionAccess'));
  assert.ok(called.includes('officialInbox'));
- assert.ok(called.includes('institutionalForm'));
+ assert.equal(called.includes('institutionalForm'),false);
  assert.ok(called.includes('institutionalPublic'));
  assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('staff-workspace')),true);
  assert.deepEqual(pageErrors,[]);
