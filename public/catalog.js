@@ -542,6 +542,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const help=node('p','El código se propone automáticamente a partir del nombre. Puedes ajustarlo antes de guardar.','admin-category-tip');
   form.append(help);
   submit(form,'Guardar categoría',d=>operations(()=>invoke('categorySave',d),()=>openAdmin('catalog')));
+  // The same editor supports create and edit; opening «Nueva categoría»
+  // always starts a clean entry after a previous edit.
+  summaryButton.addEventListener('click',()=>{
+   if(!editor.open){form.reset();manualCode=false;}
+  });
   editor.append(form);categoryHeader.append(editor);
   categorySection.append(categoryHeader);
   if(!categories.length){
