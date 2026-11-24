@@ -83,6 +83,16 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   for(const [value,label] of values){const option=e('option',label);option.value=value;select.append(option);}
  }
  tools.append(field('Buscar expediente',search),field('Estado',filter),field('Desde',from),field('Hasta',to),field('Responsable',owner),field('Orden',order),field('Prioridad',task));
+ const quickFilters=e('div',undefined,'case-quick-filters');quickFilters.setAttribute('role','group');quickFilters.setAttribute('aria-label','Filtrar rápidamente por estado');
+ const quickButtons=new Map();
+ for(const [kind,label] of [['','Todas'],['received','Recibidas'],['reviewing','En revisión'],['needs_documents','Subsanación'],['awaiting_certificate','Por certificar'],['delivered','Enviadas'],['closed','Archivadas']]){
+  const tile=b(label,()=>{filter.value=kind;changeFilters();},'case-quick-tab');
+  tile.setAttribute('aria-pressed',String(!kind));
+  quickButtons.set(kind,tile);quickFilters.append(tile);
+ }
+ const syncQuick=()=>{
+  for(const [kind,tile] of quickButtons)tile.setAttribute('aria-pressed',String(filter.value===kind));
+ };
  const activity=e('section',undefined,'case-activity');
  const tasks=e('section',undefined,'case-priorities');
  const overview=e('div',undefined,'case-overview');overview.append(tasks,activity);
@@ -92,7 +102,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  detail.setAttribute('aria-label','Expediente seleccionado');
  detail.append(e('h3','Selecciona un expediente'),e('p','Consulta los soportes y registra actuaciones en el mismo lugar.'));
  queue.append(list,pagination);
- layout.append(queue,detail);panel.replaceChildren(head,status,counts,overview,tools,layout);
+ layout.append(queue,detail);panel.replaceChildren(head,status,counts,quickFilters,overview,tools,layout);
  workspaces.set(panel,true);
  const limit=15;
  let records=[],selectedId=null,page=1,total=0,exact=false,metrics=null,recent=[],requestGeneration=0,detailGeneration=0,searchTimer;
@@ -171,7 +181,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    owner.disabled=!exact;owner.title=exact?'':'Disponible con la bandeja paginada';
    metrics=exact?response.metrics:null;
    recent=Array.isArray(response.activity)?response.activity:[...records].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
-   drawCounts();drawList();
+   drawCounts();drawList();syncQuick();
    window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{exact,metrics,filtered:!!(search.value||filter.value||from.value||to.value||owner.value||task.value)}}));
    if(reloadSelected&&selectedId)void openCase(selectedId);
    signal(exact?'Bandeja actualizada':records.length>=100?'Mostrando los últimos 100 expedientes disponibles.':'Bandeja actualizada');
@@ -180,7 +190,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  }
  function changeFilters(){
   if(from.value&&to.value&&from.value>to.value){signal('La fecha inicial debe ser anterior a la fecha final.',true);return;}
-  page=1;
+  syncQuick();page=1;
   if(exact)void load();else drawList();
  }
  search.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(changeFilters,225);});
