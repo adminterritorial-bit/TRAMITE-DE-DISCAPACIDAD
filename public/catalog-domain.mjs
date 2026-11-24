@@ -28,7 +28,8 @@ export function categoryCounts(catalogue) {
 export function categoryCode(title,existingIds=[]){
  const reserved=new Set(['constructor','prototype','hasownproperty','discapacidad','certificacion']);
  let base=normalizeSearch(title).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,38).replace(/-+$/,'');
- if(!base||!/^[a-z]/.test(base))base='salud-'+base;
+ if(!base)return '';
+ if(!/^[a-z]/.test(base))base='salud-'+base;
  if(base.length<2)return '';
  if(reserved.has(base))base=(base+'-salud').slice(0,38);
  const used=new Set(existingIds);
