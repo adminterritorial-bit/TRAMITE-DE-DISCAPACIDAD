@@ -50,6 +50,8 @@ try{
  await page.locator('body.staff-workspace').waitFor();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
+ await page.locator('.intake-state').waitFor();
+ assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
  await page.getByRole('button',{name:'Escuchar guía'}).click();
  await page.locator('#voice-guide:not([hidden])').waitFor();
  assert.equal(await page.locator('dialog[open]').count(),0);

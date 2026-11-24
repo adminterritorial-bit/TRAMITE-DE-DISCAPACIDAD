@@ -32,7 +32,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   try{
    const response=await fetch(endpoint+'?content=official-intake',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
    const value=await response.json();
-   ready={enabled:response.ok&&value.ok===true&&value.enabled===true,documents:Array.isArray(value.documents)?value.documents:[]};
+   ready={enabled:response.ok&&value.ok===true&&value.enabled===true&&Array.isArray(value.documents)&&value.documents.length===4&&value.documents.every(x=>/^[a-f0-9]{64}$/.test(x.hash||'')&&Number.isInteger(x.version)),documents:Array.isArray(value.documents)?value.documents:[]};
   }catch{ready={enabled:false,documents:[]};}
   render();return ready.enabled;
  }
