@@ -1,17 +1,17 @@
-# SITS Salud — archivos para DISCAPACIDAD - Recepción
+# ÚLTIMA ACTUALIZACIÓN — DISCAPACIDAD - Recepción
 
-**Proyecto de Google Apps Script**: DISCAPACIDAD - Recepción.
+## SOLO REEMPLAZAR 1 ARCHIVO
 
-| Archivo en el proyecto | Copiar desde | Acción |
-| --- | --- | --- |
-| Codigo.gs | Codigo.gs de esta carpeta | Reemplazar todo el contenido, conservando el nombre Codigo.gs |
-| SparkAuth.gs | SparkAuth.gs de esta carpeta | Sustituir si es una versión anterior; no crear duplicado |
-| ServiceCatalog.gs | ServiceCatalog.gs de esta carpeta | Sustituir si es una versión anterior; no crear duplicado |
-| appsscript.json | — | Mantener el manifiesto ya configurado |
+1. Abre el proyecto **DISCAPACIDAD - Recepción**: https://script.google.com/d/1ZpPq057pTZZBKSspD7oqqHDPxupIegLqvcyDkPKIXiJRFj2vjRSyI4HO/edit
+2. En el panel Archivos, abre el archivo **Codigo.gs** que ya existe.
+3. Guarda respaldo, borra su contenido y pega **todo el texto** del archivo `Codigo.gs` de esta carpeta.
+4. Guarda (Ctrl+S).
+5. **Implementar → Administrar implementaciones → editar la aplicación web existente → Nueva versión → Implementar**. NO crear una implementación nueva; conservar la URL `/exec`.
 
-**No** pegar los tres archivos dentro de Codigo.gs, pues duplicaría constantes y funciones.
-**No** modificar DISCAPACIDAD - Entrega.
+**No tocar**: `SparkAuth.gs`, `ServiceCatalog.gs`, `appsscript.json`, `DISCAPACIDAD - Entrega`, claves, configuraciones existentes, Vercel ni Firebase.
 
-Después de guardar, abrir **Implementar → Administrar implementaciones → editar aplicación web → Nueva versión → Implementar**, conservando la URL existente. Activar recepción clínica solo después de comprobar las aprobaciones institucionales reales, las políticas publicadas, los controles de seguridad y las propiedades definidas en docs/RECEPCION-INSTITUCIONAL.md.
+La recepción oficial se habilita a partir de los servicios institucionales ya configurados (Drive privado y Firestore), sin referencias inventadas ni cuatro interruptores de aprobación. Sigue requiriendo Google/Firebase, App Check, restricciones de acceso a expedientes y decisiones informadas del ciudadano. Si la carpeta de Drive no existe, es compartida públicamente o falta acceso al servidor, la carga se mantiene inactiva y debe corregirse esa configuración; no se debe simular una recepción exitosa.
 
-Los archivos son una copia exacta del código fuente del repositorio en el commit 27aedf6dd3999b780d4a76e11ee2449517187843. El paquete no cambia el backend automáticamente; publicar en Apps Script es un paso separado.
+Después de publicar, el enlace `/exec?content=official-intake` deberá responder con JSON `ok:true`, `enabled:true` y cuatro documentos informativos. En el portal aparecerá el formulario para una cuenta Google autenticada. El número de seguimiento no reemplaza un número oficial de radicación.
+
+Código fuente: `a61d0f27c6fa08fd232ccc281ca2136730e2bfa9`.
