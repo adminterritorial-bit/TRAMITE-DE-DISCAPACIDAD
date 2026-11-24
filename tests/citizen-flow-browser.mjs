@@ -102,7 +102,7 @@ try{
  await generic.getByRole('button',{name:'Continuar',exact:true}).click();
  for(const control of await generic.locator('section:not([hidden]) input[required]').all())await control.check();
  await generic.getByRole('button',{name:'Continuar',exact:true}).click();
- await generic.getByText('Motivo de la orientación').waitFor();
+ await generic.locator('.intake-review dt').getByText('Motivo de la orientación',{exact:true}).waitFor();
  await generic.getByRole('button',{name:'Enviar solicitud',exact:true}).click();
  await page.getByText('QA-EPS-402').waitFor();
  assert.equal(configuredSubmissions.length,1);
