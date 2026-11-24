@@ -5,7 +5,7 @@ import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
 const labMode=demo||location.pathname.endsWith('/pilot.html');document.body.classList.toggle('pilot-mode',labMode);
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
-import {officialIntakeUI} from './official-intake.js?v=case-1';
+import {officialIntakeUI} from './official-intake.js?v=case-2';
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
 const statusNames={saving:'Guardando soportes',received:'Recibida',reviewing:'En revisión',needs_documents:'Requiere documentos',awaiting_certificate:'Pendiente de certificado',sending:'Enviando notificación',sent:'Notificación enviada',archived:'Documento archivado',storage_review:'Revisión de almacenamiento',delivery_review:'Revisión del envío'};
 let authorized=false;let stage=0, user=null, api=null, adminItems=[], selected=null, adminRole=null, requestKey=null, currentView='citizen', demoItems=[];

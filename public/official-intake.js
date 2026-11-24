@@ -1,6 +1,6 @@
 /* SITS Salud: institutional electronic reception. Never use the synthetic fixture path. */
-import {renderOfficialTracking} from './official-tracking.js?v=1';
-import {renderOfficialStaffInbox} from './official-staff.js?v=1';
+import {renderOfficialTracking} from './official-tracking.js?v=2';
+import {renderOfficialStaffInbox} from './official-staff.js?v=2';
 const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
 const btn=(label,fn,cls='primary')=>{const b=el('button',label,cls);b.type='button';b.addEventListener('click',fn);return b};
 function row(parent,label,name,opts={}){

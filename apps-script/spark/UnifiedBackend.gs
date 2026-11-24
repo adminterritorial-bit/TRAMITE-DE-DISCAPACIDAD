@@ -629,7 +629,7 @@ function officialView_(doc,staff=false){
  const x=spData_(doc.fields),id=doc.name.split('/').pop();
  const result={id,reference:x.reference,status:x.status,createdAt:x.createdAt,updatedAt:x.updatedAt,
   files:(x.files||[]).map(f=>({kind:f.kind,size:f.size})),revision:x.revision||1,
-  correctionKind:x.correctionKind||null,certificateAvailable:!!x.certificate&&['delivered','available','closed'].includes(x.status),
+  correctionKind:x.correctionKind||null,certificateAvailable:!!x.certificate&&['delivered','available','delivery_review','closed'].includes(x.status),
   deliveryMethod:x.deliveryMethod||null,history:(x.history||[]).slice(-25).map(h=>({status:h.status,at:h.at,comment:h.comment||''}))};
  if(staff){result.name=x.name;result.email=x.email;result.documentType=x.documentType;result.documentNumber=x.documentNumber;result.zone=x.zone;result.representation=x.representation;result.phone=x.phone;result.support=x.support;result.certificateEmailConsent=x.certificateEmailConsent===true;result.certificate=x.certificate?{kind:'certificate',size:x.certificate.size}:null;result.deliveryStatus=x.deliveryStatus||null;}
  return result;
@@ -747,7 +747,7 @@ function officialDispatch_(u,action,d){
  if(action==='officialDownload'){
   if(!owner)officialStaff_(u);
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
-  if(d.kind==='certificate'&&owner&&!['delivered','available','closed'].includes(row.status))throw Error('not_found');
+  if(d.kind==='certificate'&&owner&&!['delivered','available','delivery_review','closed'].includes(row.status))throw Error('not_found');
   if(!owner)instRecent_(u);
   spLimit_(u,'officialDownload',50);
   const result=officialPdf_(id,d.kind==='certificate'?row.certificate:(row.files||[]).find(f=>f.kind===d.kind),d.kind);

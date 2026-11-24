@@ -48,7 +48,7 @@ export async function renderOfficialTracking({invoke,validatePdf}){
    }
    if(entry.certificateAvailable){
     const area=el('div',undefined,'case-certificate-download');
-    area.append(el('p',entry.deliveryMethod==='email'?'El certificado fue enviado al correo autorizado y también está disponible aquí.':'Puedes descargar el certificado de forma privada.'));
+    area.append(el('p',entry.deliveryMethod==='email'?'El certificado se preparó para entrega electrónica y también puede descargarse aquí.':'Tu certificado puede descargarse de forma privada. El estado del envío al correo se consulta por separado.'));
     const download=el('button','Descargar certificado PDF','secondary');download.type='button';
     const error=el('p','','error');error.setAttribute('role','alert');
     download.addEventListener('click',async()=>{
