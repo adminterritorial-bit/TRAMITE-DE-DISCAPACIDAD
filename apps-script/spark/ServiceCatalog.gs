@@ -7,7 +7,7 @@ const CATALOG_USER_=/^[A-Za-z0-9_-]{1,128}$/;
 const CATALOG_TYPES_=['text','textarea','number','date','select','radio','checkbox','document'];
 const CATALOG_BASE_=Object.freeze({id:'discapacidad',version:1,title:'Certificación de discapacidad',
  description:'Orientación, solicitud y seguimiento de soportes para la certificación de discapacidad.',
- category:'certificacion',channel:'Secretaría de Salud',standard:true});
+ category:'discapacidad-apoyos',channel:'Secretaría de Salud',standard:true});
 
 function catId_(value){
  if(typeof value!=='string'||!CATALOG_ID_.test(value)||['constructor','prototype','hasownproperty'].includes(value.toLowerCase()))throw Error('invalid_request');
@@ -77,7 +77,7 @@ function catSummary_(view){
 function catPublic_(){
  const {categories,services}=catStore_();
  return {items:[CATALOG_BASE_,...services.filter(x=>x.live).map(x=>catSummary_({id:x.id,...x.live}))],
-  categories:[{id:'certificacion',title:'Certificación'},...categories.filter(x=>x.active).map(({id,title})=>({id,title}))]};
+  categories:categories.filter(x=>x.active).map(({id,title})=>({id,title}))};
 }
 function catService_(id){
  const entry=catStore_().services.find(x=>x.id===catId_(id));
