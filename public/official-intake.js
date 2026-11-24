@@ -14,9 +14,16 @@ function row(parent,label,name,opts={}){
 }
 export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}){
  const mount=document.getElementById('applicationForm');if(!mount)throw Error('application_form_missing');
- if(labMode)return {live:false,connect:async()=>{},session:()=>{},tracking:async()=>{},inbox:async()=>{}};
+ if(labMode)return {live:false,connect:async()=>{},session:()=>{},tracking:async()=>{},inbox:async()=>{},selectService:()=>false,resetService:()=>{}};
  const shell=el('section',undefined,'live-intake');shell.setAttribute('aria-label','Recepción electrónica de solicitudes');mount.before(shell);
  let ready={enabled:false,documents:[]},authenticated=false,pilotAccess=false,builtFor=null;
+ let selectedService=null;
+ function selectService(service){
+  if(!service||service.intakeEnabled!==true||!Array.isArray(service.intakeSchema?.fields)
+     ||service.intakeSchema.version!==service.version)return false;
+  selectedService=service;builtFor=null;render();return true;
+ }
+ function resetService(){selectedService=null;builtFor=null;render();}
  let tracker,staffInbox;
  function note(title,message,link=true){
   const area=el('div',undefined,'intake-state'),mark=el('span',undefined,'ui-icon'),body=el('div');
@@ -30,7 +37,8 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   if(ready.accepting!==true&&!pilotAccess){note('Recepción electrónica restringida','Consulta los canales de la Secretaría de Salud para presentar una solicitud.');return;}
   const account=getUser();
   if(!authenticated||!account){note('Inicia sesión para presentar tu solicitud','Ingresa con Google para presentar una solicitud y consultar tu expediente desde la cuenta asociada.',false);return;}
-  if(builtFor!==account.uid){builtFor=account.uid;buildForm(account);}
+  const formKey=account.uid+':'+(selectedService?.id||'discapacidad');
+  if(builtFor!==formKey){builtFor=formKey;buildForm(account);}
  }
  async function connect(endpoint,expectedBuild=''){
   try{
@@ -51,7 +59,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  function buildForm(account){
   const form=el('form',undefined,'intake-form');form.noValidate=true;
-  form.setAttribute('aria-label','Solicitud de certificación de discapacidad');
+  const configured=selectedService?.intakeEnabled===true;
+  const serviceSchema=configured?selectedService.intakeSchema:null;
+  form.setAttribute('aria-label',configured?'Solicitud de '+selectedService.title:'Solicitud de certificación de discapacidad');
   const labels=['Identificación','Contacto y representación','Documentos','Autorizaciones','Revisión y envío'];
   const panels=labels.map((label,i)=>{
    const panel=el('section',undefined,'intake-step');
@@ -61,7 +71,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   });
   const [identity,contact,filesPanel,permissions,review]=panels;
   const title=el('div',undefined,'intake-title');
-  title.append(el('h2','Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
+  title.append(el('h2',configured?selectedService.title:'Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
   if(ready.accepting!==true&&pilotAccess)title.append(el('p','Prueba institucional. Usa únicamente datos y PDF ficticios.','ui-service-status'));
   const progress=el('ol',undefined,'intake-progress');
   progress.setAttribute('aria-label','Pasos de la solicitud');
@@ -253,5 +263,5 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   return 'Disponibilidad de recepción por confirmar';
  }
  note('Consultando disponibilidad','Verificando los canales habilitados para este trámite.',false);
- return {get live(){return !labMode;},connect,session,tracking,inbox,receptionStatus,get accepting(){return ready.accepting;}};
+ return {get live(){return !labMode;},connect,session,tracking,inbox,selectService,resetService,receptionStatus,get accepting(){return ready.accepting;}};
 }
