@@ -79,7 +79,7 @@ function catPublic_(){
  // Real intake is independently authorized in the relational catalog.
  // An approved public information sheet is not sufficient to accept cases.
  const enabled=new Set();
- if(typeof sitsSbOn_==='function'&&sitsSbOn_()){
+ if(services.some(item=>item.live)&&typeof sitsSbOn_==='function'&&sitsSbOn_()){
   try{
    for(const row of sitsSbRows_('sits_services',
     'select=id&active=eq.true&intake_enabled=eq.true&limit=100',null,true))
