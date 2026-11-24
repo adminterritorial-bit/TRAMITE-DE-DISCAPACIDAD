@@ -56,10 +56,14 @@ begin
  if jsonb_typeof(v_kinds)<>'array' or jsonb_array_length(v_kinds)>2
  then raise exception 'invalid_document'; end if;
  if exists(select 1 from jsonb_array_elements_text(v_kinds) kind
-    where kind not in ('historia','apoyo'))
+    where kind not in ('historia','apoyo')
+       or not exists(select 1 from jsonb_array_elements(v_fields) spec
+          where spec->>'type'='document' and spec->>'fixture'=kind))
     or (select count(distinct kind) from jsonb_array_elements_text(v_kinds) kind)
       <> jsonb_array_length(v_kinds)
  then raise exception 'invalid_document'; end if;
+ if v_kinds ? 'apoyo' and not v_kinds ? 'historia'
+ then raise exception 'main_document_required'; end if;
 
  -- Every answer must belong to the immutable published schema.
  if exists(select 1 from jsonb_object_keys(v_answers) key
