@@ -1,0 +1,26 @@
+/* Professional citizen reception; synthetic controls never appear on the public portal. */
+body:not(.pilot-mode) #applicationForm,body:not(.pilot-mode) #receipt,body:not(.pilot-mode) #fixtureFiles{display:none!important}
+.live-intake{min-width:0}
+.live-intake .intake-state{display:flex;gap:17px;align-items:flex-start;padding:23px;border-radius:18px;background:linear-gradient(125deg,#f6faff,#e9f3fc);border:1px solid #c1d8ed;box-shadow:0 10px 25px #123e6310}
+.intake-state-icon{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#16558a;color:white;font-weight:700;font-size:1.35rem}
+.intake-state h2{margin:0 0 7px}.intake-state p{color:#435b74;margin:0 0 14px;line-height:1.65}
+.intake-state a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
+.intake-form{display:grid;gap:19px}.intake-title{padding:18px;background:#eaf2fd;border:1px solid #c4d8ef;border-radius:15px}
+.intake-title h2{font-size:1.6rem;margin:7px 0}.intake-title p{margin:0;color:#435b74}
+.intake-kicker{letter-spacing:.1em;color:#16558e;font-size:.73rem;font-weight:800}.intake-steps{font-weight:800;color:#184977;border-bottom:1px solid #c9d9ea;padding-bottom:12px}
+.intake-step{min-width:0}.intake-step[hidden]{display:none!important}.intake-step h3{font-size:1.23rem;color:#123e67;margin-bottom:10px}
+.intake-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.intake-fields>label{min-width:0}.intake-filegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.intake-upload{display:flex;flex-direction:column;gap:6px;min-width:0;padding:15px;background:#eff6ff;border:2px dashed #abc7e3;border-radius:16px}
+.intake-upload:focus-within,.intake-upload:hover{border-color:#1a609a;background:#e6f1ff}.intake-upload small{font-weight:400;color:#47607c}
+.intake-upload input{min-width:0;max-width:100%;width:100%;font-size:.82rem}.file-name{overflow-wrap:anywhere}
+.intake-policy{display:flex;align-items:flex-start;gap:12px;background:#f0f6fe;border:1px solid #c9daef;border-radius:12px;padding:12px}
+.intake-policy input{flex:none;width:20px;height:20px;accent-color:#15578e}.intake-policy span{font-weight:450}
+.intake-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #d6e3f1}
+.intake-receipt{border:1px solid #c3d8ea;background:#f0f8ff;border-radius:17px;padding:25px}
+.intake-receipt strong{display:block;color:#154978;font-size:1.5rem;overflow-wrap:anywhere}
+.intake-email{color:#435b74}.intake-state[hidden]{display:none}
+body.hc .live-intake :is(.intake-state,.intake-title,.intake-upload,.intake-policy,.intake-receipt){background:#000!important;border-color:#fff!important;color:#fff!important}
+body.hc .live-intake :is(.intake-state p,.intake-state h2,.intake-step h3,.intake-title p,.intake-upload small,.intake-receipt strong){color:#fff!important}
+@media(max-width:720px){.intake-fields,.intake-filegrid{grid-template-columns:minmax(0,1fr)}.live-intake .intake-state{padding:16px;flex-direction:column}.intake-title{padding:14px}.intake-state-icon{width:40px;height:40px}}
+@media(prefers-reduced-motion:reduce){.live-intake *{animation:none!important;transition:none!important}}

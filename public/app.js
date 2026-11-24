@@ -3,7 +3,9 @@ import {portalExperience} from './institutional.js?v=studio-1';
 import {serviceCatalog} from './catalog.js?v=studio-1';
 import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
+const labMode=demo||location.pathname.endsWith('/pilot.html');document.body.classList.toggle('pilot-mode',labMode);
 import {fixtureHashes} from './pilot-fixtures/hashes.js';
+import {officialIntakeUI} from './official-intake.js?v=1';
 const $=id=>document.getElementById(id), all=(sel,el=document)=>[...el.querySelectorAll(sel)], form=$('applicationForm');
 const statusNames={saving:'Guardando soportes',received:'Recibida',reviewing:'En revisión',needs_documents:'Requiere documentos',awaiting_certificate:'Pendiente de certificado',sending:'Enviando notificación',sent:'Notificación enviada',archived:'Documento archivado',storage_review:'Revisión de almacenamiento',delivery_review:'Revisión del envío'};
 let authorized=false;let stage=0, user=null, api=null, adminItems=[], selected=null, adminRole=null, requestKey=null, currentView='citizen', demoItems=[];
@@ -13,11 +15,12 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function append(parent,...children){parent.append(...children);return parent}
 function button(text,fn,klass='secondary'){const b=node('button',text,klass);b.type='button';b.addEventListener('click',fn);return b}
 function displayError(id,e){msg(id,e?.message?.slice(0,220)||'Ocurrió un error. Inténtalo de nuevo.')}
-function showView(v){currentView=v;workspaceMode(v==='admin'&&!!adminRole);experience.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});accessibility.view(v);if(!demo)trackingGate.view(v,authorized);if(v==='tracking'){loadTracking();void catalog.tracking();}if(v==='admin')loadAdmin()}
+function showView(v){currentView=v;workspaceMode(v==='admin'&&!!adminRole);experience.view(v);if(['legal','communications','tracking','admin','catalog','citizen'].includes(v)&&!demo)history.replaceState(null,'','#'+v);all('.view').forEach(s=>hide(s,s.id!==v));all('.navbtn').forEach(b=>{const a=b.dataset.view===v;b.classList.toggle('active',a);if(a)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});$('main').focus({preventScroll:true});accessibility.view(v);if(!demo)trackingGate.view(v,authorized);if(v==='tracking'){loadTracking();void catalog.tracking();if(!labMode)void officialUI.tracking();}if(v==='admin')loadAdmin()}
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
 const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});
 const accessibility=accessiblePortal({navigate:showView});
+const officialUI=officialIntakeUI({invoke,getUser:()=>user,getAuthorized:()=>authorized,navigate:showView,labMode});
 const workspaceStrip=node('div',undefined,'workspace-strip');workspaceStrip.hidden=true;
 const workspaceLabel=node('div',undefined,'workspace-identity'),workspaceName=node('strong','SITS Salud · Gestión institucional'),workspaceRole=node('span','');workspaceLabel.append(workspaceName,workspaceRole);
 const publicSwitch=button('Portal ciudadano',()=>showView('catalog'),'secondary');workspaceStrip.append(workspaceLabel,publicSwitch);
@@ -177,7 +180,7 @@ async function init(){resetProfile();if(demo){$('institutionalAccess').textConte
  hide($('fixtureFiles'),false);
  hide(form);hide($('authCitizen'),false);$('googleLogin').disabled=true;experience.connection('loading');
 const endpoint='https://script.google.com/macros/s/AKfycbyyh3-X79k-EP___nUAgmwCDkGZvpmxTVkuE8NGburWvXxwjZod3DrPikZPuB1KWKxz/exec';
-void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);
+void catalog.connect(endpoint);void experience.publicEndpoint(endpoint);void officialUI.connect(endpoint);
 try{
 const version='11.10.0';const [app,auth,check]=await Promise.all([import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/'+version+'/firebase-app-check.js')]);
 const a=app.initializeApp(config.firebase),au=auth.getAuth(a),appCheck=check.initializeAppCheck(a,{provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),isTokenAutoRefreshEnabled:false});
@@ -198,10 +201,10 @@ async function login(admin,propagate=false){try{const p=new auth.GoogleAuthProvi
 trackingLogin=()=>login(false,true);
 $('googleLogin').disabled=false;$('googleLogin').onclick=()=>login(true);$('signout').onclick=()=>auth.signOut(au);
 auth.onAuthStateChanged(au,async u=>{
- user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;clearWorkspace();if(!demo)trackingGate.session(false);hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
+ user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;clearWorkspace();officialUI.session(false);if(!demo)trackingGate.session(false);hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
- try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;trackingGate.session(true);adminRole=access.canManage?access.role:null;experience.setSession(u,adminRole,access.institutional===true);catalog.setSession(u,adminRole);await experience.prepare(u);if(user!==u)return;hide($('authCitizen'));hide(form,false);hide($('adminNav'),!access.canManage);if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
+ try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true);trackingGate.session(true);adminRole=access.canManage?access.role:null;experience.setSession(u,adminRole,access.institutional===true);catalog.setSession(u,adminRole);await experience.prepare(u);if(user!==u)return;hide($('authCitizen'));if(labMode)hide(form,false);hide($('adminNav'),!access.canManage);if(adminRole){showView('admin');}else if(currentView==='admin')await loadAdmin();if(currentView==='tracking'){await loadTracking();void catalog.tracking();}}
  catch(e){if(user!==u)return;msg('authMessage',e.message.includes('not_enabled')?'Tu acceso aún no está habilitado en el servicio. Consulta con Salud si el problema persiste.':e.message);msg('loginError',e.message);}
 });
 }catch(e){experience.connection('failed');msg('authMessage',e.message||'No fue posible conectar con Recepción.');msg('loginError',e.message||'Recepción no disponible.');}}
