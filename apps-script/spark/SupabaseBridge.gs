@@ -261,7 +261,7 @@ function sitsSbDispatch_(u,action,d,token){
    if(sentByEmail){
     const journal='certificado-correo-'+file.sha.slice(0,24)+'.json';
     const accepted=spJournal_(folder,journal,()=>{
-     officialCertificateMail_(c.owner_email,c.reference,file,sitsSbTestMode_());
+     officialCertificateMail_(c.owner_email,c.reference,file,sitsSbTestMode_(),c.service_id);
     },1);
     if(!accepted)throw Error('delivery_uncertain');
    }
