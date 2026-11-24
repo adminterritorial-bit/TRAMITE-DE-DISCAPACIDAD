@@ -1,3 +1,5 @@
+import {normalizeSearch, filterServices, categoryCounts} from './catalog-domain.mjs';
+
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
  if(text!=null)element.textContent=text;
@@ -48,7 +50,7 @@ function submit(form,label,fn){
 }
 const standard={id:'discapacidad',title:'Certificación de discapacidad',category:'certificacion',
  description:'Orientación, solicitud y seguimiento de soportes para la certificación de discapacidad.',channel:'Secretaría de Salud',standard:true};
-const normalize=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-CO').trim();
+const normalize=normalizeSearch;
 const icons={folder:'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',document:'M6 3h8l4 4v14H6z M14 3v5h5 M9 12h6 M9 16h6',heart:'M20.8 8.6c0 4-8.8 10-8.8 10s-8.8-6-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z M7 12h3l1-2 2 4 1-2h3',search:'M10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z M16 16l4 4',clock:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2',help:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M9 9a3 3 0 1 1 4 3v1 M12 17h.01',shield:'M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10z M8 12l3 3 5-6',arrow:'M5 12h14 M13 6l6 6-6 6',grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 5h13 M8 12h13 M8 19h13 M3 5h.01 M3 12h.01 M3 19h.01'};
 function glyph(name,cls='service-glyph'){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('class',cls);
@@ -119,6 +121,56 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  service.append(serviceBody);
  let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
  let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=null,availabilityText='Consulta la disponibilidad al iniciar';
+ // The same published catalogue powers home and full catalogue.
+ // The detail and action routes remain centralized in openService.
+ const homeSearch=document.getElementById('homeServiceSearch');
+ const homeCategory=document.getElementById('homeServiceCategory');
+ const homeStatus=document.getElementById('homeCatalogStatus');
+ const homeCards=document.getElementById('homeCatalogCards');
+ function renderHomeCatalog(){
+  if(!homeSearch||!homeCategory||!homeStatus||!homeCards)return;
+  const options=categoryCounts(publicCatalog);
+  const signature=JSON.stringify(options.map(x=>[x.id,x.title]));
+  if(homeCategory.dataset.catalogOptions!==signature){
+   const selected=homeCategory.value;
+   homeCategory.replaceChildren();
+   selectOptions(homeCategory,Object.fromEntries(options.map(x=>[x.id,x.title])));
+   homeCategory.value=options.some(x=>x.id===selected)?selected:'';
+   homeCategory.dataset.catalogOptions=signature;
+  }
+  const matches=filterServices(publicCatalog,{query:homeSearch.value,category:homeCategory.value});
+  homeStatus.textContent=cacheError
+   ?'La consulta del catálogo está limitada temporalmente. Verifique la disponibilidad antes de iniciar.'
+   :matches.length+' '+(matches.length===1?'trámite encontrado':'trámites encontrados')+(matches.length>6?' · mostrando los primeros seis':'');
+  homeCards.replaceChildren();
+  if(!matches.length){
+   const empty=node('div',null,'home-catalog-empty');
+   empty.append(node('h3','No encontramos ese trámite'),node('p','Pruebe con otra palabra o consulte todas las categorías.'));
+   empty.append(btn('Limpiar búsqueda',()=>{homeSearch.value='';homeCategory.value='';renderHomeCatalog();homeSearch.focus();},'secondary'));
+   homeCards.append(empty);return;
+  }
+  for(const item of matches.slice(0,6)){
+   const card=node('article',null,'home-catalog-card');
+   const categoryName=publicCatalog.categories.find(x=>x.id===item.category)?.title||'Salud';
+   const tag=node('span',categoryName,'home-catalog-category');
+   const heading=node('h3',item.title),summary=node('p',item.description,'home-catalog-description');
+   const availability=node('p',item.standard
+    ?officialActive===true?'Recepción electrónica disponible':officialActive===false?'Atención según disponibilidad':'Consulte los requisitos y la disponibilidad'
+    :'Consulte la ficha y el canal autorizado','home-catalog-availability');
+   const actions=node('div',null,'home-catalog-actions');
+   actions.append(btn('Ver requisitos',()=>void openService(item),'primary'));
+   if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>navigate('citizen'),'secondary'));
+   card.append(tag,heading,summary,availability,actions);
+   homeCards.append(card);
+  }
+ }
+ homeSearch?.addEventListener('input',renderHomeCatalog);
+ homeCategory?.addEventListener('change',renderHomeCatalog);
+ document.getElementById('homeServiceForm')?.addEventListener('submit',event=>{
+  event.preventDefault();renderHomeCatalog();
+  document.getElementById('home-catalog-heading')?.scrollIntoView({block:'start',behavior:'smooth'});
+  homeStatus.tabIndex=-1;homeStatus.focus({preventScroll:true});
+ });
  const menu=document.querySelector('.admin-module-menu');
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
@@ -149,10 +201,10 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   list.replaceChildren();
   const text=normalize(search.value);
   const chosen=category.value;
-  const matched=publicCatalog.items.filter(service=>(!chosen||service.category===chosen)&&normalize(service.title+' '+service.description).includes(text));
+  const matched=filterServices(publicCatalog,{query:search.value,category:chosen});
   folders.replaceChildren();
-  for(const item of [{id:'',title:'Todos los servicios'},...publicCatalog.categories]){
-   const count=publicCatalog.items.filter(x=>!item.id||x.category===item.id).length;
+  for(const item of categoryCounts(publicCatalog)){
+   const count=item.count;
    const folder=btn('',()=>{category.value=item.id;renderCatalog();},'service-folder');
    folder.setAttribute('aria-pressed',String(chosen===item.id));folder.dataset.voiceHint='Categoría '+item.title+'. '+count+' servicio'+(count===1?'':'s')+'.';const ico=node('span',null,'folder-glyph');ico.append(glyph('folder'));
    const words=node('span');words.append(node('strong',item.title),node('small',count+' '+(count===1?'servicio':'servicios')));folder.append(ico,words);folders.append(folder);
@@ -165,9 +217,10 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    const tag=publicCatalog.categories.find(x=>x.id===item.category)?.title;
    const top=node('div',null,'catalog-card-top'),icon=node('span',null,'catalog-icon');icon.append(glyph(item.standard?'heart':'document'));top.append(icon);
    if(tag)top.append(node('span',tag,'doc-status'));
-   const meta=node('p','Información y orientación · Secretaría de Salud','catalog-card-meta');const title=node('h2',item.title),description=node('p',item.description,'plain-content'),action=btn('Ver trámite',()=>void openService(item),'primary');title.dataset.voiceHint=item.title;description.dataset.voiceHint=item.description;action.dataset.voiceHint='Ver trámite. '+item.title;card.dataset.voiceHint=item.title+'. '+item.description;card.append(top,title,description,meta,action);
+   const meta=node('p',item.standard?'Certificación · Secretaría de Salud':'Servicios configurados · Secretaría de Salud','catalog-card-meta');const title=node('h2',item.title),description=node('p',item.description,'plain-content'),action=btn('Ver requisitos y pasos',()=>void openService(item),'primary');title.dataset.voiceHint=item.title;description.dataset.voiceHint=item.description;action.dataset.voiceHint='Ver trámite. '+item.title;card.dataset.voiceHint=item.title+'. '+item.description;card.append(top,title,description,meta,action);
    list.append(card);
   }
+  renderHomeCatalog();
  }
  search.oninput=renderCatalog;
  category.onchange=renderCatalog;
@@ -323,7 +376,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const slug=value=>normalize(value).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,38);
   const unique=(value,used)=>{let base=/^[a-z]/.test(value)?value:'campo-'+value;base=base.slice(0,34)||'campo';if(base.length<2)base+='-1';let id=base,i=2;while(used.includes(id))id=base+'-'+i++;return id;};
   manager.replaceChildren();
-  const heading=node('div',null,'studio-heading');const about=node('div');about.append(node('span','ESTUDIO DE FORMULARIOS','studio-kicker'),node('h2',current?'Editar borrador':'Nuevo trámite'),node('p','Crea y organiza las preguntas. Revisa la vista previa antes de guardar.','module-intro'));heading.append(about,btn('Volver al catálogo',()=>void openAdmin('catalog')));manager.append(heading);
+  const heading=node('div',null,'studio-heading');const about=node('div');about.append(node('span','CREACIÓN GUIADA DE TRÁMITES','studio-kicker'),node('h2',current?'Editar borrador':'Nuevo trámite'),node('p','Configure la información, organice las preguntas y revise el formulario antes de guardar.','module-intro'));heading.append(about,btn('Volver al catálogo',()=>void openAdmin('catalog')));
+  const journey=node('ol',null,'studio-journey');
+  for(const label of ['Información del servicio','Preguntas y documentos','Revisión, responsables y publicación'])journey.append(node('li',label));
+  const guidance=node('p','El borrador no se publica automáticamente. Los nuevos trámites utilizan el circuito de pruebas hasta que Salud autorice su funcionamiento operativo.','studio-safety');
+  manager.append(heading,journey,guidance);
   const form=node('form',null,'compact-form studio-form');
   // Avoid collisions between repeated nested field ids and the service's id.
   const general=node('section',null,'studio-section');general.append(node('h3','1. Información del trámite'));
@@ -387,7 +444,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  function adminCatalog(data){
   const enabled=data.categories.filter(c=>c.active).length;
   const header=node('div',null,'management-header');
-  const intro=node('div');intro.append(node('h3','Diseña y publica servicios'),node('p','Configura categorías, formularios, requisitos y etapas sin modificar el código.','module-intro'));header.append(intro);
+  const intro=node('div');intro.append(node('h3','Administración de trámites'),node('p','Cree categorías y formularios reutilizables, edite borradores y publique las fichas autorizadas sin cambiar código.','module-intro'));header.append(intro);
   if(enabled)header.append(btn('Crear trámite',()=>editService(null,data),'primary'));
   manager.append(header);
   const stats=node('div',null,'manager-stats');
@@ -591,7 +648,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   }catch(e){area.replaceChildren(node('p',e.message,'error'),btn('Reintentar',()=>tracking(after)));}
  }
  renderCatalog();
- return {connect,tracking,setIntakeAvailability(enabled,status){officialActive=enabled??null;if(status)availabilityText=status;},setSession(next,nextRole){
+ return {connect,tracking,setIntakeAvailability(enabled,status){officialActive=enabled??null;if(status)availabilityText=status;renderHomeCatalog();},setSession(next,nextRole){
   user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';
