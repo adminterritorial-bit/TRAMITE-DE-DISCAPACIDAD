@@ -115,7 +115,7 @@ export async function createSupabaseController(settings,{onUser,onAuthError}){
     const [identity,nonce]=await Promise.all([loadGoogleIdentity(),googleNonce()]);
     if(attempt!==current||!dialog.open)return;
     identity.initialize({
-     client_id:settings.googleClientId,nonce:nonce.hashed,auto_select:false,ux_mode:'popup',
+     client_id:settings.googleClientId,nonce:nonce.hashed,auto_select:false,button_auto_select:false,ux_mode:'popup',
      ...(institutional?{hd:'sanpedro-valle.gov.co'}:{}),
      callback:async ({credential})=>{
       if(attempt!==current||!dialog.open||current.used||!credential)return;

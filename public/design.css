@@ -221,6 +221,7 @@ body .case-citizen-card { margin:0;padding:1rem;border-color:var(--ui-line);bord
 .case-associated { padding-inline-start:0;list-style:none; }
 .case-associated li { display:flex;align-items:center;flex-wrap:wrap;gap:.7rem;padding:.4rem 0; }
 @media(max-width:720px){
+ #adminDashboard .workspace-shortcuts { display:none; }
  body .case-layout,.case-overview { grid-template-columns:minmax(0,1fr); }
  body .case-tools,body .case-counts { grid-template-columns:repeat(2,minmax(0,1fr)); }
  .intake-progress { grid-template-columns:repeat(5,minmax(0,1fr));gap:.15rem; }

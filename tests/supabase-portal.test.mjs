@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-function context(mode='dual'){
+function context(mode='dual',qa=false){
  const calls=[];
  const output=value=>JSON.parse(JSON.stringify(value));
  const ctx={
@@ -20,7 +20,8 @@ function context(mode='dual'){
  };
  vm.createContext(ctx);
  for(const name of ['UnifiedBackend','ServiceCatalog','SupabaseBridge','SupabasePortal']){
-  vm.runInContext(readFileSync('apps-script/spark/'+name+'.gs','utf8'),ctx);
+  const source=readFileSync('apps-script/spark/'+name+'.gs','utf8');
+  vm.runInContext(qa?source.replace('const SITS_SB_FORCE_TEST_=false;','const SITS_SB_FORCE_TEST_=true;'):source,ctx);
  }
  ctx.sitsSbRows_=(_table,query)=>{calls.push(query);return [];};
  ctx.sitsSbRpc_=(name,payload)=>{calls.push({name,payload:output(payload)});return [];};
@@ -87,4 +88,14 @@ test('test receipts use the verified address and an idempotent, marked MailApp j
  assert.equal(sent[0].to,row.owner_email);
  assert.match(sent[0].subject,/^\[PRUEBA\]/);
  assert.match(sent[0].body,/Solicitud ficticia/);
+});
+
+test('QA remains restricted when the project mode is Supabase',()=>{
+ const {ctx}=context('supabase',true);
+ const user={email:'salud@sanpedro-valle.gov.co',role:'supervisor',canManage:true,institutional:true};
+ assert.equal(ctx.sitsSbDispatch_(user,'sessionAccess',{},'fixture').testIntake,true);
+ assert.throws(()=>ctx.sitsSbTestGuard_({email:'citizen@example.invalid'},'officialMine',{}),/not_enabled/);
+ ctx.sitsSbCase_=()=>({owner_user_id:'fixture',applicant_name:'Other person',document_number:'OTHER'});
+ assert.throws(()=>ctx.sitsSbDispatch_(user,'officialRead',{id:'fixture'},'token'),/not_found/);
+ assert.equal(context('supabase').ctx.sitsSbDispatch_(user,'sessionAccess',{},'fixture').testIntake,false);
 });

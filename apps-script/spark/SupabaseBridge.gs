@@ -3,6 +3,7 @@
 // Script Properties (server-side, never public): SITS_BACKEND_MODE=supabase,
 // SITS_SB_PUBLISHABLE_KEY, SITS_SB_SECRET_KEY (or legacy SITS_SB_SERVICE_ROLE_JWT).
 // Keep existing ROOT_FOLDER_ID and Google Drive/MailApp.
+const SITS_SB_FORCE_TEST_=false;
 const SITS_SB_URL_='https://ovppffchdkwbikdppuzh.supabase.co';
 const SITS_SB_ACTIONS_=[
  'sessionAccess','officialSubmit','officialMine','officialInbox','officialRead',
@@ -43,6 +44,9 @@ function sitsSbCall_(path,method,data,accessToken,server){
   // Only generic codes leave the server; don't log or echo SQL, PII, tokens or internal traces.
   if(status===404&&parsed?.code==='PGRST202')throw Error('rpc_unavailable');
   if(status===401)throw Error('not_authenticated');
+  const rules=['pilot_disabled','legal_version_changed','legal_decision_required',
+   'invalid_profile','invalid_transition','content_version_changed','revision_conflict'];
+  if(rules.includes(parsed?.message))throw Error(parsed.message);
   if(status===403)throw Error('forbidden');
   if(status===409||parsed?.code==='23505')throw Error('revision_conflict');
   if(status>=500)throw Error('database_unavailable');
@@ -78,7 +82,7 @@ function sitsSbCapabilities_(){
  const required=['processing','privacy','terms','sensitive'];
  if(required.some(kind=>list.filter(x=>x.kind===kind).length!==1))throw Error('legal_version_changed');
  let acceptingRequests=null;
- try{acceptingRequests=sitsSbRpc_('sits_intake_availability',{},sitsSbProp_('SITS_SB_PUBLISHABLE_KEY'),false)===true;}
+ try{acceptingRequests=!sitsSbTestMode_()&&sitsSbRpc_('sits_intake_availability',{},sitsSbProp_('SITS_SB_PUBLISHABLE_KEY'),false)===true;}
  catch(e){if(e.message!=='rpc_unavailable')throw e;}
  return {enabled:true,acceptingRequests:acceptingRequests,documents:list.filter(x=>required.includes(x.kind))
   .map(x=>({id:x.id,kind:x.kind,title:x.title,body:x.body,version:x.version,hash:x.content_hash}))};
@@ -157,7 +161,8 @@ function sitsSbAccessFile_(row,kind,token,user){
 }
 function sitsSbDispatch_(u,action,d,token){
  if(action==='sessionAccess')return {
-  role:u.role,canManage:u.canManage,institutional:u.institutional
+  role:u.role,canManage:u.canManage,institutional:u.institutional,
+  testIntake:sitsSbTestMode_()&&sitsSbTestAccount_(u.email)
  };
  if(INST_ACTIONS_.includes(action)||CATALOG_ACTIONS_.includes(action)){
   return sitsPortalRun_(()=>{
@@ -202,6 +207,8 @@ function sitsSbDispatch_(u,action,d,token){
  }
  const c=sitsSbCase_(d.id,token),isOwner=c.owner_user_id===u.uid;
  if(!isOwner&&!u.canManage)throw Error('forbidden');
+ if(sitsSbTestMode_()&&(c.applicant_name!=='Persona de prueba'||c.document_number!=='TEST001'
+   ||!sitsSbTestAccount_(c.owner_email)))throw Error('not_found');
  if(action==='officialRead')return sitsSbView_(c,u.canManage);
  if(action==='officialDownload'){
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
@@ -315,14 +322,17 @@ function sitsSbHandle_(e){
 
 // Dual mode defaults to a closed test allowlist and exact bundled PDF hashes.
 function sitsSbTestMode_(){
- return PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='dual';
+ return SITS_SB_FORCE_TEST_||PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='dual';
+}
+function sitsSbTestAccount_(email){
+ const props=PropertiesService.getScriptProperties();
+ const emails=String(props.getProperty('SITS_SB_TEST_EMAILS')||'').split(',')
+  .map(value=>value.trim().toLowerCase()).filter(Boolean);
+ return typeof email==='string'&&emails.includes(email.toLowerCase());
 }
 function sitsSbTestGuard_(user,action,data){
  if(!sitsSbTestMode_())return;
- const props=PropertiesService.getScriptProperties();
- const emails=String(props.getProperty('SITS_SB_TEST_EMAILS')||'').split(',')
-  .map(email=>email.trim().toLowerCase()).filter(Boolean);
- if(!emails.includes(user.email.toLowerCase()))throw Error('not_enabled');
+ if(!sitsSbTestAccount_(user.email))throw Error('not_enabled');
  if(action==='officialSubmit'){
   if(data.name!=='Persona de prueba'||data.documentNumber!=='TEST001')throw Error('invalid_profile');
   officialFiles_(data.files).forEach(file=>{if(file.sha!==SPARK_HASHES_[file.kind])throw Error('invalid_fixture');});

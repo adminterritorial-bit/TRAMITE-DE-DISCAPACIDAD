@@ -97,7 +97,8 @@ try{
  await page.locator('#googleLogin').click();
  await page.getByRole('button',{name:'Continuar con Google'}).click();
  await page.getByRole('heading',{name:'Gestión integral de expedientes'}).waitFor();
- const identity=await page.evaluate(()=>({google:window.googleIdentityOptions.nonce,input:window.testTokenOptions}));
+ const identity=await page.evaluate(()=>({google:window.googleIdentityOptions.nonce,auto:window.googleIdentityOptions.button_auto_select,input:window.testTokenOptions}));
+ assert.equal(identity.auto,false);
  assert.equal(identity.input.provider,'google');
  assert.equal(identity.input.token,'fixture.google.identity');
  assert.equal(identity.google,createHash('sha256').update(identity.input.nonce).digest('hex'));

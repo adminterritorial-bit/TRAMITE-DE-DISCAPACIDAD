@@ -27,7 +27,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
  }
  function render(){
   if(!ready.enabled){note('Atención y orientación','La recepción electrónica no está disponible en este momento. Consulta los requisitos y canales de la Secretaría de Salud.');return;}
-  if(ready.accepting===false&&!pilotAccess){note('Recepción electrónica restringida','Consulta los canales de la Secretaría de Salud para presentar una solicitud.');return;}
+  if(ready.accepting!==true&&!pilotAccess){note('Recepción electrónica restringida','Consulta los canales de la Secretaría de Salud para presentar una solicitud.');return;}
   const account=getUser();
   if(!authenticated||!account){note('Inicia sesión para presentar tu solicitud','Ingresa con Google para presentar una solicitud y consultar tu expediente desde la cuenta asociada.',false);return;}
   if(builtFor!==account.uid){builtFor=account.uid;buildForm(account);}
@@ -40,9 +40,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   }catch{ready={enabled:false,documents:[]};}
   render();return ready.enabled;
  }
- function session(value,{canManage=false}={}){
+ function session(value,{testIntake=false}={}){
   authenticated=value===true;
-  pilotAccess=authenticated&&canManage;
+  pilotAccess=authenticated&&testIntake;
   if(!authenticated){
    if(builtFor){builtFor=null;shell.replaceChildren();}
    tracker?.clear();staffInbox?.clear();
@@ -62,7 +62,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   const [identity,contact,filesPanel,permissions,review]=panels;
   const title=el('div',undefined,'intake-title');
   title.append(el('h2','Presenta tu solicitud'),el('p','Completa los datos y revisa la solicitud antes de enviarla.'));
-  if(ready.accepting===false)title.append(el('p','Prueba institucional. Usa únicamente datos y PDF ficticios.','ui-service-status'));
+  if(ready.accepting!==true&&pilotAccess)title.append(el('p','Prueba institucional. Usa únicamente datos y PDF ficticios.','ui-service-status'));
   const progress=el('ol',undefined,'intake-progress');
   progress.setAttribute('aria-label','Pasos de la solicitud');
   const progressItems=labels.map(label=>el('li',label));progress.append(...progressItems);
@@ -250,7 +250,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   if(!ready.enabled)return 'Recepción electrónica no disponible';
   if(ready.accepting===false)return 'Recepción real restringida';
   if(ready.accepting===true)return 'Recepción electrónica disponible';
-  return 'Consulta la disponibilidad al iniciar';
+  return 'Disponibilidad de recepción por confirmar';
  }
  note('Consultando disponibilidad','Verificando los canales habilitados para este trámite.',false);
  return {get live(){return !labMode;},connect,session,tracking,inbox,receptionStatus,get accepting(){return ready.accepting;}};

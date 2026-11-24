@@ -208,7 +208,7 @@ async function handleUser(u){
  user=u;experience.setSession(null,null);catalog.setSession(null,null);authorized=false;clearWorkspace();officialUI.session(false);if(!demo)trackingGate.session(false);hide($('signout'),!u);hide($('authCitizen'),false);hide(form);resetProfile();requestKey=null;phase(0);hide($('receipt'));$('details').replaceChildren(node('p','Selecciona un expediente.','muted'));adminItems=[];selected=null;adminRole=null;hide($('adminNav'));hide($('adminDashboard'));hide($('adminLogin'),false);$('adminList').replaceChildren();$('trackingList').replaceChildren();
  if(!u){msg('authMessage','');return;}
  msg('authMessage','Validando cuenta…');
- try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true,{canManage:access.canManage===true});trackingGate.session(true);adminRole=access.canManage?access.role:null;
+ try{const access=await invoke('sessionAccess');if(user!==u)return;authorized=true;officialUI.session(true,{testIntake:access.testIntake===true});trackingGate.session(true);adminRole=access.canManage?access.role:null;
  experience.setSession(u,access.role,access.institutional===true);
  catalog.setSession(u,access.role);
  if(labMode)void experience.prepare(u);

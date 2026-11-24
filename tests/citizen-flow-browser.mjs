@@ -6,6 +6,7 @@ const browser=await chromium.launch();
 const page=await browser.newPage({viewport:{width:390,height:840}});
 try{
  const submissions=[];
+ let acceptingRequests;
  const documents=['processing','privacy','terms','sensitive'].map((kind,i)=>({
   id:kind,kind,title:'Política ficticia '+(i+1),body:'Texto de prueba del asistente.',version:1,hash:String(i+1).repeat(64)
  }));
@@ -18,7 +19,7 @@ try{
   }`
  }));
  await page.route('https://script.google.com/macros/s/**',r=>{
-  const response={ok:true,build:'sits-supabase-1.0',enabled:true,acceptingRequests:true};
+  const response={ok:true,build:'sits-supabase-1.0',enabled:true,acceptingRequests};
   const request=r.request();
   if(request.method()==='GET'){
    Object.assign(response,{documents,items:[],categories:[],notices:[],policies:[]});
@@ -40,6 +41,10 @@ try{
   return r.fulfill({json:response,headers:{'Access-Control-Allow-Origin':'*'}});
  });
  await page.goto('http://127.0.0.1:8080/#citizen');
+ await page.getByRole('heading',{name:'Recepción electrónica restringida'}).waitFor();
+ assert.equal(await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).count(),0);
+ acceptingRequests=true;
+ await page.reload();
  const form=page.getByRole('form',{name:'Solicitud de certificación de discapacidad'});
  await form.waitFor();
  await form.getByRole('button',{name:'Continuar',exact:true}).click();
