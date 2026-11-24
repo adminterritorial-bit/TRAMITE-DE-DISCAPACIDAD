@@ -110,7 +110,7 @@ jobs:
           grep -F 'const demo=false' public/app.js
           mkdir pages
           cp -R public/. pages/
-          rm -f pages/spark-probe.html pages/spark-probe.js pages/spark-pilot.html pages/spark-pilot.js
+          rm -f pages/spark-probe.html pages/spark-probe.js pages/spark-pilot.html pages/spark-pilot.js pages/pilot.html
           test ! -e public/assets/brand/san-pedro-marca.png
           test -z "$(find public -type f \( -name '*.pem' -o -name '*.key' -o -name '.env*' \))"
       - uses: actions/configure-pages@v5
