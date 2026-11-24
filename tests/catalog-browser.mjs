@@ -46,6 +46,12 @@ try{
   }
   return r.fulfill({json:output,headers:{'Access-Control-Allow-Origin':'*'}});
  });
+ // Isolate the existing Firebase catalog regression until its Supabase RPCs ship.
+ await page.route(/\/config\.js(?:\?.*)?$/,async route=>{
+  const response=await route.fetch();
+  const source=await response.text();
+  await route.fulfill({response,body:source.replace("backend:'supabase'","backend:'firebase'")});
+ });
  await page.goto('http://127.0.0.1:8080/');
  await page.locator('body.staff-workspace').waitFor();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
