@@ -65,3 +65,26 @@ test('dual mode allows only approved test accounts, identity and bundled PDF byt
   size:another.length,sha:createHash('sha256').update(another).digest('hex'),base64:another.toString('base64')
  }]}),/invalid_fixture/);
 });
+
+test('test receipts use the verified address and an idempotent, marked MailApp journal',()=>{
+ const {ctx}=context();
+ let locked=false;
+ const sent=[];
+ ctx.LockService={getScriptLock:()=>({
+  waitLock(){locked=true;},hasLock:()=>locked,releaseLock(){locked=false;}
+ })};
+ const journals=new Set();
+ ctx.spJournal_=(_folder,name,send)=>{
+  assert.equal(locked,true);
+  if(!journals.has(name)){journals.add(name);send();}
+ };
+ ctx.spMail_=(to,subject,body)=>sent.push({to,subject,body});
+ const row={reference:'SSP-QA',owner_email:'salud@sanpedro-valle.gov.co'};
+ ctx.sitsSbAcknowledge_({},row);
+ ctx.sitsSbAcknowledge_({},row);
+ assert.equal(locked,false);
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].to,row.owner_email);
+ assert.match(sent[0].subject,/^\[PRUEBA\]/);
+ assert.match(sent[0].body,/Solicitud ficticia/);
+});

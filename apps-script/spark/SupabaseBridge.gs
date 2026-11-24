@@ -165,12 +165,24 @@ function sitsSbDispatch_(u,action,d,token){
  if(action==='officialSubmit'){
   const files=officialFiles_(d.files);
   const payload=JSON.parse(JSON.stringify(d));delete payload.files;
+  sitsPortalRun_(()=>spLimit_(u,'officialSubmit',3));
   const c=sitsSbRpc_('sits_create_case',{_payload:payload},token,false);
-  try{sitsSbStore_(c,files);}catch(_){
-   // Preserve the pending case for reconciliation; never claim the PDF was received.
-   return sitsSbView_(sitsSbCase_(c.id,token),false);
+  let folder;
+  if(['saving','storage_review'].includes(c.status)){
+   try{folder=sitsSbStore_(c,files);}
+   catch(_){
+    if(c.status==='saving'){
+     try{sitsSbCall_('rest/v1/sits_cases?id=eq.'+c.id+'&status=eq.saving&revision=eq.'+c.revision,
+      'patch',{status:'storage_review',revision:c.revision+1,last_action:'Soportes por verificar'},null,true);}
+     catch(_2){}
+    }
+   }
   }
-  return sitsSbView_(sitsSbCase_(c.id,token),false);
+  const received=sitsSbCase_(c.id,token);
+  if(folder&&received.status==='received'&&received.notify_by_email===true){
+   sitsSbAcknowledge_(folder,received);
+  }
+  return sitsSbView_(received,false);
  }
  if(action==='officialMine'){
   const rows=sitsSbRows_('sits_cases',sitsSbRowsQuery_()+
@@ -188,6 +200,7 @@ function sitsSbDispatch_(u,action,d,token){
  if(action==='officialRead')return sitsSbView_(c,u.canManage);
  if(action==='officialDownload'){
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
+  if(!isOwner)instRecent_(u);
   return sitsSbAccessFile_(c,d.kind,token,u);
  }
  if(action==='officialTransition'){
@@ -201,12 +214,14 @@ function sitsSbDispatch_(u,action,d,token){
    throw Error('invalid_transition');
   const files=officialFiles_([d.file],true);
   if(files.length!==1||files[0].kind!==c.correction_kind)throw Error('invalid_request');
+  sitsPortalRun_(()=>spLimit_(u,'officialCorrect',12));
   sitsSbStore_(c,files);
   return sitsSbView_(sitsSbCase_(c.id,token),false);
  }
  if(action==='officialSendCertificate'){
   if(!u.canManage||c.status!=='awaiting_certificate'||c.revision!==d.revision||d.confirm!==true)
    throw Error('invalid_transition');
+  instRecent_(u);
   const file=officialCertificateFile_(d.file);
   const folder=sitsSbStore_(c,[file]);
   const sentByEmail=c.certificate_email_consent===true;
@@ -249,6 +264,18 @@ function sitsSbDispatch_(u,action,d,token){
   return sitsSbView_(sitsSbCase_(c.id,token),true);
  }
  throw Error('invalid_request');
+}
+function sitsSbAcknowledge_(folder,row){
+ const lock=LockService.getScriptLock();
+ try{
+  lock.waitLock(15000);
+  const test=sitsSbTestMode_();
+  const subject=(test?'[PRUEBA] ':'')+'Solicitud recibida · '+row.reference;
+  const text=(test?'Solicitud ficticia para verificar el servicio. ':'')
+   +'Recibimos la solicitud con referencia '+row.reference
+   +'. Puedes consultar el estado desde tu cuenta. Este mensaje no es un certificado.';
+  spJournal_(folder,'official-ack.json',()=>spMail_(row.owner_email,subject,text),1);
+ }catch(_){}finally{if(lock.hasLock())lock.releaseLock();}
 }
 function sitsSbHandle_(e){
  let stage='request',lock;
