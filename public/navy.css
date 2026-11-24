@@ -42,7 +42,7 @@ a{color:#17446d}.eyebrow,.progress,.steps li.current b{color:#23486e}
 .help-steps{padding-left:25px}.help-steps li{margin:0 0 13px;padding-left:3px}.help-steps p{margin:4px 0;color:#4c6077;font-size:.9rem}.citizen-guide{max-width:570px}
 .service-overview{padding:20px 0;border-bottom:1px solid #dbe3ed}.service-overview h2{font-size:1.2rem;margin:0 0 12px}.service-overview p{color:#4c6077;line-height:1.7}
 .service-availability{display:flex;align-items:flex-start;gap:12px;padding:15px;border:1px solid #c9d6e6;background:#edf2f8;border-radius:12px;margin:18px 0;color:#17365b}.service-availability p{margin:0;font-size:.88rem}.service-availability svg{width:22px;height:22px}
-.admin-module-menu button[aria-current=page],.admin-module-menu button:hover{background:#eaf0f7;color:#17365b;border-color:#dbe3ed}.admin-module-menu button[aria-current=page]:before{background:#17365b}
+
 .workspace-shortcuts button:hover{background:#edf2f8;border-color:#a5bbd0}.metric:before{background:#17365b}
 .manager-stats>div{background:#f0f4f9;border-color:#dbe3ed}.manager-stats strong{color:#17365b}.manager-stats small{color:#4c6077}
 .staff-card .staff-avatar,.builder-intro span{background:#eaf0f7;color:#17365b}.builder-group .portal-decisions legend{color:#17365b}
