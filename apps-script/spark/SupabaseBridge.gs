@@ -118,7 +118,7 @@ function sitsSbView_(row,staff){
  if(staff)Object.assign(x,{name:row.applicant_name,email:row.owner_email,
   documentType:row.document_type,documentNumber:row.document_number,
   zone:row.residence_zone,representation:row.representation,phone:row.phone,
-  support:row.support_needed,certificateEmailConsent:row.certificate_email_consent,
+  support:row.support_needed,serviceAnswers:row.service_answers||{},certificateEmailConsent:row.certificate_email_consent,
   certificate:certificate?{kind:'certificate',size:certificate.bytes}:null,
   deliveryStatus:row.delivery_status});
  return x;
