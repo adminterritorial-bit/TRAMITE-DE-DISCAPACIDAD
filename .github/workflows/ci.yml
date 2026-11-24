@@ -66,6 +66,7 @@ jobs:
           node tests/browser.mjs
           node tests/institutional-browser.mjs
           node tests/catalog-browser.mjs
+          node tests/official-staff-browser.mjs
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
