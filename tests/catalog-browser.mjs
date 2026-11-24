@@ -137,6 +137,7 @@ try{
  await page.getByRole('heading',{name:'Áreas de gestión'}).waitFor();
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();
  await page.getByRole('heading',{name:'Trámites configurados',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Crear trámite'}).isEnabled(),true,'Nuevo trámite no depende de categorías previas');
  await page.getByRole('button',{name:'Crear primera categoría'}).click();
  await page.getByLabel('Nombre de categoría').fill('Orientación');
  assert.equal(await page.getByLabel('Código de categoría (generado automáticamente)').inputValue(),'orientacion');
