@@ -56,6 +56,20 @@ try{
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
  await page.locator('.navbtn[data-view=home]').click();
+ await page.locator('#homeCatalogCards .home-catalog-card').first().waitFor();
+ await page.getByLabel('Buscar un trámite').fill('CERTIFICACION');
+ assert.equal(await page.locator('#homeCatalogCards .home-catalog-card').count(),1,'Búsqueda sin tildes desde portada');
+ await page.getByLabel('Buscar un trámite').fill('SIN-COINCIDENCIA-123');
+ await page.getByText('No encontramos ese trámite').waitFor();
+ await page.getByRole('button',{name:'Limpiar búsqueda'}).click();
+ await page.getByLabel('Filtrar por categoría').selectOption('certificacion');
+ assert.equal(await page.locator('#homeCatalogCards .home-catalog-card').count(),1,'La categoría limita los resultados');
+ await page.getByLabel('Filtrar por categoría').selectOption('');
+ for(const width of [320,390,1280]){
+  await page.setViewportSize({width,height:960});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Desborde de portada '+width);
+ }
+ await page.setViewportSize({width:1280,height:960});
  await page.getByRole('button',{name:'Ver requisitos',exact:false}).first().click();
  await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).waitFor();
  assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
@@ -88,7 +102,7 @@ try{
  await page.getByLabel('Buscar trámite').fill('CERTIFICACION');
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
- await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver trámite'}).click();
+ await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
  await page.getByRole('heading',{name:'Sobre este servicio'}).waitFor();
  await page.getByRole('button',{name:'Preparar requisitos sin iniciar sesión'}).click();
  await page.getByRole('dialog',{name:'Prepara tu solicitud'}).waitFor();
@@ -106,6 +120,7 @@ try{
  await page.getByLabel('Nombre de categoría').fill('Orientación');
  await page.getByRole('button',{name:'Guardar categoría'}).click();
  await page.getByRole('button',{name:'Crear trámite'}).click();
+ await page.getByText('CREACIÓN GUIADA DE TRÁMITES').waitFor();
  await page.getByLabel('Código del trámite').fill('orientacion-prueba');
  await page.getByLabel('Nombre del trámite').fill('Orientación de prueba');
  await page.getByLabel('Descripción').fill('Prueba del trámite configurable.');
@@ -123,7 +138,7 @@ try{
  await page.getByRole('button',{name:'Publicar trámite'}).click();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByLabel('Buscar trámite').fill('Orientación');
- await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Orientación de prueba',exact:true})}).getByRole('button',{name:'Ver trámite'}).click();
+ await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Orientación de prueba',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('checkbox',{name:/Conocimiento del aviso/}).check();
  await page.getByRole('checkbox',{name:/Aceptación de condiciones/}).check();
