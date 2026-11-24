@@ -55,7 +55,7 @@ try{
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
  await page.getByRole('heading',{name:'Trámites y servicios de Salud'}).waitFor();
  await page.locator('.navbtn[data-view=citizen]').click();
- await page.locator('.intake-state').waitFor();
+ await page.getByRole('form',{name:'Solicitud de certificación de discapacidad'}).waitFor();
  assert.equal(await page.locator('#applicationForm').isVisible(),false,'No presentar la carga sintética como recepción pública');
  await page.locator('.navbtn[data-view=catalog]').click();
  await page.getByRole('button',{name:'Escuchar guía'}).click();

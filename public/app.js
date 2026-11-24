@@ -205,7 +205,7 @@ try{
  $('authCitizen').querySelector('h2').textContent='Ingresa a SITS Salud';
  $('authCitizen').querySelector('p').textContent='Ingresa con tu cuenta de Google y correo verificado.';
  $('authCitizen').insertBefore(citizenLogin,$('authMessage'));
- const ready=await officialUI.connect(endpoint,'sits-supabase-1.0');
+ const ready=labMode||await officialUI.connect(endpoint,'sits-supabase-1.0');
  catalog.setIntakeAvailability(ready);
  if(!ready)throw Error('Apps Script compatible con Supabase todavía no está desplegado. No se enviaron documentos.');
  const {createSupabaseController}=await import('./supabase-auth.js');
