@@ -150,7 +150,11 @@ try{
  await page.getByLabel('Nombre de la nueva categoría').fill('Gestión de EPS');
  assert.equal(await page.getByLabel('Código automático de categoría').inputValue(),'gestion-de-eps');
  await page.getByRole('button',{name:'Guardar y seleccionar categoría'}).click();
+ await page.waitForFunction(()=>document.querySelector('#adminDashboard select[name="category"]')?.value==='gestion-de-eps'
+  ||!!document.querySelector('.studio-category-create .error')?.textContent?.trim(),null,{timeout:8000});
+ assert.equal((await page.locator('.studio-category-create .error').textContent()).trim(),'','La categoría debe guardarse sin errores');
  assert.equal(await category.inputValue(),'gestion-de-eps','La categoría nueva queda seleccionada');
+ assert.equal(categories.some(item=>item.id==='gestion-de-eps'),true,'La categoría se registró en el backend de prueba');
  await page.getByLabel('Código del trámite').fill('orientacion-prueba');
  await page.getByLabel('Nombre del trámite').fill('Orientación de prueba');
  await page.getByLabel('Descripción').fill('Prueba del trámite configurable.');
