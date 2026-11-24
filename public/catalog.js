@@ -1,6 +1,7 @@
 import {normalizeSearch, filterServices, categoryCounts, categoryCode} from './catalog-domain.mjs';
 import {selectAdminServices,selectServiceCases} from './admin-collections.mjs';
 import {readStudioDraft,writeStudioDraft,clearStudioDraft} from './studio-draft.mjs';
+import {inspectConfiguredIntake} from './configured-intake-contract.mjs';
 
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
@@ -503,7 +504,41 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const preview=node('div',null,'manager-section studio-preview');preview.hidden=true;
   function validateFields(){const list=groups().map(x=>x.value());const seen=new Set(),documents=new Set();for(const [i,f] of list.entries()){if(!/^[a-z][a-z0-9-]{1,39}$/.test(f.id)||seen.has(f.id)||!f.label.trim())throw Error('Revisa el nombre y el código único de la pregunta '+(i+1)+'.');if(f.options&&(!f.options.length||f.options.length>10||new Set(f.options).size!==f.options.length))throw Error('La pregunta '+(i+1)+' necesita de 1 a 10 opciones distintas.');if(f.type==='document'){if(documents.has(f.fixture))throw Error('No repitas el mismo tipo de soporte PDF.');documents.add(f.fixture);}if(f.condition){const prior=list.slice(0,i).find(x=>x.id===f.condition.field);if(!prior?.options?.includes(f.condition.equals))throw Error('La condición de la pregunta '+(i+1)+' debe referirse a una opción de una pregunta anterior.');}seen.add(f.id);}return list;}
   const footer=node('div',null,'studio-footer');const previewError=errorRegion();
-  footer.append(btn('Previsualizar formulario',()=>{try{previewError.textContent='';const values=validateFields();preview.hidden=false;preview.replaceChildren(node('span','VISTA CIUDADANA','studio-kicker'),node('h3',title.value||'Vista previa'));dynamicFields(preview,values,{preview:true});preview.scrollIntoView({block:'nearest'});}catch(e){previewError.textContent=e.message;}}));
+  footer.append(btn('Previsualizar formulario',()=>{
+   try{
+    previewError.textContent='';
+    const values=validateFields();
+    const plan=inspectConfiguredIntake({
+      title:title.value,category:category.value,channel:channel.value,
+      fields:values,states:Array.from(states.children,x=>x.value())
+    });
+    preview.hidden=false;
+    preview.replaceChildren(
+      node('span','VISTA CIUDADANA · CINCO PASOS','studio-kicker'),
+      node('h3',title.value||'Vista previa'),
+      node('p','Los trámites configurables usarán la misma secuencia que la certificación de discapacidad, con las preguntas y soportes propios de cada servicio.','module-intro')
+    );
+    const journey=node('ol',null,'configured-intake-steps');
+    for(const step of plan.stages){
+      const item=node('li');
+      item.append(node('strong',step.title),node('small',step.description));
+      if(step.questions.length)item.append(node('span',step.questions.length+' '+(step.questions.length===1?'campo':'campos')+' configurados','state-label'));
+      journey.append(item);
+    }
+    preview.append(journey);
+    const notice=node('div',null,'studio-safety');
+    notice.append(node('strong',plan.compatible?'Estructura compatible para pruebas':'Configuración por completar'),
+      node('p',plan.explanation));
+    if(plan.warnings.length){
+      const list=node('ul');
+      for(const text of plan.warnings)list.append(node('li',text));
+      notice.append(list);
+    }
+    preview.append(notice,node('h4','Preguntas configuradas'));
+    dynamicFields(preview,values,{preview:true});
+    preview.scrollIntoView({block:'nearest'});
+   }catch(e){previewError.textContent=e.message;}
+  }));
   form.append(footer,previewError);
   // Restore only unsubmitted design metadata, never citizen health records.
   let localStorageScope;
