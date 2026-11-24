@@ -24,3 +24,13 @@ body.hc .live-intake :is(.intake-state,.intake-title,.intake-upload,.intake-poli
 body.hc .live-intake :is(.intake-state p,.intake-state h2,.intake-step h3,.intake-title p,.intake-upload small,.intake-receipt strong){color:#fff!important}
 @media(max-width:720px){.intake-fields,.intake-filegrid{grid-template-columns:minmax(0,1fr)}.live-intake .intake-state{padding:16px;flex-direction:column}.intake-title{padding:14px}.intake-state-icon{width:40px;height:40px}}
 @media(prefers-reduced-motion:reduce){.live-intake *{animation:none!important;transition:none!important}}
+
+.official-inbox{background:#f4f9ff;border:1px solid #bfd5ec;border-radius:17px;margin:16px 0;padding:20px}
+.official-inbox h2{color:#113b61}.official-case{padding:16px;border:1px solid #c2d7eb;background:#fff;border-radius:12px;margin:10px 0}
+.official-case-details{padding:14px;border:1px solid #c8d9ec;border-radius:12px;background:#f4f8fe;margin-top:12px}
+.official-case-details h3{margin:0 0 8px}.official-case-details p{margin:4px 0}
+.intake-update{display:grid;gap:10px;border-top:1px solid #bed1e6;padding-top:15px;margin-top:14px}
+.intake-update button{justify-self:start}
+#adminDashboard[data-active-module]:not([data-active-module=cases])>.official-inbox{display:none}
+body.hc :is(.official-inbox,.official-case,.official-case-details){background:#000!important;border-color:#fff!important;color:#fff!important}
+body.hc :is(.official-inbox h2,.official-case-details h3){color:#fff!important}
