@@ -6,7 +6,7 @@
 const SITS_SB_FORCE_TEST_=false;
 const SITS_SB_URL_='https://ovppffchdkwbikdppuzh.supabase.co';
 const SITS_SB_ACTIONS_=[
- 'sessionAccess','officialSubmit','officialMine','officialInbox','officialRead',
+ 'sessionAccess','officialSubmit','configuredSubmit','officialMine','officialInbox','officialRead',
  'officialDownload','officialCorrect','officialTransition',
  'officialSendCertificate','officialVerifyDelivery'
 ];
@@ -106,6 +106,7 @@ function sitsSbView_(row,staff){
  const certificate=docs.filter(d=>d.kind==='certificate').sort((a,b)=>b.version-a.version)[0];
  const x={
   id:row.id,reference:row.reference,status:row.status,revision:row.revision,
+  serviceId:row.service_id,serviceVersion:row.service_schema_version||null,
   createdAt:row.created_at,updatedAt:row.updated_at,
   files:visible.map(f=>({kind:f.kind,size:f.bytes})),
   correctionKind:row.correction_kind,
@@ -173,11 +174,20 @@ function sitsSbDispatch_(u,action,d,token){
    return INST_ACTIONS_.includes(action)?instDispatch_(u,action,d):catDispatch_(u,action,d);
   });
  }
- if(action==='officialSubmit'){
-  const files=officialFiles_(d.files);
+ if(action==='officialSubmit'||action==='configuredSubmit'){
+  // Both services use the same official Supabase ledger and verified Drive
+  // storage path. Configured intake is independently disabled by default.
+  const configured=action==='configuredSubmit';
+  const files=officialFiles_(d.files||[]);
   const payload=JSON.parse(JSON.stringify(d));delete payload.files;
-  sitsPortalRun_(()=>spLimit_(u,'officialSubmit',3));
-  const c=sitsSbRpc_('sits_create_case',{_payload:payload},token,false);
+  if(configured){
+   payload.documentKinds=files.map(file=>file.kind);
+   if(typeof payload.serviceId!=='string'||payload.serviceId==='certificacion-discapacidad')
+    throw Error('invalid_request');
+  }
+  sitsPortalRun_(()=>spLimit_(u,configured?'configuredSubmit':'officialSubmit',3));
+  const operation=configured?'sits_create_configured_case':'sits_create_case';
+  const c=sitsSbRpc_(operation,{_payload:payload},token,false);
   let folder;
   if(['saving','storage_review'].includes(c.status)){
    try{folder=sitsSbStore_(c,files);}
@@ -190,8 +200,9 @@ function sitsSbDispatch_(u,action,d,token){
    }
   }
   const received=sitsSbCase_(c.id,token);
-  if(folder&&received.status==='received'&&received.notify_by_email===true){
-   sitsSbAcknowledge_(folder,received);
+  if(received.status==='received'&&received.notify_by_email===true){
+   const verifiedFolder=folder||(configured&&files.length===0?folder_(root_(),'official-'+c.id):null);
+   if(verifiedFolder)sitsSbAcknowledge_(verifiedFolder,received);
   }
   return sitsSbView_(received,false);
  }
@@ -340,7 +351,8 @@ function sitsSbHandle_(e){
    'invalid_transition','revision_conflict','database_unavailable','pilot_disabled',
    'legal_version_changed','delivery_uncertain','invalid_fixture','document_integrity_failed',
    'content_version_changed','legal_decision_required','rate_limit','recent_login_required',
-   'invalid_profile','not_enabled'];
+   'invalid_profile','not_enabled','service_not_open','invalid_service_schema',
+   'document_required','main_document_required','idempotency_mismatch'];
   return output_({ok:false,build:'sits-supabase-1.0',stage:stage,
    error:known.includes(err.message)?err.message:'operation_failed'});
  }finally{if(lock&&lock.hasLock())lock.releaseLock();}
@@ -359,6 +371,7 @@ function sitsSbTestAccount_(email){
 function sitsSbTestGuard_(user,action,data){
  if(!sitsSbTestMode_())return;
  if(!sitsSbTestAccount_(user.email))throw Error('not_enabled');
+ if(action==='configuredSubmit')throw Error('not_enabled');
  if(action==='officialSubmit'){
   if(data.name!=='Persona de prueba'||data.documentNumber!=='TEST001')throw Error('invalid_profile');
   officialFiles_(data.files).forEach(file=>{if(file.sha!==SPARK_HASHES_[file.kind])throw Error('invalid_fixture');});
