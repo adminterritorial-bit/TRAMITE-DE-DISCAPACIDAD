@@ -120,7 +120,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  const priorities=['received','needs_documents','awaiting_certificate','delivery_review'];
  const publishMetrics=(valid=true)=>{
   window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{
-   exact:valid&&exact,metrics:valid?metrics:null,
+   exact:valid&&exact,metrics:valid?metrics:null,metricsScope:serviceFilter.value?'service':'global',
    filtered:!!(search.value||serviceFilter.value||filter.value||from.value||to.value||owner.value||task.value)
   }}));
  };
