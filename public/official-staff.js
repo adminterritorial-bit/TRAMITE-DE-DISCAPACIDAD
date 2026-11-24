@@ -72,10 +72,12 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  const allServices=e('option','Todos los trámites');allServices.value='';serviceFilter.append(allServices);
  const officialService=e('option','Certificación de discapacidad');officialService.value='certificacion-discapacidad';serviceFilter.append(officialService);
  const serviceLabels=new Map([['certificacion-discapacidad','Certificación de discapacidad']]);
+ const serviceSchemas=new Map();
  void invoke('catalogList',{}).then(data=>{
   for(const item of data?.items||[]){
    if(item.standard||!item.id||serviceLabels.has(item.id))continue;
    serviceLabels.set(item.id,item.title||item.id);
+   if(item.intakeSchema?.fields)serviceSchemas.set(item.id,item.intakeSchema);
    const option=e('option',item.title||item.id);option.value=item.id;serviceFilter.append(option);
   }
  }).catch(()=>{});
@@ -257,6 +259,23 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    const pair=e('div');pair.append(e('small',label),e('strong',value||'—'));info.append(pair);
   }
   detail.replaceChildren(title,info);
+  const answers=row.serviceAnswers&&typeof row.serviceAnswers==='object'&&!Array.isArray(row.serviceAnswers)
+   ?Object.entries(row.serviceAnswers):[];
+  if(row.serviceId&&row.serviceId!=='certificacion-discapacidad'){
+   const serviceInfo=actionBlock('Información del trámite',
+    'Datos del formulario configurado, visibles únicamente para personal autorizado.');
+   serviceInfo.append(e('p',serviceLabels.get(row.serviceId)||row.serviceId,'case-service-name'));
+   const schemaFields=serviceSchemas.get(row.serviceId)?.fields||[];
+   const lookup=new Map(schemaFields.map(field=>[field.id,field.label]));
+   const grid=e('div',undefined,'case-facts');
+   for(const [id,value] of answers){
+    const text=typeof value==='boolean'?(value?'Sí':'No'):String(value??'—');
+    const line=e('div');line.append(e('small',lookup.get(id)||id),e('strong',text));
+    grid.append(line);
+   }
+   if(answers.length)serviceInfo.append(grid);
+   detail.append(serviceInfo);
+  }
   const tabs=e('nav',undefined,'case-section-nav');
   tabs.setAttribute('aria-label','Secciones del expediente');
   for(const [id,label] of [['case-files','Documentos'],['case-history','Actuaciones'],['case-next','Gestionar']]){
@@ -272,7 +291,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   documents.id='case-files';
   const filelist=e('div',undefined,'case-filelist');
   for(const file of row.files||[]){
-   const line=e('div',undefined,'case-document');line.append(e('span',NAMES[file.kind]||'Documento'),e('small',(file.size/1024/1024).toFixed(2)+' MB'));
+   const line=e('div',undefined,'case-document');line.append(e('span',file.kind==='certificate'&&row.serviceId!=='certificacion-discapacidad'?'Documento de resolución':NAMES[file.kind]||'Documento'),e('small',(file.size/1024/1024).toFixed(2)+' MB'));
    const action=b('Descargar PDF',async()=>{
     action.disabled=true;signal('Preparando descarga…');
     try{download(await invoke('officialDownload',{id:row.id,kind:file.kind}),file.kind+'-'+row.reference+'.pdf');signal('Descarga iniciada');}
