@@ -62,7 +62,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  intro.append(e('span','SECRETARÍA DE SALUD · GESTIÓN DOCUMENTAL','intake-kicker'),
    e('h2','Gestión integral de expedientes'),
    e('p','Revisa soportes, registra actuaciones y entrega certificados desde el expediente.'));
- const refresh=b('Actualizar bandeja',()=>load(),'secondary');
+ const refresh=b('Actualizar bandeja',()=>load({reloadSelected:true}),'secondary');
  head.append(intro,refresh);
  const status=e('p','','case-feedback');status.setAttribute('role','status');
  const counts=e('div',undefined,'case-counts');
@@ -159,7 +159,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    pagination.append(prev,e('span','Página '+page+' de '+last),next);
   }
  }
- async function load(){
+ async function load({reloadSelected=false}={}){
   const run=++requestGeneration;
   refresh.disabled=true;signal('Consultando expedientes…');panel.setAttribute('aria-busy','true');
   try{
@@ -172,6 +172,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    metrics=exact?response.metrics:null;
    recent=Array.isArray(response.activity)?response.activity:[...records].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
    drawCounts();drawList();
+   if(reloadSelected&&selectedId)void openCase(selectedId);
    signal(exact?'Bandeja actualizada':records.length>=100?'Mostrando los últimos 100 expedientes disponibles.':'Bandeja actualizada');
   }catch(err){if(run===requestGeneration)signal(errorText(err),true);}
   finally{if(run===requestGeneration){refresh.disabled=false;panel.removeAttribute('aria-busy');}}

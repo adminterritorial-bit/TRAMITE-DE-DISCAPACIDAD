@@ -79,9 +79,12 @@ test('test receipts use the verified address and an idempotent, marked MailApp j
  ctx.spJournal_=(_folder,name,send)=>{
   assert.equal(locked,true);
   if(!journals.has(name)){journals.add(name);send();}
+  return true;
  };
  ctx.spMail_=(to,subject,body)=>sent.push({to,subject,body});
- const row={reference:'SSP-QA',owner_email:'salud@sanpedro-valle.gov.co'};
+ const row={id:'fixture-case',reference:'SSP-QA',owner_email:'salud@sanpedro-valle.gov.co'};
+ const audits=[];
+ ctx.sitsSbCall_=(path,method,data,_token,server,minimal)=>audits.push({path,method,data,server,minimal});
  ctx.sitsSbAcknowledge_({},row);
  ctx.sitsSbAcknowledge_({},row);
  assert.equal(locked,false);
@@ -89,6 +92,7 @@ test('test receipts use the verified address and an idempotent, marked MailApp j
  assert.equal(sent[0].to,row.owner_email);
  assert.match(sent[0].subject,/^\[PRUEBA\]/);
  assert.match(sent[0].body,/Solicitud ficticia/);
+ assert.ok(audits.every(event=>event.data.event_type==='notification:confirmed'&&event.minimal===true));
 });
 
 test('QA remains restricted when the project mode is Supabase',()=>{
@@ -101,12 +105,17 @@ test('QA remains restricted when the project mode is Supabase',()=>{
  assert.equal(context('supabase').ctx.sitsSbDispatch_(user,'sessionAccess',{},'fixture').testIntake,false);
 });
 
-test('Supabase void RPC success accepts HTTP 204 without parsing a JSON body',()=>{
+test('Supabase accepts successful empty REST writes and void RPC responses',()=>{
  const {ctx}=context('supabase');
+ let status=204;
  ctx.UrlFetchApp={fetch:(_url,options)=>{
   assert.equal(options.headers.apikey,'sb_secret_fictitious');
   assert.equal(options.headers.Authorization,undefined);
-  return {getResponseCode:()=>204,getContentText:()=>''};
+  return {getResponseCode:()=>status,getContentText:()=>''};
  }};
  assert.equal(ctx.sitsSbCall_('rest/v1/rpc/sits_portal_commit','post',{},null,true),null);
+ status=201;
+ assert.equal(ctx.sitsSbCall_('rest/v1/sits_audit_events','post',{},null,true,true),null);
+ status=403;
+ assert.throws(()=>ctx.sitsSbCall_('rest/v1/sits_audit_events','post',{},null,true,true),/database_unavailable/);
 });

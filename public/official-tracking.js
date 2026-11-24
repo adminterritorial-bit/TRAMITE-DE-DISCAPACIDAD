@@ -27,7 +27,7 @@ export function createOfficialTracking({invoke,validatePdf}){
  const list=el('div',undefined,'case-citizen-list');
  const pages=el('div',undefined,'case-pagination');
  section.append(controls,status,list,pages);
- let items=[],loaded=false,activeRequest=0,page=1,total=null,serverPaged=false;
+ let items=[],activeRequest=0,page=1,total=null,serverPaged=false;
  const limit=12;
  const describe=(node,message,error=false)=>{node.textContent=message;node.dataset.error=String(error);};
  const handleFilter=()=>{page=1;if(serverPaged)void load();else draw();};
@@ -60,7 +60,7 @@ export function createOfficialTracking({invoke,validatePdf}){
    items=Array.isArray(result.items)?result.items:[];
    serverPaged=Number.isInteger(result.total);
    total=serverPaged?result.total:null;
-   loaded=true;draw();
+   draw();
   }catch{
    if(run===activeRequest)describe(status,'No se pudieron consultar tus solicitudes. Actualiza el listado o verifica tu sesión.',true);
   }finally{if(run===activeRequest)section.removeAttribute('aria-busy');}
@@ -147,7 +147,7 @@ export function createOfficialTracking({invoke,validatePdf}){
   area.append(button,feedback);target.append(area);
  }
  return {
-  show(){if(!section.isConnected)target.replaceChildren(section);if(!loaded)return load();},
-  clear(){activeRequest++;loaded=false;items=[];total=null;serverPaged=false;page=1;search.value='';filter.value='';list.replaceChildren();pages.replaceChildren();section.remove();}
+  show(){if(!section.isConnected)target.replaceChildren(section);return load();},
+  clear(){activeRequest++;items=[];total=null;serverPaged=false;page=1;search.value='';filter.value='';list.replaceChildren();pages.replaceChildren();section.remove();}
  };
 }

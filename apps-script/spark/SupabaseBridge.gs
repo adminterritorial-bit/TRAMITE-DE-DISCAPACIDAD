@@ -19,7 +19,7 @@ function sitsSbProp_(key){
  if(!v)throw Error('configuration_missing');
  return v;
 }
-function sitsSbCall_(path,method,data,accessToken,server){
+function sitsSbCall_(path,method,data,accessToken,server,returnMinimal=false){
  const props=PropertiesService.getScriptProperties();
  const apiKey=server?(props.getProperty('SITS_SB_SECRET_KEY')||
   sitsSbProp_('SITS_SB_SERVICE_ROLE_JWT')):sitsSbProp_('SITS_SB_PUBLISHABLE_KEY');
@@ -34,13 +34,14 @@ function sitsSbCall_(path,method,data,accessToken,server){
   opts.headers.Authorization='Bearer '+token;
  if(method==='post'||method==='patch'){
   opts.contentType='application/json';opts.payload=JSON.stringify(data);
-  opts.headers.Prefer='return=representation';
+  opts.headers.Prefer=returnMinimal?'return=minimal':'return=representation';
  }
  const response=UrlFetchApp.fetch(SITS_SB_URL_+'/'+path,opts);
  const status=response.getResponseCode();
- if(status===204)return null;
+ const body=response.getContentText();
+ if(status>=200&&status<300&&!body.trim())return null;
  let parsed;
- try{parsed=JSON.parse(response.getContentText());}catch(_){throw Error('database_unavailable');}
+ try{parsed=JSON.parse(body);}catch(_){throw Error('database_unavailable');}
  if(status<200||status>=300){
   // Only generic codes leave the server; don't log or echo SQL, PII, tokens or internal traces.
   if(status===404&&parsed?.code==='PGRST202')throw Error('rpc_unavailable');
@@ -157,7 +158,7 @@ function sitsSbAccessFile_(row,kind,token,user){
  sitsSbCall_('rest/v1/sits_audit_events','post',{
   actor_user_id:user.uid,case_id:row.id,event_type:'document:download',
   entity_type:'document',entity_id:doc.id,details:{kind:kind}
- },null,true);
+ },null,true,true);
  return {base64:Utilities.base64Encode(bytes),kind:kind};
 }
 function sitsSbDispatch_(u,action,d,token){
@@ -218,8 +219,15 @@ function sitsSbDispatch_(u,action,d,token){
  }
  if(action==='officialTransition'){
   if(!u.canManage)throw Error('forbidden');
-  sitsSbRpc_('sits_staff_transition',{_case_id:c.id,_revision:d.revision,
+  const transition=sitsSbRpc_('sits_staff_transition',{_case_id:c.id,_revision:d.revision,
    _status:d.status,_comment:d.comment||'',_document_kind:d.documentKind||null},token,false);
+  if(c.notify_by_email===true&&['needs_documents','awaiting_certificate','not_proceed'].includes(transition.status)){
+   const requested=transition.status==='needs_documents';
+   sitsSbNotify_(c,'official-update-'+transition.revision+'.json',
+    requested?'Subsanación requerida':'Actualización de solicitud',
+    requested?'Consulta en el portal el soporte solicitado y el motivo de la subsanación.':
+     'Hay una nueva actuación disponible en el seguimiento de tu solicitud.');
+  }
   return sitsSbView_(sitsSbCase_(c.id,token),true);
  }
  if(action==='officialCorrect'){
@@ -279,16 +287,33 @@ function sitsSbDispatch_(u,action,d,token){
  throw Error('invalid_request');
 }
 function sitsSbAcknowledge_(folder,row){
+ return sitsSbNotify_(row,'official-ack.json','Solicitud recibida',
+  'Puedes consultar el estado desde tu cuenta. Este mensaje no es un certificado.',folder);
+}
+function sitsSbNotify_(row,journal,subject,text,folder){
  const lock=LockService.getScriptLock();
+ let state='failed', attempted=false;
  try{
   lock.waitLock(15000);
+  folder=folder||existingFolder_(root_(),'official-'+row.id);
   const test=sitsSbTestMode_();
-  const subject=(test?'[PRUEBA] ':'')+'Solicitud recibida · '+row.reference;
-  const text=(test?'Solicitud ficticia para verificar el servicio. ':'')
-   +'Recibimos la solicitud con referencia '+row.reference
-   +'. Puedes consultar el estado desde tu cuenta. Este mensaje no es un certificado.';
-  spJournal_(folder,'official-ack.json',()=>spMail_(row.owner_email,subject,text),1);
- }catch(_){}finally{if(lock.hasLock())lock.releaseLock();}
+  const title=(test?'[PRUEBA] ':'')+subject+' · '+row.reference;
+  const message=(test?'Solicitud ficticia para verificar el servicio. ':'')+
+   'Referencia '+row.reference+'. '+text;
+  state=spJournal_(folder,journal,()=>{
+   attempted=true;
+   spMail_(row.owner_email,title,message);
+  },1)?'confirmed':'failed';
+ }catch(error){
+  if(attempted||error.message==='delivery_uncertain')state='uncertain';
+ }finally{if(lock.hasLock())lock.releaseLock();}
+ try{
+  sitsSbCall_('rest/v1/sits_audit_events','post',{
+   case_id:row.id,event_type:'notification:'+state,entity_type:'case',
+   entity_id:row.id,details:{operation:journal}
+  },null,true,true);
+ }catch(_){}
+ return state;
 }
 function sitsSbHandle_(e){
  let stage='request',lock;
