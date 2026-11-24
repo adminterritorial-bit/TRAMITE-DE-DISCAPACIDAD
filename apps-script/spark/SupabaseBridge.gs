@@ -10,7 +10,8 @@ const SITS_SB_ACTIONS_=[
  'officialSendCertificate','officialVerifyDelivery'
 ];
 function sitsSbOn_(){
- return PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')==='supabase';
+ const mode=PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE');
+ return mode==='dual'||mode==='supabase';
 }
 function sitsSbProp_(key){
  const v=PropertiesService.getScriptProperties().getProperty(key);

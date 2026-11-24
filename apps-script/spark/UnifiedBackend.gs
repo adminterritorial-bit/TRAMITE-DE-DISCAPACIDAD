@@ -123,7 +123,19 @@ function doGet(e){
  }
  return output_({ok:true,build:SPARK_BUILD_,enabled:true,...(typeof catPublic_==='function'?{catalog:true,institutional:true}:{})});
 }
-function doPost(e){return typeof sitsSbOn_==='function'&&sitsSbOn_()?sitsSbHandle_(e):spHandle_(e);}
+function doPost(e){
+ const probe=e?.parameter?.probe||'';
+ const mode=PropertiesService.getScriptProperties().getProperty('SITS_BACKEND_MODE')||'firebase';
+ if(probe==='sits-supabase-v1'){
+  if(mode==='dual'||mode==='supabase')return sitsSbHandle_(e);
+  return output_({ok:false,build:'sits-supabase-1.0',error:'pilot_disabled'});
+ }
+ if(mode==='supabase'){
+  // Never reinterpret an old Firebase token as a Supabase access token.
+  return output_({ok:false,build:'sits-supabase-1.0',error:'legacy_backend_disabled'});
+ }
+ return spHandle_(e);
+}
 const SPARK_DB_='projects/tramite-discapacidad/databases/(default)/documents';
 const SPARK_REST_='https://firestore.googleapis.com/v1/'+SPARK_DB_;
 const SPARK_FIXTURE_='2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf';

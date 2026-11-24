@@ -4,6 +4,27 @@
 **Repositorio:** \`adminterritorial-bit/TRAMITE-DE-DISCAPACIDAD\`  
 **Rama de integración:** \`feat/supabase-drive-backend\`
 
+## Actualización del 24 de noviembre de 2026: integración por etapas
+
+- Google OAuth Provider y Site URL/Redirect URLs configurados y habilitados en Supabase.
+- Las dos cuentas institucionales quedan reservadas como `supervisor`, con invitaciones activas; ninguna accede como supervisor mientras no haya iniciado sesión con Google. `salud@sanpedro-valle.gov.co` sigue sin email confirmado; el servicio debe recibir una identidad real Google y un correo verificado antes de conceder permisos.
+- La rama `feat/supabase-drive-backend` integra el cliente Google OAuth de Supabase y la comprobación de compatibilidad del Apps Script (build `sits-supabase-1.0`).
+- **No está publicado el código de Apps Script ni integrados los archivos, correos y trámites de extremo a extremo.** Las rutas de catálogo institucional y gestión legal heredadas de Firestore requieren migración propia. La publicación oficial debe permanecer intacta hasta finalizar el corte.
+- El adaptador admite `SITS_SB_SECRET_KEY` (nueva llave secret) en Script Properties, alternativa temporal a `SITS_SB_SERVICE_ROLE_JWT`, sin exponerla al navegador. Se emplea encabezado `apikey` para llaves `sb_...`, no `Authorization`.
+- **Modo `dual` de Apps Script:** habilita las solicitudes Supabase con `probe=sits-supabase-v1` y preserva el manejo del antiguo cliente Firebase con `probe=spark-pilot-v1`. **Este es el modo para las pruebas con el portal anterior aún publicado.**
+- **Modo `supabase`:** recibe solamente el protocolo Supabase y rechaza Firebase antiguo. Activarlo solo después de publicar frontend definitivo, migrar todos los módulos dependientes y superar pruebas reales.
+- **Modo `firebase` (o propiedad ausente):** atiende solamente Firebase y rechaza el protocolo Supabase.
+
+### Guía operativa sin secretos en el chat
+
+1. En el editor Google Apps Script propietario del despliegue /exec existente, preservar un respaldo y publicar una nueva versión del mismo proyecto con el paquete adjunto por CI `apps-script-salud-release`: `Codigo.gs`, `SparkAuth.gs`, `ServiceCatalog.gs`, `SupabaseBridge.gs`, `appsscript.json`.
+2. Configurar Script Properties `SITS_SB_PUBLISHABLE_KEY` con la llave pública de Supabase y `SITS_SB_SECRET_KEY` con la nueva llave secreta, obtenida en Supabase → Project Settings → API Keys. Conservar las propiedades originales, especialmente `ROOT_FOLDER_ID`, y los permisos de Drive/MailApp.
+3. Definir `SITS_BACKEND_MODE=dual` antes de probar el frontend de la rama. Nunca cambiarlo directamente a `supabase` cuando el sitio de producción aún tenga sesiones Firebase.
+4. Confirmar vía GET `/exec?probe=sits-supabase-v1&content=official-intake` que responde `build=sits-supabase-1.0`, `ok=true`, `enabled=true` y 4 políticas legales (sin poner credenciales en la URL).
+5. Agregar el dominio exacto de **vista previa** de Vercel en Authentication → Redirect URLs de Supabase, solo durante pruebas autorizadas. Las cuentas institucionales deben completar personalmente el ingreso con Google; no confirmar su correo vía SQL ni transferir claves.
+6. Ejecutar flujo de pruebas con PDFs exclusivamente ficticios y un correo de recepción de prueba autorizado. Verificar creación, lectura, subsanación, Drive privado, certificado, MailApp, deduplicación, aislamiento entre ciudadanos y archivo.
+7. Migrar o desactivar formalmente los módulos públicos de catálogo y legales todavía conectados a Firestore, ejecutar suite verde y realizar un corte coordinado de Apps Script + Vercel; solo entonces cambiar `SITS_BACKEND_MODE=supabase` y promover a producción.
+
 ## Estado real y alcance
 
 - Aplicadas y verificadas en Supabase las migraciones \`20261124041707\` (estructura inicial), \`20261124042133\` (Drive/RPC/RLS) y \`20261124042700\` (identidad institucional e índices).
