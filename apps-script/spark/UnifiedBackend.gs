@@ -78,9 +78,13 @@ function savePdf_(folder,f){
 
 /** Spark unified closed pilot. Keep existing SparkAuth.gs, scopes and Script Properties. */
 const SPARK_BUILD_='spark-unified-2.0';
-const SPARK_PORTAL_='https://adminterritorial-bit.github.io/TRAMITE-DE-DISCAPACIDAD/';
+const SPARK_PORTAL_='https://sits-salud-san-pedro.vercel.app/';
 const SPARK_HASHES_=Object.freeze({historia:'2238af7b677208cc3a3613d988dc43c0810284744e563e9ce88d646dfffbd5bf',apoyo:'ca314bc71ca49c75ac2b9f4dc7102d7858e602fd13eaf49a6821afc581ad5dd4',certificate:'53ebb75b8e37218a3bad4b738acd05450d6703d7e88a40585919d5e64cef12fe'});
 function doGet(e){
+ if(e?.parameter?.content==='official-intake'){
+  try{return output_({ok:true,...officialCapabilities_()});}
+  catch(_){return output_({ok:true,enabled:false,documents:[]});}
+ }
  if(e?.parameter?.content==='catalog'&&typeof catPublic_==='function'){
   try{
    const cache=CacheService.getScriptCache(),value=cache.get('catalog-public-v1');
@@ -140,7 +144,7 @@ function spRest_(suffix,method,data,allowMissing){
  return JSON.parse(res.getContentText());
 }
 function spName_(collection,id){
- if(!['requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases','catalog','serviceVersions','serviceRequests','admins','users','staffInvites'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
+ if(!['officialRequests','requests','audit','rateLimits','institutional','institutionalVersions','legalEvidence','rightsCases','catalog','serviceVersions','serviceRequests','admins','users','staffInvites'].includes(collection)||!/^[a-zA-Z0-9_-]{1,128}$/.test(id))throw Error('bad_id');
  return SPARK_DB_+'/'+collection+'/'+id;
 }
 function spRead_(collection,id){
@@ -344,7 +348,7 @@ function instPolicy_(u,action,d){
   next={...data,state:'approved',version:version+1,draft:{...data.draft,reviewerUid:u.uid,
    reference:instText_(d.reference,160),effective:instDate_(d.effective),approvedAt:Date.now()}};
  }else if(d.state==='published'&&data?.state==='approved'&&data.draft.effective<=Date.now()){
-  if(kind==='sensitive')throw Error('pilot_disabled');
+  if(kind==='sensitive'&&PropertiesService.getScriptProperties().getProperty('SITS_LIVE_COMPLIANCE_APPROVED')!=='true')throw Error('pilot_disabled');
   const {title,body,hash,effective}=data.draft;
   next={...data,state:'published',version:version+1,published:{id,kind,title,body,hash,effective,version:version+1}};
  }else if(d.state==='withdrawn'&&data?.published){
@@ -458,6 +462,7 @@ function instDispatch_(u,action,d){
 }
 
 function spDispatch_(u,action,d){
+ if(OFFICIAL_ACTIONS_.includes(action))return officialDispatch_(u,action,d);
  if(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(action))return catDispatch_(u,action,d);
  if(INST_ACTIONS_.includes(action))return instDispatch_(u,action,d);
  if(action==='sessionAccess')return {role:u.role,canManage:!!u.role,canDeliver:u.role==='supervisor',institutional:true,build:SPARK_BUILD_};
@@ -527,13 +532,155 @@ function spHandle_(e){
   stage='request';var p=spParse_(e);
   stage='app_check';sparkVerifyApp_(p.appCheck);
   stage='request';var req=JSON.parse(p.payload);
-  if(!req||![...(typeof CATALOG_ACTIONS_==='undefined'?[]:CATALOG_ACTIONS_),...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate'].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
+  if(!req||![...(typeof CATALOG_ACTIONS_==='undefined'?[]:CATALOG_ACTIONS_),...INST_ACTIONS_,'sessionAccess','submitRequest','myRequests','adminList','adminHistory','setStatus','submitCorrection','downloadFile','sendCertificate',...OFFICIAL_ACTIONS_].includes(req.action)||!req.data||typeof req.data!=='object'||Array.isArray(req.data))throw Error('invalid_request');
   stage='identity';var u=sparkIdentity_(p.idToken,false,req.action==='sessionAccess');
   stage='operation';
-  if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))){lock=LockService.getScriptLock();lock.waitLock(15000);}
+  if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))&&!OFFICIAL_ACTIONS_.includes(req.action)){lock=LockService.getScriptLock();lock.waitLock(15000);}
   return output_({ok:true,build:SPARK_BUILD_,data:spDispatch_(u,req.action,req.data)});
  }catch(err){
   var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','legal_decision_required','legal_version_changed','content_version_changed','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token'];
   return output_({ok:false,build:SPARK_BUILD_,stage,error:safe.includes(err.message)?err.message:'operation_failed'});
  }finally{if(lock&&lock.hasLock())lock.releaseLock();}
+}
+
+
+/*
+ * Institutional reception — deliberately closed until explicit institutional authorization.
+ * Separate from the legacy synthetic workflow and from certification/RLCPD issuance.
+ * Never expose clinical details in public GET responses or notification mail.
+ */
+const OFFICIAL_ACTIONS_=['officialSubmit','officialMine','officialInbox','officialRead','officialDownload','officialTransition'];
+const OFFICIAL_POLICY_KINDS_=['processing','privacy','terms','sensitive'];
+function officialProp_(name){return String(PropertiesService.getScriptProperties().getProperty(name)||'').trim();}
+function officialCapabilities_(){
+ const enabled=officialProp_('SITS_LIVE_INTAKE_ENABLED')==='true';
+ const approvals=['SITS_LIVE_APPROVAL_REF','SITS_LEGAL_APPROVAL_REF','SITS_SECURITY_APPROVAL_REF','SITS_RECORDS_APPROVAL_REF'];
+ const controls=approvals.every(name=>officialProp_(name).length>=10)&&officialProp_('SITS_HEALTH_CASE_OFFICERS').length>5;
+ if(!enabled||!controls)return {enabled:false,documents:[]};
+ const items=OFFICIAL_POLICY_KINDS_.map(kind=>instRead_('institutional','policy-'+kind).data?.published);
+ if(items.some(x=>!x||x.effective>Date.now()||!Number.isSafeInteger(x.version)||!/^[a-f0-9]{64}$/.test(x.hash||'')))return {enabled:false,documents:[]};
+ return {enabled:true,documents:items.map(x=>({id:x.id,title:x.title,kind:x.kind,version:x.version,hash:x.hash,body:x.body}))};
+}
+function officialEnabled_(){const ready=officialCapabilities_();if(!ready.enabled)throw Error('pilot_disabled');return ready;}
+function officialStaff_(u){
+ if(!['admin','supervisor'].includes(u?.role))throw Error('forbidden');
+ const list=officialProp_('SITS_HEALTH_CASE_OFFICERS').split(',').map(x=>x.trim()).filter(Boolean);
+ if(!list.includes(u.uid))throw Error('forbidden');
+}
+function officialProfile_(d){
+ if(!d||typeof d!=='object'||Array.isArray(d))throw Error('invalid_request');
+ const name=instText_(d.name,120);
+ const docType=instEnum_(d.documentType,['CC','TI','RC','CE','PA','OTRO']);
+ const documentNumber=instText_(d.documentNumber,25).toUpperCase();
+ if(!/^[A-Z0-9-]{3,25}$/.test(documentNumber))throw Error('invalid_request');
+ const phone=d.phone?instText_(d.phone,25):'';
+ if(phone&&!/^[0-9+()\s-]{7,25}$/.test(phone))throw Error('invalid_request');
+ return {name,documentType:docType,documentNumber,phone,zone:instEnum_(d.zone,['Cabecera municipal','Centro poblado','Zona rural dispersa']),
+  representation:instEnum_(d.representation,['propia','apoyo']),support:d.support?instText_(d.support,300):''};
+}
+function officialFiles_(files){
+ if(!Array.isArray(files)||files.length<1||files.length>2)throw Error('invalid_request');
+ const seen=new Set(),parsed=[],ordered=['historia','apoyo'];
+ for(const file of files){
+  if(!file||typeof file!=='object'||!ordered.includes(file.kind)||seen.has(file.kind)||typeof file.base64!=='string'||file.base64.length>6500000||!/^[A-Za-z0-9+/]+={0,2}$/.test(file.base64))throw Error('invalid_fixture');
+  const bytes=Utilities.base64Decode(file.base64),size=bytes.length;
+  if(size<20||size>4.5*1024*1024||bytes[0]!==37||bytes[1]!==80||bytes[2]!==68||bytes[3]!==70||bytes[4]!==45)throw Error('invalid_fixture');
+  const sha=digest_(bytes);if(file.sha!==sha||file.size!==size)throw Error('invalid_fixture');
+  parsed.push({kind:file.kind,sha,size,base64:file.base64});seen.add(file.kind);
+ }
+ if(!seen.has('historia')||parsed.reduce((n,x)=>n+x.size,0)>7*1024*1024)throw Error('invalid_fixture');
+ return parsed;
+}
+function officialLegal_(u,id,decisions,policies){
+ if(!Array.isArray(decisions)||decisions.length!==policies.length)throw Error('legal_decision_required');
+ const writes=[];
+ for(const p of policies){
+  const d=decisions.find(x=>x?.id===p.id);
+  if(!d||d.version!==p.version||d.hash!==p.hash||d.accepted!==true)throw Error('legal_version_changed');
+  writes.push(spPut_('legalEvidence',spHash_(id+':official:'+p.id),{ownerUid:u.uid,requestId:id,documentId:p.id,
+   version:p.version,hash:p.hash,act:'informed_consent',purpose:'solicitud_salud_institucional',decision:'accepted'},null,['at']));
+ }
+ return writes;
+}
+function officialView_(doc,staff=false){
+ const x=spData_(doc.fields),id=doc.name.split('/').pop();
+ const result={id,reference:x.reference,status:x.status,createdAt:x.createdAt,updatedAt:x.updatedAt,files:(x.files||[]).map(f=>({kind:f.kind,size:f.size})),revision:x.revision||1};
+ if(staff){result.name=x.name;result.email=x.email;result.documentType=x.documentType;result.documentNumber=x.documentNumber;result.zone=x.zone;result.representation=x.representation;result.phone=x.phone;result.support=x.support;}
+ return result;
+}
+function officialPdf_(id,stored,kind){
+ if(!stored||stored.kind!==kind||typeof stored.fileId!=='string'||!/^[a-f0-9]{64}$/.test(stored.sha||''))throw Error('not_found');
+ const folder=existingFolder_(root_(),'official-'+id),f=requireRestricted_(DriveApp.getFileById(stored.fileId));
+ const parents=f.getParents();let valid=false;
+ while(parents.hasNext()){if(parents.next().getId()===folder.getId())valid=true;}
+ if(!valid||f.getMimeType()!=='application/pdf'||f.getSize()>4.5*1024*1024)throw Error('not_found');
+ const bytes=f.getBlob().getBytes();
+ if(bytes.length!==stored.size||digest_(bytes)!==stored.sha)throw Error('invalid_fixture');
+ return {base64:Utilities.base64Encode(bytes),kind};
+}
+function officialDispatch_(u,action,d){
+ if(action==='officialSubmit'){
+  const available=officialEnabled_();
+  if(d.synthetic===true||d.medicalConsent!==true||!Array.isArray(d.legalDecisions)||typeof d.key!=='string'||!/^[a-f0-9-]{36}$/i.test(d.key))throw Error('invalid_request');
+  const profile=officialProfile_(d),files=officialFiles_(d.files);
+  const id=spHash_(u.uid+':official:'+d.key),previous=spRead_('officialRequests',id);
+  if(previous){if(spData_(previous.fields).ownerUid!==u.uid)throw Error('forbidden');return officialView_(previous);}
+  const legal=officialLegal_(u,id,d.legalDecisions,available.documents);
+  spLimit_(u,'officialSubmit',3);
+  // Reference is for tracking only, not an official certificate or a substitute for the entity's filing register.
+  const reference='SSP-'+new Date().getFullYear()+'-'+id.slice(0,12).toUpperCase();
+  spCommit_([...legal,spPut_('officialRequests',id,{...profile,ownerUid:u.uid,email:u.email,reference,status:'saving',
+   service:'certificacion-discapacidad',revision:1,notifyByEmail:d.notifyByEmail===true,files:[]},null,['createdAt','updatedAt']),
+   spAudit_(id,u.uid,'official:intake_started')]);
+  let folder;
+  try{
+   folder=folder_(root_(),'official-'+id);
+   const stored=files.map(f=>savePdf_(folder,f));
+   spCommit_([spPut_('officialRequests',id,{status:'received',files:stored,revision:2},spRead_('officialRequests',id),['updatedAt']),
+     spAudit_(id,u.uid,'official:documents_received')]);
+  }catch(_){
+   const current=spRead_('officialRequests',id);
+   if(current&&spData_(current.fields).status==='saving')spCommit_([spPut_('officialRequests',id,{status:'storage_review'},current,['updatedAt']),spAudit_(id,u.uid,'official:storage_review')]);
+   return officialView_(spRead_('officialRequests',id));
+  }
+  if(d.notifyByEmail===true){
+   try{
+    const subject='Solicitud recibida · '+reference;
+    spJournal_(folder,'official-ack.json',()=>spMail_(u.email,subject,'Recibimos la solicitud asociada a la referencia '+reference+'. Puedes consultar su estado con tu cuenta. Este mensaje no es un certificado.'),1);
+   }catch(_){}
+  }
+  return officialView_(spRead_('officialRequests',id));
+ }
+ if(action==='officialMine'){
+  spLimit_(u,'officialMine',60);
+  return {items:spQuery_('officialRequests','ownerUid',u.uid,'createdAt',50).filter(x=>spData_(x.fields).ownerUid===u.uid).map(x=>officialView_(x))};
+ }
+ if(action==='officialInbox'){
+  officialStaff_(u);spLimit_(u,'officialInbox',60);
+  return {items:spQuery_('officialRequests',null,null,'createdAt',50).map(x=>officialView_(x,true))};
+ }
+ const id=d.id;
+ if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw Error('invalid_request');
+ const doc=spRead_('officialRequests',id);if(!doc)throw Error('not_found');
+ const row=spData_(doc.fields),owner=row.ownerUid===u.uid;
+ if(action==='officialRead'){if(!owner)officialStaff_(u);spLimit_(u,'officialRead',80);return officialView_(doc,!owner);}
+ if(action==='officialDownload'){
+  if(!owner)officialStaff_(u);
+  if(!['historia','apoyo'].includes(d.kind))throw Error('invalid_request');
+  if(!owner)instRecent_(u);
+  spLimit_(u,'officialDownload',50);
+  const result=officialPdf_(id,(row.files||[]).find(f=>f.kind===d.kind),d.kind);
+  spCommit_([spAudit_(id,u.uid,'official:download:'+d.kind)]);
+  return result;
+ }
+ if(action==='officialTransition'){
+  officialStaff_(u);instRecent_(u);
+  const allowed={received:['reviewing'],reviewing:['needs_documents','closed'],needs_documents:['reviewing']};
+  if(!allowed[row.status]?.includes(d.status)||d.revision!==row.revision)throw Error('invalid_transition');
+  const comment=instText_(d.comment,450);spLimit_(u,'officialTransition',50);
+  spCommit_([spPut_('officialRequests',id,{status:d.status,revision:row.revision+1,lastAction:comment,updatedBy:u.uid},doc,['updatedAt']),
+    spAudit_(id,u.uid,'official:status:'+d.status)]);
+  return officialView_(spRead_('officialRequests',id),true);
+ }
+ throw Error('invalid_request');
 }

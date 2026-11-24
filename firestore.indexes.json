@@ -1,32 +1,105 @@
 {
   "indexes": [
-    {"collectionGroup":"serviceRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"operators","arrayConfig":"CONTAINS"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
-    {"collectionGroup":"serviceRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"ownerUid","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {
+      "collectionGroup": "serviceRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "operators",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "serviceRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ownerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
     {
       "collectionGroup": "institutionalVersions",
       "queryScope": "COLLECTION",
-      "fields": [{"fieldPath":"entity","order":"ASCENDING"},{"fieldPath":"at","order":"DESCENDING"}]
+      "fields": [
+        {
+          "fieldPath": "entity",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
     },
     {
       "collectionGroup": "legalEvidence",
       "queryScope": "COLLECTION",
-      "fields": [{"fieldPath":"ownerUid","order":"ASCENDING"},{"fieldPath":"at","order":"DESCENDING"}]
+      "fields": [
+        {
+          "fieldPath": "ownerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
     },
     {
       "collectionGroup": "rightsCases",
       "queryScope": "COLLECTION",
-      "fields": [{"fieldPath":"ownerUid","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]
+      "fields": [
+        {
+          "fieldPath": "ownerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     },
     {
       "collectionGroup": "audit",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "requestId", "order": "ASCENDING"},
-        {"fieldPath": "at", "order": "DESCENDING"}
+        {
+          "fieldPath": "requestId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ownerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "officialRequests",
       "queryScope": "COLLECTION",
       "fields": [
         {
