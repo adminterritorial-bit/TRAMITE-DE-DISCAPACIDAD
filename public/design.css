@@ -161,8 +161,8 @@ body footer :focus-visible { outline-color:#a9d2ff; }
   .home-shortcuts { grid-template-columns:1fr; }
 }
 @media(max-width:550px) {
-  body .nav { padding-inline:.65rem;gap:.12rem; }
-  body .nav .navbtn { padding-inline:.45rem;font-size:.8rem; }
+  body .nav { flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding-inline:.65rem;gap:.2rem; }
+  body .nav .navbtn { flex:0 0 auto;min-height:3.1rem;padding:.75rem .65rem;font-size:.92rem; }
   .citizen-start { gap:1rem;padding:1rem; }
   .citizen-search-row { flex-direction:column; }
   .citizen-search-row .primary { width:100%; }
