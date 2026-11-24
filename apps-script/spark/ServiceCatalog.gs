@@ -107,7 +107,7 @@ function catChange_(u,action,d){
  if(privileged)instRecent_(u);
  if(privileged&&u.role!=='supervisor')throw Error('forbidden');
  const id=catId_(d.id),store=catStore_();
- if(['discapacidad','certificacion'].includes(id))throw Error('invalid_request');
+ if(['discapacidad','certificacion','certificacion-discapacidad'].includes(id))throw Error('invalid_request');
  const {doc,categories,services}=store;
  let next;
  if(action==='categorySave'||action==='categoryRetire'){
