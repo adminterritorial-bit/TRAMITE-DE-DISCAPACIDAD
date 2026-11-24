@@ -34,3 +34,66 @@ body.hc .live-intake :is(.intake-state p,.intake-state h2,.intake-step h3,.intak
 #adminDashboard[data-active-module]:not([data-active-module=cases])>.official-inbox{display:none}
 body.hc :is(.official-inbox,.official-case,.official-case-details){background:#000!important;border-color:#fff!important;color:#fff!important}
 body.hc :is(.official-inbox h2,.official-case-details h3){color:#fff!important}
+
+
+/* Bandeja institucional de expedientes de Salud */
+#officialInbox{padding:24px;border:1px solid #c5d8ed;background:#fff;border-radius:20px;box-shadow:0 12px 32px #102d4a10}
+#officialInbox[hidden]{display:none!important}
+.case-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.case-heading h2{margin:7px 0;color:#102e50;font-size:1.5rem}
+.case-heading p{margin:0;color:#496079;line-height:1.6}
+.case-feedback{margin:12px 0;color:#13456f;font-weight:600;min-height:1em}
+.case-feedback[data-error=true]{padding:11px 14px;border-radius:10px;background:#fff0ee;color:#9a281e}
+.case-counts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:18px 0}
+.case-stat{padding:13px;border:1px solid #ceddee;background:#f4f8fe;border-radius:13px}
+.case-stat strong{display:block;font-size:1.55rem;color:#103e67}
+.case-stat span{display:block;color:#42607c;font-size:.76rem;line-height:1.35}
+.case-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px);gap:12px;margin-bottom:16px}
+.case-field{display:grid;gap:7px;font-weight:650;color:#143e65;min-width:0}
+.case-field input,.case-field select,.case-field textarea{width:100%;min-width:0;max-width:100%;background:#fff;color:#1d3046}
+.case-layout{display:grid;grid-template-columns:minmax(220px,31%) minmax(0,1fr);gap:16px}
+.case-list{max-height:830px;overflow-y:auto;border:1px solid #c9d9eb;border-radius:15px;background:#f4f8fd;padding:10px}
+.case-list-card{display:grid;text-align:left;width:100%;gap:6px;margin:0 0 8px;padding:15px;background:#fff;border:1px solid #d0dfed;border-radius:12px;color:#113b61}
+.case-list-card.selected,.case-list-card:hover{border-color:#1762a2;background:#edf6ff;box-shadow:inset 3px 0 0 #1762a2}
+.case-list-card strong{overflow-wrap:anywhere}
+.case-list-card span:not(.case-badge){font-weight:500}
+.case-list-card small{color:#526780}
+.case-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:5px 10px;background:#e9f2fb;color:#16426d;border:1px solid #bdd4e8;border-radius:999px;font-size:.76rem;font-weight:750;white-space:normal}
+.case-badge[data-status="needs_documents"],.case-badge[data-status="delivery_review"],.case-badge[data-status="storage_review"]{background:#fff3dc;color:#704b0b;border-color:#e4ca8c}
+.case-badge[data-status="delivered"],.case-badge[data-status="available"],.case-badge[data-status="closed"]{background:#e4f4ee;color:#175a3d;border-color:#b9dfcb}
+.case-badge[data-status="not_proceed"]{background:#fff0ed;color:#8a2d22;border-color:#ecc4ba}
+.case-detail{min-width:0;border:1px solid #c8daec;border-radius:15px;padding:20px;background:#fff}
+.case-detail-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.case-detail-heading h3{font-size:1.35rem;color:#102e50;margin:5px 0}
+.case-detail-heading p{margin:0;color:#526680}
+.case-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}
+.case-facts>div{padding:10px 12px;border:1px solid #d5e3f2;border-radius:10px;background:#f7fbff;overflow-wrap:anywhere}
+.case-facts small,.case-facts strong{display:block}
+.case-facts small{color:#506c87}.case-facts strong{color:#143f64;font-size:.92rem}
+.case-section{padding:18px 0;border-top:1px solid #d5e3f1}
+.case-section h4{font-size:1.08rem;color:#123c63;margin:0}
+.case-section-help{font-size:.91rem;color:#4d6480;line-height:1.6;margin:6px 0 14px}
+.case-filelist{display:grid;gap:10px}
+.case-document{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #ceddeb;border-radius:11px;padding:12px}
+.case-document>span{flex:1;min-width:145px;font-weight:700;color:#17426b}
+.case-document>small{color:#536c85}
+.case-timeline{display:grid;gap:14px;margin:12px 0 0;padding-left:22px;border-left:2px solid #b5cfe5;list-style:none}
+.case-timeline li{padding:2px 0 7px 15px}
+.case-timeline small{display:block;color:#587086;margin-top:4px}
+.case-timeline p{margin:5px 0;color:#334d67;overflow-wrap:anywhere}
+.case-update-form{display:grid;gap:14px}
+.case-confirm{display:flex;align-items:flex-start;gap:10px;background:#eef5fc;border-radius:10px;padding:13px;font-weight:550;line-height:1.5}
+.case-confirm input{flex:none;width:20px;height:20px;accent-color:#15578e}
+.case-delivery-destination{display:grid;gap:4px;background:#eaf3fc;border:1px solid #bfd7ea;border-radius:12px;padding:14px;margin:0 0 14px}
+.case-delivery-destination strong{color:#164773}.case-delivery-destination span{color:#405e79;overflow-wrap:anywhere}
+.case-section>.primary{margin-top:14px}
+.case-citizen-card{display:grid;gap:9px;padding:16px;border:1px solid #cbddeb;border-radius:12px;margin:12px 0;background:#f9fcff}
+.case-correction{display:grid;gap:9px}
+.case-citizen-card>details{border-top:1px solid #cbddeb;padding-top:10px}
+/* No presentar una segunda bandeja histórica de expedientes sintéticos en producción */
+#adminDashboard:not([data-active-module]) .adminlayout,#adminDashboard[data-active-module="cases"] .adminlayout{display:none}
+#adminDashboard:not([data-active-module]) .dashbar,#adminDashboard[data-active-module="cases"] .dashbar{display:none}
+body.hc :is(#officialInbox,.case-stat,.case-list,.case-list-card,.case-detail,.case-facts>div,.case-confirm,.case-delivery-destination){background:#000!important;color:#fff!important;border-color:#fff!important}
+body.hc :is(.case-heading h2,.case-detail-heading h3,.case-section h4,.case-stat strong,.case-facts strong,.case-list-card strong,.case-badge){color:#fff!important}
+@media(max-width:980px){.case-counts{grid-template-columns:repeat(3,minmax(0,1fr))}.case-layout{grid-template-columns:minmax(0,1fr)}.case-list{max-height:320px}}
+@media(max-width:600px){#officialInbox{padding:14px}.case-counts{grid-template-columns:repeat(2,minmax(0,1fr))}.case-tools,.case-facts{grid-template-columns:minmax(0,1fr)}.case-detail{padding:14px}.case-heading h2{font-size:1.25rem}}
