@@ -58,7 +58,7 @@ function submit(form,label,fn){
   finally{button.disabled=false;form.removeAttribute('aria-busy');}
  };
 }
-const standard={id:'discapacidad',title:'Certificación de discapacidad',category:'certificacion',
+const standard={id:'discapacidad',title:'Certificación de discapacidad',category:'discapacidad-apoyos',
  description:'Orientación, solicitud y seguimiento de soportes para la certificación de discapacidad.',channel:'Secretaría de Salud',standard:true};
 const normalize=normalizeSearch;
 const icons={folder:'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',document:'M6 3h8l4 4v14H6z M14 3v5h5 M9 12h6 M9 16h6',heart:'M20.8 8.6c0 4-8.8 10-8.8 10s-8.8-6-8.8-10a4.6 4.6 0 0 1 8.8-2 4.6 4.6 0 0 1 8.8 2z M7 12h3l1-2 2 4 1-2h3',search:'M10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z M16 16l4 4',clock:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2',help:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M9 9a3 3 0 1 1 4 3v1 M12 17h.01',shield:'M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10z M8 12l3 3 5-6',arrow:'M5 12h14 M13 6l6 6-6 6',grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 5h13 M8 12h13 M8 19h13 M3 5h.01 M3 12h.01 M3 19h.01'};
@@ -129,7 +129,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
 
  const serviceBody=node('div');
  service.append(serviceBody);
- let publicCatalog={items:[standard],categories:[{id:'certificacion',title:'Certificación'}]};
+ let publicCatalog={items:[standard],categories:[{id:'discapacidad-apoyos',title:'Discapacidad y apoyos'}]};
  let endpoint,activeService,user,role,serviceKey,cacheError,pendingService,officialActive=null,availabilityText='Consulta la disponibilidad al iniciar';
  // The same published catalogue powers home and full catalogue.
  // The detail and action routes remain centralized in openService.
