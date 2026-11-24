@@ -100,13 +100,13 @@ begin
   elsif v_type in ('select','radio') then
    if jsonb_typeof(v_value)<>'string' or
     not exists(select 1 from jsonb_array_elements_text(v_field->'options') option
-       where option=v_value#>>'{}')
+       where option=(v_value#>>'{}'))
    then raise exception 'invalid_profile'; end if;
   elsif v_type in ('text','textarea','date') then
    if jsonb_typeof(v_value)<>'string' or length(v_value#>>'{}')>
       (case when v_type='textarea' then 2000 else 350 end)
    then raise exception 'invalid_profile'; end if;
-   if v_type='date' and v_value#>>'{}' !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
+   if v_type='date' and (v_value#>>'{}') !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
    then raise exception 'invalid_profile'; end if;
   else raise exception 'invalid_service_schema'; end if;
  end loop;
