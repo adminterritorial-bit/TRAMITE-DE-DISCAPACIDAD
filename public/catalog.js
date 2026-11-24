@@ -73,7 +73,7 @@ const fieldNames={text:'Texto corto',textarea:'Texto amplio',number:'Número',da
  radio:'Opción única',checkbox:'Casilla',document:'Documento PDF'};
 const caseStates={saving:'Archivando soportes',storage_review:'Archivo por verificar',received:'Recibida',closed:'Cerrada'};
 
-export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,downloadContent}){
+export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,downloadContent,startConfiguredService,startOfficialService}){
  const catalogue=region('Trámites y servicios de Salud','Encuentra orientación, consulta los requisitos y realiza el seguimiento de tus solicitudes en un solo lugar.');
  catalogue.id='catalog';catalogue.classList.add('catalog-home');
  const service=region('Ficha de trámite','Consulte los requisitos antes de continuar.');
@@ -177,7 +177,9 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
     :'Consulte la ficha y el canal autorizado','home-catalog-availability');
    const actions=node('div',null,'home-catalog-actions');
    actions.append(btn('Ver requisitos',()=>void openService(item),'primary'));
-   if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>navigate('citizen'),'secondary'));
+   if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>{if(startOfficialService)startOfficialService();else navigate('citizen');},'secondary'));
+   if(!item.standard&&item.intakeEnabled&&item.intakeSchema&&startConfiguredService)
+    actions.append(btn('Iniciar solicitud',()=>startConfiguredService(item),'secondary'));
    card.append(identity,heading,summary,availability,actions);
    homeCards.append(card);
   }
@@ -346,7 +348,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    requirements.append(items,node('p','La Secretaría de Salud orienta los requisitos y la valoración. Consulta las condiciones del procedimiento antes de trasladarte.'));
    const terms=node('a','Procedimiento de certificación · Ministerio de Salud','secondary help-link');
    terms.href='https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-1197-de-2024.pdf';
-   requirements.append(terms,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive===true?'Iniciar solicitud':officialActive===false?'Consultar canales de atención':'Consultar disponibilidad',()=>navigate(officialActive===false?'help':'citizen'),'primary'));
+   requirements.append(terms,btn('Preparar requisitos sin iniciar sesión',()=>showPreparation(item),'secondary'),btn(officialActive===true?'Iniciar solicitud':officialActive===false?'Consultar canales de atención':'Consultar disponibilidad',()=>{if(officialActive===false)navigate('help');else if(startOfficialService)startOfficialService();else navigate('citizen');},'primary'));
    const next=node('section',null,'service-overview');
    next.append(node('h2','Después de enviar'),node('p','Conserva la referencia para consultar la verificación de los documentos y las acciones pendientes. La valoración y el certificado corresponden al proceso autorizado.'),btn('Consultar mis solicitudes',()=>navigate('tracking'),'secondary'));
    serviceBody.append(requirements,next);return;
@@ -358,6 +360,11 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    node('p','Consulte la información del trámite y comuníquese con la Secretaría de Salud para confirmar requisitos, disponibilidad y forma de atención.'),
    node('p','Canal autorizado: '+(item.channel||'Secretaría de Salud')));
   serviceBody.append(publicInfo);
+  if(item.intakeEnabled&&item.intakeSchema&&startConfiguredService){
+   serviceBody.append(node('p','Este servicio tiene recepción electrónica autorizada. Sigue los cinco pasos de SITS Salud.','ui-service-status'));
+   serviceBody.append(btn('Iniciar solicitud de '+item.title,()=>startConfiguredService(item),'primary'));
+   return;
+  }
   if(!user||!['supervisor','admin','operator'].includes(role)){
    serviceBody.append(btn('Consultar ayuda y canales de atención',()=>navigate('help'),'primary'));
    return;
