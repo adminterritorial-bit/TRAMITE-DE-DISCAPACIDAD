@@ -38,6 +38,7 @@ function sitsSbCall_(path,method,data,accessToken,server){
  }
  const response=UrlFetchApp.fetch(SITS_SB_URL_+'/'+path,opts);
  const status=response.getResponseCode();
+ if(status===204)return null;
  let parsed;
  try{parsed=JSON.parse(response.getContentText());}catch(_){throw Error('database_unavailable');}
  if(status<200||status>=300){

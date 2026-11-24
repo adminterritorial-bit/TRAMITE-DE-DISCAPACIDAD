@@ -9,7 +9,8 @@ function context(mode='dual',qa=false){
  const output=value=>JSON.parse(JSON.stringify(value));
  const ctx={
   PropertiesService:{getScriptProperties:()=>({getProperty:key=>({
-   SITS_BACKEND_MODE:mode,SITS_SB_TEST_EMAILS:'salud@sanpedro-valle.gov.co'
+   SITS_BACKEND_MODE:mode,SITS_SB_TEST_EMAILS:'salud@sanpedro-valle.gov.co',
+   SITS_SB_SECRET_KEY:'sb_secret_fictitious'
   }[key]??null)})},
   Utilities:{
    base64Decode(value){return Array.from(Buffer.from(value,'base64'));},
@@ -98,4 +99,14 @@ test('QA remains restricted when the project mode is Supabase',()=>{
  ctx.sitsSbCase_=()=>({owner_user_id:'fixture',applicant_name:'Other person',document_number:'OTHER'});
  assert.throws(()=>ctx.sitsSbDispatch_(user,'officialRead',{id:'fixture'},'token'),/not_found/);
  assert.equal(context('supabase').ctx.sitsSbDispatch_(user,'sessionAccess',{},'fixture').testIntake,false);
+});
+
+test('Supabase void RPC success accepts HTTP 204 without parsing a JSON body',()=>{
+ const {ctx}=context('supabase');
+ ctx.UrlFetchApp={fetch:(_url,options)=>{
+  assert.equal(options.headers.apikey,'sb_secret_fictitious');
+  assert.equal(options.headers.Authorization,undefined);
+  return {getResponseCode:()=>204,getContentText:()=>''};
+ }};
+ assert.equal(ctx.sitsSbCall_('rest/v1/rpc/sits_portal_commit','post',{},null,true),null);
 });
