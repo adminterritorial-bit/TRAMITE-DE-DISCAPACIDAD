@@ -140,7 +140,17 @@ function spRest_(suffix,method,data,allowMissing){
  if(data!==undefined){opts.contentType='application/json';opts.payload=JSON.stringify(data);}
  var res=UrlFetchApp.fetch(SPARK_REST_+suffix,opts),code=res.getResponseCode();
  if(code===404&&allowMissing)return null;
- if(code!==200)throw Error('firestore_unavailable');
+ if(code!==200){
+  var status='UNKNOWN';
+  try{status=String(JSON.parse(res.getContentText()).error?.status||'UNKNOWN');}catch(_){}
+  // Log only the HTTP status and Firestore status code, never personal data or tokens.
+  console.warn('SITS Firestore HTTP '+code+' '+status);
+  if(code===403||status==='PERMISSION_DENIED')throw Error('firestore_permission_denied');
+  if(status==='FAILED_PRECONDITION')throw Error('firestore_precondition');
+  if(code===429||status==='RESOURCE_EXHAUSTED')throw Error('rate_limit');
+  if(code===409||code===412||status==='ABORTED')throw Error('content_version_changed');
+  throw Error('firestore_unavailable');
+ }
  return JSON.parse(res.getContentText());
 }
 function spName_(collection,id){
@@ -538,7 +548,7 @@ function spHandle_(e){
   if(!INST_ACTIONS_.includes(req.action)&&!(typeof CATALOG_ACTIONS_!=='undefined'&&CATALOG_ACTIONS_.includes(req.action))&&!OFFICIAL_ACTIONS_.includes(req.action)){lock=LockService.getScriptLock();lock.waitLock(15000);}
   return output_({ok:true,build:SPARK_BUILD_,data:spDispatch_(u,req.action,req.data)});
  }catch(err){
-  var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','legal_decision_required','legal_version_changed','content_version_changed','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token'];
+  var safe=['pilot_disabled','rate_limit','invalid_fixture','invalid_profile','forbidden','invalid_transition','not_found','invalid_request','firestore_unavailable','recent_login_required','legal_decision_required','legal_version_changed','content_version_changed','not_enabled','invalid_identity','authorization_failed','invalid_app','invalid_token','firestore_permission_denied','firestore_precondition','delivery_uncertain'];
   return output_({ok:false,build:SPARK_BUILD_,stage,error:safe.includes(err.message)?err.message:'operation_failed'});
  }finally{if(lock&&lock.hasLock())lock.releaseLock();}
 }
@@ -549,7 +559,7 @@ function spHandle_(e){
  * Separate from the legacy synthetic workflow and from certification/RLCPD issuance.
  * Never expose clinical details in public GET responses or notification mail.
  */
-const OFFICIAL_ACTIONS_=['officialSubmit','officialMine','officialInbox','officialRead','officialDownload','officialTransition'];
+const OFFICIAL_ACTIONS_=['officialSubmit','officialMine','officialInbox','officialRead','officialDownload','officialTransition','officialCorrect','officialSendCertificate','officialVerifyDelivery'];
 const OFFICIAL_POLICY_KINDS_=['processing','privacy','terms','sensitive'];
 function officialProp_(name){return String(PropertiesService.getScriptProperties().getProperty(name)||'').trim();}
 const OFFICIAL_PUBLIC_NOTICES_={
@@ -617,8 +627,11 @@ function officialLegal_(u,id,decisions,policies){
 }
 function officialView_(doc,staff=false){
  const x=spData_(doc.fields),id=doc.name.split('/').pop();
- const result={id,reference:x.reference,status:x.status,createdAt:x.createdAt,updatedAt:x.updatedAt,files:(x.files||[]).map(f=>({kind:f.kind,size:f.size})),revision:x.revision||1};
- if(staff){result.name=x.name;result.email=x.email;result.documentType=x.documentType;result.documentNumber=x.documentNumber;result.zone=x.zone;result.representation=x.representation;result.phone=x.phone;result.support=x.support;}
+ const result={id,reference:x.reference,status:x.status,createdAt:x.createdAt,updatedAt:x.updatedAt,
+  files:(x.files||[]).map(f=>({kind:f.kind,size:f.size})),revision:x.revision||1,
+  correctionKind:x.correctionKind||null,certificateAvailable:!!x.certificate&&['delivered','available','closed'].includes(x.status),
+  deliveryMethod:x.deliveryMethod||null,history:(x.history||[]).slice(-25).map(h=>({status:h.status,at:h.at,comment:h.comment||''}))};
+ if(staff){result.name=x.name;result.email=x.email;result.documentType=x.documentType;result.documentNumber=x.documentNumber;result.zone=x.zone;result.representation=x.representation;result.phone=x.phone;result.support=x.support;result.certificateEmailConsent=x.certificateEmailConsent===true;result.certificate=x.certificate?{kind:'certificate',size:x.certificate.size}:null;result.deliveryStatus=x.deliveryStatus||null;}
  return result;
 }
 function officialPdf_(id,stored,kind){
@@ -643,13 +656,13 @@ function officialDispatch_(u,action,d){
   // Reference is for tracking only, not an official certificate or a substitute for the entity's filing register.
   const reference='SSP-'+new Date().getFullYear()+'-'+id.slice(0,12).toUpperCase();
   spCommit_([...legal,spPut_('officialRequests',id,{...profile,ownerUid:u.uid,email:u.email,reference,status:'saving',
-   service:'certificacion-discapacidad',revision:1,notifyByEmail:d.notifyByEmail===true,files:[]},null,['createdAt','updatedAt']),
+   service:'certificacion-discapacidad',revision:1,notifyByEmail:d.notifyByEmail===true,certificateEmailConsent:d.certificateEmailConsent===true,files:[],history:[{status:'saving',at:Date.now(),comment:'Solicitud iniciada'}]},null,['createdAt','updatedAt']),
    spAudit_(id,u.uid,'official:intake_started')]);
   let folder;
   try{
    folder=folder_(root_(),'official-'+id);
    const stored=files.map(f=>savePdf_(folder,f));
-   spCommit_([spPut_('officialRequests',id,{status:'received',files:stored,revision:2},spRead_('officialRequests',id),['updatedAt']),
+   spCommit_([spPut_('officialRequests',id,{status:'received',files:stored,revision:2,history:[{status:'saving',at:Date.now(),comment:'Solicitud iniciada'},{status:'received',at:Date.now(),comment:'Soportes recibidos'}]},spRead_('officialRequests',id),['updatedAt']),
      spAudit_(id,u.uid,'official:documents_received')]);
   }catch(_){
    const current=spRead_('officialRequests',id);
@@ -679,10 +692,11 @@ function officialDispatch_(u,action,d){
  if(action==='officialRead'){if(!owner)officialStaff_(u);spLimit_(u,'officialRead',80);return officialView_(doc,!owner);}
  if(action==='officialDownload'){
   if(!owner)officialStaff_(u);
-  if(!['historia','apoyo'].includes(d.kind))throw Error('invalid_request');
+  if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
+  if(d.kind==='certificate'&&owner&&!['delivered','available','closed'].includes(row.status))throw Error('not_found');
   if(!owner)instRecent_(u);
   spLimit_(u,'officialDownload',50);
-  const result=officialPdf_(id,(row.files||[]).find(f=>f.kind===d.kind),d.kind);
+  const result=officialPdf_(id,d.kind==='certificate'?row.certificate:(row.files||[]).find(f=>f.kind===d.kind),d.kind);
   spCommit_([spAudit_(id,u.uid,'official:download:'+d.kind)]);
   return result;
  }
