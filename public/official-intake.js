@@ -90,7 +90,42 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   representative.options[0].textContent='La propia persona';
   representative.options[1].textContent='Una persona de apoyo';
   row(contact,'Ajustes de movilidad o comunicación solicitados','support',{multiline:true,max:300});
-  filesPanel.append(el('p','Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
+  const dynamicInputs=new Map();
+  const extraSpecs=Array.isArray(serviceSchema?.fields)?
+   serviceSchema.fields.filter(spec=>spec.type!=='document'):[];
+  if(configured&&extraSpecs.length){
+   const additional=el('div',undefined,'configured-service-fields');
+   additional.append(el('h4','Información específica del trámite'));
+   const extraGrid=el('div',undefined,'intake-fields');
+   for(const spec of extraSpecs){
+    const label=spec.label+(spec.required?' *':'');
+    const opts={required:spec.required===true,
+      ...(['select','radio'].includes(spec.type)?{select:['',...(spec.options||[])]}:
+      spec.type==='textarea'?{multiline:true,max:2000}:
+      spec.type==='checkbox'?{type:'checkbox'}:
+      spec.type==='number'?{type:'number',max:20}:
+      spec.type==='date'?{type:'date'}:{max:350})};
+    const input=row(extraGrid,label,'service__'+spec.id,opts);
+    dynamicInputs.set(spec.id,{input,spec});
+   }
+   additional.append(extraGrid);contact.append(additional);
+  }
+  function applyConditions(){
+   for(const {input,spec} of dynamicInputs.values()){
+    if(!spec.condition)continue;
+    const dependent=dynamicInputs.get(spec.condition.field)?.input;
+    const visible=!!dependent&&dependent.value===spec.condition.equals;
+    input.closest('label').hidden=!visible;
+    input.disabled=!visible;
+    input.required=visible&&spec.required===true;
+    if(!visible){if(input.type==='checkbox')input.checked=false;else input.value='';}
+   }
+  }
+  form.addEventListener('change',applyConditions);
+  form.addEventListener('input',applyConditions);
+  applyConditions();
+  filesPanel.append(el('p',configured?'Adjunta los soportes indicados para este trámite. Máximo 4,5 MB por PDF y 7 MB en total.':
+    'Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
   const fileGrid=el('div',undefined,'intake-filegrid');
   const history=pdfField({label:'Historia clínica o soporte médico',kind:'historia',required:true});
   const extra=pdfField({label:'Soporte adicional, si aplica',kind:'apoyo'});
