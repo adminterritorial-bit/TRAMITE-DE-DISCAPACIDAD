@@ -151,8 +151,14 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   }
   for(const item of matches.slice(0,6)){
    const card=node('article',null,'home-catalog-card');
+   card.dataset.service=item.standard?'official':'configured';
    const categoryName=publicCatalog.categories.find(x=>x.id===item.category)?.title||'Salud';
    const tag=node('span',categoryName,'home-catalog-category');
+   const identity=node('div',null,'home-catalog-identity');
+   const mark=node('span',null,'home-catalog-icon');
+   mark.setAttribute('aria-hidden','true');
+   mark.append(glyph(item.standard?'heart':'document'));
+   identity.append(mark,tag);
    const heading=node('h3',item.title),summary=node('p',item.description,'home-catalog-description');
    const availability=node('p',item.standard
     ?officialActive===true?'Recepción electrónica disponible':officialActive===false?'Atención según disponibilidad':'Consulte los requisitos y la disponibilidad'
@@ -160,7 +166,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    const actions=node('div',null,'home-catalog-actions');
    actions.append(btn('Ver requisitos',()=>void openService(item),'primary'));
    if(item.standard&&officialActive===true)actions.append(btn('Iniciar solicitud',()=>navigate('citizen'),'secondary'));
-   card.append(tag,heading,summary,availability,actions);
+   card.append(identity,heading,summary,availability,actions);
    homeCards.append(card);
   }
  }
