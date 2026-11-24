@@ -182,13 +182,6 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
  const dashboard=document.getElementById('adminDashboard');
- const shortcuts=node('div',null,'workspace-shortcuts');
- shortcuts.hidden=true;
- const shortcutCatalog=btn('Diseñar un trámite →',()=>void openAdmin('catalog'));
- const shortcutCases=btn('Gestionar solicitudes →',()=>void openAdmin('cases'));
- const shortcutStaff=btn('Administrar equipo →',()=>void openAdmin('staff'));
- shortcuts.append(shortcutCatalog,shortcutCases,shortcutStaff);
- dashboard.querySelector('.dashbar').after(shortcuts);
  dashboard.append(manager);
  if(!demo){
   if(!nav.querySelector('[data-view=catalog]')){
@@ -771,7 +764,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  renderCatalog();
  return {connect,tracking,setIntakeAvailability(enabled,status){officialActive=enabled??null;if(status)availabilityText=status;renderHomeCatalog();},setSession(next,nextRole){
-  user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
+  user=next;role=nextRole;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';
    if(b.textContent==='Catálogo y formularios')b.hidden=!['admin','supervisor'].includes(role);
