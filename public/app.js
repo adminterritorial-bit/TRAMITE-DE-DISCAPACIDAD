@@ -49,7 +49,13 @@ function showView(v,{focus=true}={}){
 }
 all('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 const experience=portalExperience({demo,navigate:showView,invoke});
-const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent});
+const catalog=serviceCatalog({demo,navigate:showView,invoke,experience,fixtureData,downloadContent,
+ startConfiguredService:item=>{
+  if(officialUI.selectService(item))showView('citizen');
+  else experience.toast('Este trámite todavía no tiene recepción electrónica verificada.');
+ },
+ startOfficialService:()=>{officialUI.resetService();showView('citizen');}
+});
 let catalogueStarted=false;
 function ensureCatalogue(){if(!demo&&!catalogueStarted){catalogueStarted=true;void catalog.connect(config.appsScriptEndpoint);}}
 const accessibility=accessiblePortal({navigate:showView});
