@@ -68,6 +68,17 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  const counts=e('div',undefined,'case-counts');
  const tools=e('div',undefined,'case-tools');
  const search=e('input');search.type='search';search.placeholder='Nombre, documento o radicado';search.setAttribute('aria-label','Buscar por nombre, documento o radicado');
+ const serviceFilter=e('select');serviceFilter.setAttribute('aria-label','Filtrar por trámite');
+ const allServices=e('option','Todos los trámites');allServices.value='';serviceFilter.append(allServices);
+ const officialService=e('option','Certificación de discapacidad');officialService.value='certificacion-discapacidad';serviceFilter.append(officialService);
+ const serviceLabels=new Map([['certificacion-discapacidad','Certificación de discapacidad']]);
+ void invoke('catalogList',{}).then(data=>{
+  for(const item of data?.items||[]){
+   if(item.standard||!item.id||serviceLabels.has(item.id))continue;
+   serviceLabels.set(item.id,item.title||item.id);
+   const option=e('option',item.title||item.id);option.value=item.id;serviceFilter.append(option);
+  }
+ }).catch(()=>{});
  const filter=e('select');filter.setAttribute('aria-label','Filtrar por estado');
  for(const [value,name] of [['','Todos los estados'],...Object.entries(STATES)]){
   const o=e('option',name);o.value=value;filter.append(o);
@@ -82,7 +93,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   [task,[['','Cualquier actuación'],['pending','Requiere gestión']]]]){
   for(const [value,label] of values){const option=e('option',label);option.value=value;select.append(option);}
  }
- tools.append(field('Buscar expediente',search),field('Estado',filter),field('Desde',from),field('Hasta',to),field('Responsable',owner),field('Orden',order),field('Prioridad',task));
+ tools.append(field('Buscar expediente',search),field('Trámite',serviceFilter),field('Estado',filter),field('Desde',from),field('Hasta',to),field('Responsable',owner),field('Orden',order),field('Prioridad',task));
  const quickFilters=e('div',undefined,'case-quick-filters');quickFilters.setAttribute('role','group');quickFilters.setAttribute('aria-label','Filtrar rápidamente por estado');
  const quickButtons=new Map();
  for(const [kind,label] of [['','Todas'],['received','Recibidas'],['reviewing','En revisión'],['needs_documents','Subsanación'],['awaiting_certificate','Por certificar'],['delivered','Enviadas'],['closed','Archivadas']]){
@@ -110,7 +121,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  const publishMetrics=(valid=true)=>{
   window.dispatchEvent(new CustomEvent('sits:official-metrics',{detail:{
    exact:valid&&exact,metrics:valid?metrics:null,
-   filtered:!!(search.value||filter.value||from.value||to.value||owner.value||task.value)
+   filtered:!!(search.value||serviceFilter.value||filter.value||from.value||to.value||owner.value||task.value)
   }}));
  };
  const signal=(message,problem=false)=>{status.textContent=message;status.dataset.error=String(problem)};
@@ -145,7 +156,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
  }
  function fallbackRows(){
   const term=normalize(search.value);
-  const filtered=records.filter(x=>(!filter.value||filter.value===x.status)&&
+  const filtered=records.filter(x=>(!serviceFilter.value||serviceFilter.value===x.serviceId)&&(!filter.value||filter.value===x.status)&&
     (!term||normalize([x.reference,x.name,x.documentNumber].join(' ')).includes(term))&&
     (!from.value||localDate(x.createdAt)>=from.value)&&(!to.value||localDate(x.createdAt)<=to.value)&&
     (!task.value||priorities.includes(x.status))&&(!owner.value||(owner.value==='none'?!x.assignedTo:x.assignedTo===sessionUserId)));
@@ -162,7 +173,9 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    card.setAttribute('aria-label','Gestionar '+item.reference);
    card.setAttribute('aria-pressed',String(selectedId===item.id));
    card.classList.toggle('selected',selectedId===item.id);
-   card.append(e('strong',item.reference),pill(item.status),e('span',item.name||'Titular'),e('small',safeDate(item.createdAt)));
+   card.append(e('strong',item.reference),pill(item.status),
+    e('span',serviceLabels.get(item.serviceId)||item.serviceId||'Trámite de Salud'),
+    e('span',item.name||'Titular'),e('small',safeDate(item.createdAt)));
    list.append(card);
   }
   if(!filtered.length)list.append(e('p','Sin expedientes con los criterios seleccionados.','case-empty'));
@@ -179,7 +192,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   const run=++requestGeneration;
   refresh.disabled=true;signal('Consultando expedientes…');panel.setAttribute('aria-busy','true');
   try{
-   const response=await invoke('officialInbox',{search:search.value.trim(),status:filter.value,from:from.value,to:to.value,
+   const response=await invoke('officialInbox',{search:search.value.trim(),serviceId:serviceFilter.value,status:filter.value,from:from.value,to:to.value,
     owner:owner.value,sort:order.value,task:task.value,page,size:limit});
    if(run!==requestGeneration||!panel.isConnected)return;
    records=Array.isArray(response.items)?response.items:[];
@@ -200,7 +213,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   if(exact)void load();else drawList();
  }
  search.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(changeFilters,225);});
- for(const input of [filter,from,to,owner,order,task])input.addEventListener('change',changeFilters);
+ for(const input of [serviceFilter,filter,from,to,owner,order,task])input.addEventListener('change',changeFilters);
  async function openCase(id){
   const sequence=++detailGeneration;selectedId=id;drawList();
   // The authorized inbox already includes the details needed to open a case.
