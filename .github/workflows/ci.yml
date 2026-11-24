@@ -35,6 +35,7 @@ jobs:
           node --check public/spark-probe.js
           node --check < apps-script/spark/ReceptionPilot.gs
           node --check < apps-script/spark/UnifiedBackend.gs
+          node --check < apps-script/spark/SupabaseBridge.gs
           node --check public/spark-pilot.js
       - name: Package authorized Apps Script update
         uses: actions/upload-artifact@v4
