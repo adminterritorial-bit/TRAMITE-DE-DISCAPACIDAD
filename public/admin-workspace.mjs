@@ -1,3 +1,5 @@
+import {calculateCaseIndicators} from './admin-metrics.mjs';
+
 // A single institutional navigation and indicators shell for SITS Salud.
 // The case backend remains authoritative; partial pages never become totals.
 const modules = {
@@ -34,20 +36,6 @@ const icon=(kind)=>{
  path.setAttribute('d',iconPaths[kind]||iconPaths.file);
  svg.append(path);return svg;
 };
-const n=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
-
-export function calculateCaseIndicators(metrics){
- if(!metrics||typeof metrics!=='object'||Array.isArray(metrics))return null;
- const total=Object.values(metrics).reduce((acc,count)=>acc+n(count),0);
- return {
-  total,
-  review:n(metrics.received)+n(metrics.reviewing)+n(metrics.storage_review),
-  corrections:n(metrics.needs_documents),
-  toCertificate:n(metrics.awaiting_certificate),
-  resolved:n(metrics.delivered)+n(metrics.closed)+n(metrics.not_proceed),
-  sent:n(metrics.delivered)
- };
-}
 export function mountAdminWorkspace({dashboard,menu}){
  const surface=menu.parentElement;
  const heading=make('div',undefined,'admin-nav-heading');
