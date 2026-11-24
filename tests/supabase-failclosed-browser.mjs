@@ -13,7 +13,7 @@ try{
   return route.fulfill({json:reply,headers:{'Access-Control-Allow-Origin':'*'}});
  });
  await page.goto('http://127.0.0.1:8080/',{waitUntil:'domcontentloaded'});
- await page.getByText(/Apps Script compatible con Supabase todavía no está desplegado/).first().waitFor({timeout:20000});
+ await page.waitForFunction(()=>document.querySelector('#authMessage')?.textContent?.includes('Apps Script compatible con Supabase todavía no está desplegado'),null,{timeout:20000});
  assert.equal(await page.locator('#googleLogin').isDisabled(),true,'Must not enable institutional login with old backend');
  assert.equal(await page.locator('#adminNav').isVisible(),false);
  assert.equal(await page.locator('#applicationForm').isVisible(),false);
