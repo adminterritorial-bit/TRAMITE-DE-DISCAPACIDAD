@@ -97,9 +97,9 @@ try{
  await page.getByRole('button',{name:'Escuchar guía'}).click();
  await page.locator('#voice-guide:not([hidden])').waitFor();
  assert.equal(await page.locator('dialog[open]').count(),0);
- await page.getByLabel('Buscar trámite').hover();
+ await page.getByLabel('Buscar trámite',{exact:true}).hover();
  await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Buscador de trámites')));
- await page.getByLabel('Buscar trámite').fill('NO-LEER-DATO-PRIVADO');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('NO-LEER-DATO-PRIVADO');
  assert.equal(await page.evaluate(()=>window.__spoken.some(x=>x.includes('NO-LEER-DATO-PRIVADO'))),false);
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
  await page.locator('footer [data-view=legal]').click();
@@ -119,7 +119,7 @@ try{
  await page.getByRole('button',{name:'Vista de lista'}).click();
  assert.equal(await page.getByRole('button',{name:'Vista de lista'}).getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'Vista de tarjetas'}).click();
- await page.getByLabel('Buscar trámite').fill('CERTIFICACION');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('CERTIFICACION');
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
@@ -162,7 +162,7 @@ try{
  await page.getByLabel('Referencia de aprobación de Salud').fill('Aprobación de prueba del entorno local');
  await page.getByRole('button',{name:'Publicar trámite'}).click();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
- await page.getByLabel('Buscar trámite').fill('Orientación');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('Orientación');
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Orientación de prueba',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('checkbox',{name:/Conocimiento del aviso/}).check();
