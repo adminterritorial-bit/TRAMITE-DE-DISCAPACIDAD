@@ -164,6 +164,25 @@ body.hc :is(.admin-collection,.admin-collection-editor,.admin-list-filters,.admi
 body.hc :is(.admin-table :is(th,td),.admin-table td small,.admin-list-filters label,.admin-collection-count,.admin-empty-state p,.admin-service-case-card h3,.admin-service-case-date,.admin-row-more summary,.admin-collection-head h3,.admin-scope-note){color:#fff!important}
 body.hc .case-quick-tab[aria-pressed=true]{background:#ffdf74!important;color:#000!important;border-color:#ffdf74!important}
 
+
+/* Category selection is part of the form studio, not a separate wizard. */
+.studio-category-help{margin:.55rem 0 .75rem;font-size:.88rem;line-height:1.55;color:#496a81}
+.studio-category-create{margin:.35rem 0 1.2rem;background:#fff;border:1px solid #b8d4e5;border-radius:.83rem;overflow:hidden}
+.studio-category-create>summary{cursor:pointer;display:flex;align-items:center;min-height:3rem;gap:.4rem;padding:.8rem 1rem;font-weight:800;color:#17517a;list-style:none;line-height:1.4}
+.studio-category-create>summary::-webkit-details-marker{display:none}
+.studio-category-create>summary::before{content:'＋';font-size:1.18rem;font-weight:800;flex:none}
+.studio-category-create[open]>summary{background:#edf6fc;border-bottom:1px solid #d4e5ef}
+.studio-category-create[open]>summary::before{content:'−'}
+.studio-category-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem;padding:1rem;background:#f9fcfe;align-items:end}
+.studio-category-editor>label{min-width:0;margin:0}
+.studio-category-editor input{min-height:3rem;width:100%;min-width:0}
+.studio-category-editor>.primary{justify-self:start;min-height:3rem}
+.studio-category-editor>.error{align-self:center;margin:0;line-height:1.45}
+.admin-category-tip{grid-column:1/-1;margin:0;color:#526e83;font-size:.83rem;line-height:1.45}
+@media(max-width:720px){.studio-category-editor{grid-template-columns:minmax(0,1fr)}}
+body.hc :is(.studio-category-create,.studio-category-editor){background:#000!important;border-color:#fff!important;color:#fff!important}
+body.hc :is(.studio-category-help,.studio-category-create>summary,.admin-category-tip){color:#fff!important}
+
 .studio-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;flex-wrap:wrap;margin-bottom:20px}
 .studio-heading h2{margin:7px 0 0;font-size:1.7rem}.studio-heading p{margin:4px 0}.studio-kicker{font-size:.72rem;font-weight:800;letter-spacing:.12em;color:#15578e}
 .studio-form{gap:16px}.studio-section{padding:21px;border:1px solid #c6d9ec;background:#f6faff;border-radius:18px;min-width:0}

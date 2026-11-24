@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {filterServices, categoryCounts, normalizeSearch} from '../public/catalog-domain.mjs';
+import {filterServices, categoryCounts, normalizeSearch, categoryCode} from '../public/catalog-domain.mjs';
 
 const catalogue = {
  categories:[{id:'certificacion',title:'Certificación'},{id:'promocion',title:'Promoción y prevención'}],
@@ -25,4 +25,13 @@ test('el trámite institucional prevalece en el orden sin duplicar datos', () =>
 test('las categorías usan únicamente los trámites realmente disponibles', () => {
  assert.deepEqual(categoryCounts(catalogue).map(x=>x.count),[3,1,2]);
  assert.deepEqual(categoryCounts({categories:[],items:[]}).map(x=>x.count),[0]);
+});
+
+test('código automático válido, único y sin palabras reservadas',()=>{
+ assert.equal(categoryCode('Gestión de EPS'),'gestion-de-eps');
+ assert.equal(categoryCode('Vacunación', ['vacunacion']),'vacunacion-2');
+ assert.equal(categoryCode('Discapacidad'),'discapacidad-salud');
+ assert.equal(categoryCode('123'),'salud-123');
+ assert.equal(categoryCode(''),'');
+ assert.match(categoryCode('Secretaría de Salud'),/^[a-z][a-z0-9-]{1,39}$/);
 });

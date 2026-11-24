@@ -85,8 +85,13 @@ function catService_(id){
  return entry;
 }
 function catChange_(u,action,d){
- instManager_(u);instRecent_(u);
- if(['servicePublish','serviceRetire','categoryRetire'].includes(action)&&u.role!=='supervisor')throw Error('forbidden');
+ instManager_(u);
+ // Draft and category edits are role-protected and versioned; do not require
+ // another Google login every 15 minutes just to prepare a form.
+ // Publishing/withdrawal still require a recent institutional login.
+ const privileged=['servicePublish','serviceRetire','categoryRetire'].includes(action);
+ if(privileged)instRecent_(u);
+ if(privileged&&u.role!=='supervisor')throw Error('forbidden');
  const id=catId_(d.id),store=catStore_();
  if(['discapacidad','certificacion'].includes(id))throw Error('invalid_request');
  const {doc,categories,services}=store;
@@ -95,7 +100,7 @@ function catChange_(u,action,d){
   const index=categories.findIndex(x=>x.id===id);
   const old=categories[index];
   if(action==='categoryRetire'&&(!old||services.some(x=>x.live?.category===id)))throw Error('invalid_transition');
-  if(!old&&categories.length>=20)throw Error('rate_limit');
+  if(!old&&categories.length>=80)throw Error('rate_limit');
   next={id,title:action==='categorySave'?instText_(d.title,70):old.title,active:action==='categorySave'};
   if(index<0)categories.push(next);else categories[index]=next;
  }else{

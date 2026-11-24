@@ -23,3 +23,20 @@ export function categoryCounts(catalogue) {
     id:item.id, title:item.title, count:items.filter(service => service.category === item.id).length
   }))];
 }
+
+/** Stable, validated category identifiers shared by catalog and form builder. */
+export function categoryCode(title,existingIds=[]){
+ const reserved=new Set(['constructor','prototype','hasownproperty','discapacidad','certificacion']);
+ let base=normalizeSearch(title).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,38).replace(/-+$/,'');
+ if(!base)return '';
+ if(!/^[a-z]/.test(base))base='salud-'+base;
+ if(base.length<2)return '';
+ if(reserved.has(base))base=(base+'-salud').slice(0,38);
+ const used=new Set(existingIds);
+ let candidate=base,i=2;
+ while(used.has(candidate)){
+  const suffix='-'+i++;
+  candidate=base.slice(0,40-suffix.length).replace(/-+$/,'')+suffix;
+ }
+ return candidate;
+}

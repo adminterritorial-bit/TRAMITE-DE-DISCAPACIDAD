@@ -1,7 +1,7 @@
 import {consumeGoogleOAuthFailure} from './supabase-auth.js';
 import {config} from './config.js';
 import {portalExperience} from './institutional.js?v=admin-mosaic-1';
-import {serviceCatalog} from './catalog.js?v=admin-mosaic-1';
+import {serviceCatalog} from './catalog.js?v=category-flow-1';
 import {initAmbientMotion} from './ui-motion.mjs';
 import {accessiblePortal,trackingAccess} from './accessibility.js?v=2';
 const demo=false;
