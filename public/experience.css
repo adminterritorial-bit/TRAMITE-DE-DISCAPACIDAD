@@ -52,8 +52,8 @@ button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,s
 .faq-item{border-top:1px solid #d8e5f3;padding:12px 0}.faq-item summary{cursor:pointer;color:#164776;font-weight:700;padding:6px 0;min-height:44px}.faq-item p{color:#435b74;margin:7px 0;line-height:1.7;animation:sits-rise .22s ease-out both}
 .service-overview{padding:22px 0}.service-availability{background:#e5effc;border-color:#c0d6ed}.service-overview>button{margin:7px 9px 0 0;white-space:normal;max-width:100%}
 .section-head{padding:23px 26px;border-radius:17px;background:linear-gradient(125deg,#e1edfc,#f2f7fd);border:1px solid #c8daed}.section-head h1{color:#103961}.section-head .eyebrow{color:#14558e}
-.panel,.module-panel,.notice-card{border-color:#c7d9eb;box-shadow:0 8px 26px #113b6710}.admin-module-nav{border-color:#bbd2e9;background:#f3f8ff}
-.admin-module-menu button{color:#174979}.admin-module-menu button[aria-current=page],.admin-module-menu button:hover{background:#dcecff;color:#0d3b65;border-color:#b2cbdf}.metric{border-top:3px solid #2a6da8;background:linear-gradient(160deg,#fff,#eaf3ff)}
+.panel,.module-panel,.notice-card{border-color:#c7d9eb;box-shadow:0 8px 26px #113b6710}
+.metric{border-top:3px solid #2a6da8;background:linear-gradient(160deg,#fff,#eaf3ff)}
 .workspace-shortcuts button{background:#eaf3ff;border-color:#bfd5eb;color:#164776}.manager-section{background:#f4f9ff;border-color:#c7d9eb}.manager-stats>div{background:#e5f0fc;border-color:#bed4ec}.staff-card{border-color:#bbd2e8}
 .institutional-admin h2,.catalog-manager h2{color:#103961}.institution-dialog{border-color:#abc9e5;box-shadow:0 26px 80px #092d544d;border-top:5px solid #14558e}
 footer{background:#102f52;color:#e7f1ff;border-top:4px solid #1f659f}footer a{color:#fff}

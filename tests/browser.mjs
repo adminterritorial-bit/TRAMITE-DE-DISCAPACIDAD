@@ -37,6 +37,9 @@ try {
  assert.equal(await page.locator('#adminNav').isVisible(),false);
  await page.locator('#institutionalAccess').click();
  await page.locator('#adminDashboard:not(.hidden)').waitFor();
+ await page.getByRole('heading',{name:'Áreas de gestión'}).waitFor();
+ assert.equal(await page.locator('.admin-kpi-card').count(),6,'Seis indicadores institucionales visibles');
+ assert.match((await page.locator('.admin-kpi-card[data-kind=total] .admin-kpi-value').textContent()).trim(),/^\d+$/,'Indicadores con datos de la demostración');
  await checkAccessibility('Bandeja de Salud');
  await page.locator('#statusFilter').selectOption('awaiting_certificate');
  assert.equal(await page.locator('#adminList .record').count(),1);
@@ -53,7 +56,8 @@ try {
  await page.getByRole('button',{name:'Archivar y notificar por correo'}).click();
  await page.locator('#details .chip').filter({hasText:'Notificación enviada'}).waitFor();
  await page.screenshot({path:'screenshots/04-expediente.png',fullPage:true});
- await page.getByText('Menú institucional',{exact:true}).click();
+ assert.equal(await page.locator('.admin-module-nav').count(),1,'Navegación administrativa única');
+ assert.equal(await page.getByRole('navigation',{name:'Módulos de Salud'}).getByRole('button').count(),4,'Mosaico sin barra lateral de prueba');
  await page.getByRole('navigation',{name:'Módulos de Salud'}).getByRole('button',{name:'Avisos'}).click();
  await page.getByRole('button',{name:'Crear aviso'}).click();
  await page.getByLabel('Título',{exact:true}).fill('Horario de prueba');
@@ -66,8 +70,8 @@ try {
  await page.getByRole('button',{name:'Previsualizar'}).click();
  await page.getByRole('button',{name:'Guardar borrador'}).click();
  await page.getByRole('button',{name:'Publicar o programar'}).click();
- await page.locator('.navbtn[data-view=home]').click();
- await page.locator('.home-guidance [data-view=citizen]').click();
+ await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
+ // A published public notice opens on catalogue entry. Close it before navigating.
  const popup=page.getByRole('dialog',{name:'Horario de prueba'});
  await popup.waitFor();
  await page.keyboard.press('Escape');

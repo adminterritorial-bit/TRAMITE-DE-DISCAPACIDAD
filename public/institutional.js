@@ -1,3 +1,5 @@
+import {mountAdminWorkspace} from './admin-workspace.mjs';
+
 const byId=id=>document.getElementById(id);
 const make=(tag,text,cls)=>{
   const element=document.createElement(tag);
@@ -163,12 +165,13 @@ export function portalExperience({demo,navigate,invoke}){
   const adminMenu=make('nav',null,'admin-module-menu');
   adminMenu.setAttribute('aria-label','Módulos de Salud');
   const adminPanel=byId('adminDashboard');
-  adminMenu.append(brand(),button('Expedientes',()=>{manager.hidden=true;adminPanel.dataset.activeModule='cases';adminPanel.querySelector('.dashbar').scrollIntoView({block:'nearest'});}),
+  adminMenu.append(button('Expedientes',()=>{manager.hidden=true;adminPanel.dataset.activeModule='cases';adminPanel.querySelector('.admin-overview')?.scrollIntoView({block:'nearest'});}),
     button('Avisos',()=>void loadManagement('notices')),button('Políticas',()=>void loadManagement('policies')),
     button('Solicitudes de titulares',()=>void loadManagement('rights')));
-  const adminNav=make('details',null,'admin-module-nav');
-  adminNav.append(make('summary','Menú institucional'),adminMenu);
+  const adminNav=make('section',null,'admin-module-nav');
+  adminNav.append(adminMenu);
   adminPanel.prepend(adminNav);
+  mountAdminWorkspace({dashboard:adminPanel,menu:adminMenu});
   adminMenu.addEventListener('click',event=>{
     const selected=event.target.closest('button');if(!selected)return;
     for(const control of adminMenu.querySelectorAll('button')){if(control===selected)control.setAttribute('aria-current','page');else control.removeAttribute('aria-current');}

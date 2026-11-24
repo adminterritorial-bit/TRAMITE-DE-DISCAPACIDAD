@@ -405,10 +405,6 @@ body .live-intake .intake-receipt { border-color:#9eb8ad;background:#f3faf6;bord
 body.staff-workspace .workspace-strip { background:var(--ui-navy);box-shadow:none;min-height:3.5rem; }
 body.staff-workspace .workspace-strip .workspace-identity strong { color:#fff;font-size:1rem; }
 body.staff-workspace .workspace-strip .workspace-identity span { color:#dceaf7; }
-body.staff-workspace #adminDashboard { --workspace-sidebar-width:clamp(11rem,17vw,14.5rem); }
-body.staff-workspace .admin-module-nav { border-radius:var(--ui-radius);background:var(--ui-navy); }
-body.staff-workspace .admin-module-menu .institution-logo { width:6.5rem;max-height:3.4rem;object-fit:contain; }
-body.staff-workspace .admin-module-nav .admin-module-menu button { font-size:.83rem;border-radius:.45rem; }
 body .official-inbox { padding:clamp(.85rem,2vw,1.5rem);border:1px solid var(--ui-line);border-radius:var(--ui-radius-lg);box-shadow:var(--ui-elevation);background:var(--ui-surface); }
 body .case-heading { gap:1rem;align-items:flex-start;flex-wrap:wrap; }
 body .case-heading h2 { letter-spacing:-.04em; }
@@ -456,8 +452,6 @@ body .case-citizen-card { margin:0;padding:1rem;border-color:var(--ui-line);bord
 }
 
 /* The header occupies the same space before and after authentication. */
-body.staff-workspace .nav { display:flex; }
-body.staff-workspace .staff-entry { display:inline-flex;align-items:center; }
 body .workspace-strip,
 body.staff-workspace .workspace-strip {
  background:var(--ui-pale);

@@ -97,9 +97,9 @@ try{
  await page.getByRole('button',{name:'Escuchar guía'}).click();
  await page.locator('#voice-guide:not([hidden])').waitFor();
  assert.equal(await page.locator('dialog[open]').count(),0);
- await page.getByLabel('Buscar trámite').hover();
+ await page.getByLabel('Buscar trámite',{exact:true}).hover();
  await page.waitForFunction(()=>window.__spoken.some(x=>x.includes('Buscador de trámites')));
- await page.getByLabel('Buscar trámite').fill('NO-LEER-DATO-PRIVADO');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('NO-LEER-DATO-PRIVADO');
  assert.equal(await page.evaluate(()=>window.__spoken.some(x=>x.includes('NO-LEER-DATO-PRIVADO'))),false);
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
  await page.locator('footer [data-view=legal]').click();
@@ -119,7 +119,7 @@ try{
  await page.getByRole('button',{name:'Vista de lista'}).click();
  assert.equal(await page.getByRole('button',{name:'Vista de lista'}).getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'Vista de tarjetas'}).click();
- await page.getByLabel('Buscar trámite').fill('CERTIFICACION');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('CERTIFICACION');
  await page.getByRole('heading',{name:'Certificación de discapacidad'}).filter({visible:true}).waitFor();
  await page.getByRole('button',{name:'Limpiar filtros'}).click();
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Certificación de discapacidad',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
@@ -134,8 +134,10 @@ try{
  assert.deepEqual(audit.violations.map(x=>[x.id,x.nodes.map(n=>n.target)]),[],'Catálogo accesible');
 
  await page.locator('#adminNav').click();
- if(!await page.locator('.admin-module-nav').evaluate(e=>e.open))await page.getByText('Menú institucional',{exact:true}).click();
+ await page.getByRole('heading',{name:'Áreas de gestión'}).waitFor();
  await page.getByRole('button',{name:'Catálogo y formularios'}).click();
+ await page.getByRole('heading',{name:'Trámites configurados',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Crear primera categoría'}).click();
  await page.getByLabel('Código de categoría').fill('orientacion');
  await page.getByLabel('Nombre de categoría').fill('Orientación');
  await page.getByRole('button',{name:'Guardar categoría'}).click();
@@ -154,10 +156,13 @@ try{
  await page.getByRole('button',{name:'Previsualizar formulario'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('button',{name:'Guardar borrador'}).click();
+ const createdRow=page.locator('.admin-table tbody tr').filter({hasText:'Orientación de prueba'});
+ await createdRow.getByText('Más acciones').click();
+ await createdRow.locator('.admin-row-menu > details').filter({hasText:'Publicar trámite'}).locator('summary').click();
  await page.getByLabel('Referencia de aprobación de Salud').fill('Aprobación de prueba del entorno local');
  await page.getByRole('button',{name:'Publicar trámite'}).click();
  await page.getByRole('button',{name:'Portal ciudadano',exact:true}).click();
- await page.getByLabel('Buscar trámite').fill('Orientación');
+ await page.getByLabel('Buscar trámite',{exact:true}).fill('Orientación');
  await page.locator('#catalog article').filter({has:page.getByRole('heading',{name:'Orientación de prueba',exact:true})}).getByRole('button',{name:'Ver requisitos y pasos'}).click();
  await page.getByLabel('Tipo de consulta').selectOption('apoyo');
  await page.getByRole('checkbox',{name:/Conocimiento del aviso/}).check();
@@ -171,7 +176,7 @@ try{
  assert.equal(application.answers.tipo,'apoyo');
  assert.equal(application.legalDecisions.length,2);
  await page.locator('#adminNav').click();
- await page.getByRole('button',{name:'Administrar equipo →'}).click();
+ await page.getByRole('button',{name:'Accesos del personal'}).click();
  await page.getByLabel('Correo del nuevo integrante').fill('operador@sanpedro-valle.gov.co');
  await page.getByRole('button',{name:'Crear invitación'}).click();
  await page.getByText('operador@sanpedro-valle.gov.co',{exact:true}).waitFor();

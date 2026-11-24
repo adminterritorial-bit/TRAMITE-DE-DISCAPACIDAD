@@ -1,4 +1,5 @@
 import {normalizeSearch, filterServices, categoryCounts} from './catalog-domain.mjs';
+import {selectAdminServices,selectServiceCases} from './admin-collections.mjs';
 
 const node=(tag,text,cls)=>{
  const element=document.createElement(tag);
@@ -181,13 +182,6 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  const manager=node('section',null,'module-panel catalog-manager');
  manager.hidden=true;
  const dashboard=document.getElementById('adminDashboard');
- const shortcuts=node('div',null,'workspace-shortcuts');
- shortcuts.hidden=true;
- const shortcutCatalog=btn('Diseñar un trámite →',()=>void openAdmin('catalog'));
- const shortcutCases=btn('Gestionar solicitudes →',()=>void openAdmin('cases'));
- const shortcutStaff=btn('Administrar equipo →',()=>void openAdmin('staff'));
- shortcuts.append(shortcutCatalog,shortcutCases,shortcutStaff);
- dashboard.querySelector('.dashbar').after(shortcuts);
  dashboard.append(manager);
  if(!demo){
   if(!nav.querySelector('[data-view=catalog]')){
@@ -459,74 +453,177 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   manager.append(form,preview);
  }
  function adminCatalog(data){
-  const enabled=data.categories.filter(c=>c.active).length;
-  const header=node('div',null,'management-header');
-  const intro=node('div');intro.append(node('h3','Administración de trámites'),node('p','Cree categorías y formularios reutilizables, edite borradores y publique las fichas autorizadas sin cambiar código.','module-intro'));header.append(intro);
-  if(enabled)header.append(btn('Crear trámite',()=>editService(null,data),'primary'));
-  manager.append(header);
+  const categories=Array.isArray(data.categories)?data.categories:[];
+  const services=Array.isArray(data.services)?data.services:[];
+  const enabled=categories.filter(c=>c.active).length;
+  const published=services.filter(item=>item.state==='published').length;
+  const summary=node('div',null,'admin-collection-summary');
+  const intro=node('div');
+  intro.append(node('span','GESTIÓN DEL CATÁLOGO','studio-kicker'),
+   node('h3','Organice los trámites municipales'),
+   node('p','Administre las categorías, prepare formularios y controle su publicación desde un mismo lugar.','module-intro'));
+  const newService=btn('Crear trámite',()=>editService(null,data),'primary');
+  newService.disabled=!enabled;
+  const actions=node('div',null,'admin-collection-actions');
+  actions.append(newService);
+  summary.append(intro,actions);manager.append(summary);
   const stats=node('div',null,'manager-stats');
-  for(const [label,n] of [['Categorías activas',enabled],['Trámites',data.services.length],['Publicados',data.services.filter(s=>s.state==='published').length],['Borradores',data.services.filter(s=>s.state==='draft').length]]){const box=node('div');box.append(node('small',label),node('strong',String(n)));stats.append(box);}
+  for(const [label,n] of [['Categorías activas',enabled],['Trámites configurados',services.length],['Publicados',published],['Borradores',services.filter(s=>s.state==='draft').length]]){
+   const box=node('div');
+   box.append(node('small',label),node('strong',String(n)));
+   stats.append(box);
+  }
   manager.append(stats);
-  const categorySection=node('section',null,'manager-section');
-  const serviceSection=node('section',null,'manager-section');
-  const form=node('form',null,'compact-form');
+  manager.append(node('p','Estos indicadores corresponden únicamente a servicios configurables. La certificación oficial de discapacidad se gestiona en Expedientes.','admin-scope-note'));
+  const categorySection=node('section',null,'manager-section admin-collection');
+  const categoryHeader=node('div',null,'admin-collection-head'),categoryCopy=node('div');
+  categoryCopy.append(node('h3','Categorías'),node('p','Agrupe los servicios para facilitar su búsqueda a los ciudadanos.','module-intro'));
+  categoryHeader.append(categoryCopy);
+  const editor=node('details',null,'admin-collection-editor'),summaryButton=node('summary','Nueva categoría');
+  editor.append(summaryButton);
+  const form=node('form',null,'compact-form admin-category-form');
   field(form,'Código de categoría','id','',{required:true});
   field(form,'Nombre de categoría','title','',{required:true,max:70});
   submit(form,'Guardar categoría',d=>operations(()=>invoke('categorySave',d),()=>openAdmin('catalog')));
-  categorySection.append(node('h3','Categorías'),form);
-  for(const c of data.categories){
-   const line=node('div',null,'record');line.append(node('strong',c.title));
-   line.append(btn('Editar categoría',()=>{form.elements.id.value=c.id;form.elements.title.value=c.title;form.elements.title.focus();}));
-   if(c.active&&data.canPublish)line.append(action('Retirar categoría',()=>operations(()=>invoke('categoryRetire',{id:c.id}),()=>openAdmin('catalog'))));
-   categorySection.append(line);
+  editor.append(form);categoryHeader.append(editor);
+  categorySection.append(categoryHeader);
+  if(!categories.length){
+   const empty=node('div',null,'admin-empty-state');
+   empty.append(node('h4','Todavía no hay categorías'),node('p','Cree una categoría para organizar y después diseñar su primer trámite.'));
+   empty.append(btn('Crear primera categoría',()=>{editor.open=true;form.elements.id.focus();},'primary'));
+   categorySection.append(empty);
+  }else{
+   const wrapper=node('div',null,'admin-table-scroll'),table=node('table',null,'admin-table');
+   const thead=node('thead'),header=node('tr');
+   for(const text of ['Categoría','Código','Trámites','Estado','Gestión'])header.append(node('th',text));
+   thead.append(header);table.append(thead);
+   const body=node('tbody');
+   for(const category of [...categories].sort((a,b)=>String(a.title).localeCompare(String(b.title),'es-CO'))){
+    const tr=node('tr');
+    const number=services.filter(s=>s.draft?.category===category.id).length;
+    const titleCell=node('td');titleCell.append(node('strong',category.title));
+    const count=node('td',String(number));
+    const statusCell=node('td');
+    statusCell.append(node('span',category.active?'Activa':'Retirada','state-label'));
+    const tools=node('td');tools.className='admin-table-actions';
+    tools.append(btn('Editar categoría',()=>{
+      editor.open=true;form.elements.id.value=category.id;form.elements.title.value=category.title;
+      form.elements.title.focus();
+    },'secondary'));
+    if(category.active&&data.canPublish)tools.append(action('Retirar categoría',()=>operations(()=>invoke('categoryRetire',{id:category.id}),()=>openAdmin('catalog'))));
+    tr.append(titleCell,node('td',category.id),count,statusCell,tools);body.append(tr);
+   }
+   table.append(body);wrapper.append(table);categorySection.append(wrapper);
   }
   manager.append(categorySection);
-  serviceSection.append(node('h3','Trámites configurados'));
-  if(!data.services.length)serviceSection.append(node('p','Aún no hay trámites personalizados. Crea una categoría y luego un trámite.','module-intro'));
-  for(const item of data.services){
-   const line=node('article',null,'record');
-   const state=node('span',({draft:'Borrador',published:'Publicado',withdrawn:'Retirado'}[item.state]||item.state),'state-label');state.dataset.state=item.state;
-   line.append(state,node('h3',item.draft.title),node('p','Revisión '+item.revision+' · '+item.id),btn('Editar trámite',()=>editService(item,data)));
-   const duplicate=node('form',null,'compact-form');
-   field(duplicate,'Código para duplicar','id','',{required:true});field(duplicate,'Nombre de la copia','title','',{required:true});
-   submit(duplicate,'Duplicar',d=>operations(()=>invoke('serviceDuplicate',{...d,sourceId:item.id,revision:0}),()=>openAdmin('catalog')));
-   const details=node('details');details.append(node('summary','Duplicar trámite'),duplicate);line.append(details);
-   line.append(action('Ver versiones',async()=>{
-    const history=await invoke('serviceHistory',{id:item.id}),entries=node('ol');
-    for(const v of history.items)entries.append(node('li','Revisión '+v.revision+' · '+v.state+' · '+new Date(v.at).toLocaleString('es-CO')));
-    line.querySelector('ol')?.remove();line.append(entries);
-   }));
-   if(data.canPublish&&item.state==='draft'){
-    const publish=node('form',null,'compact-form');
-    field(publish,'Referencia de aprobación de Salud','reference','',{required:true,max:180});
-    submit(publish,'Publicar trámite',d=>operations(()=>invoke('servicePublish',{...d,id:item.id,revision:item.revision}),async()=>{
-     if(endpoint)await connect(endpoint);await openAdmin('catalog');
-    }));line.append(publish);
+  const serviceSection=node('section',null,'manager-section admin-collection');
+  const serviceHead=node('div',null,'admin-collection-head');
+  const caption=node('div');
+  caption.append(node('h3','Trámites configurados'),node('p','Busque, ordene y gestione cada formulario sin modificar su código.','module-intro'));
+  serviceHead.append(caption);serviceSection.append(serviceHead);
+  if(!enabled)serviceSection.append(node('p','Primero cree una categoría activa para habilitar el diseño de trámites.','admin-scope-note'));
+  const filters=node('div',null,'admin-list-filters');
+  const search=field(filters,'Buscar trámite o código','query','',{type:'search'});
+  search.placeholder='Nombre o código';
+  const state=field(filters,'Estado','state','',{options:{'':'Todos',draft:'Borradores',published:'Publicados',withdrawn:'Retirados'}});
+  const catOptions=Object.fromEntries([['','Todas las categorías'],...categories.map(x=>[x.id,x.title])]);
+  const category=field(filters,'Categoría','category','',{options:catOptions});
+  const order=field(filters,'Ordenar por','order','name',{options:{name:'Nombre (A–Z)',recent:'Última actualización',status:'Estado'}});
+  serviceSection.append(filters);
+  const visibleCount=node('p',null,'admin-collection-count');visibleCount.setAttribute('role','status');
+  const outlet=node('div');serviceSection.append(visibleCount,outlet);
+  function renderServices(){
+   const items=selectAdminServices(services,{query:search.value,state:state.value,category:category.value,sort:order.value});
+   visibleCount.textContent=items.length+' de '+services.length+' trámites configurados';
+   outlet.replaceChildren();
+   if(!items.length){
+    const empty=node('div',null,'admin-empty-state');
+    empty.append(node('h4',services.length?'No se encontraron coincidencias':'Todavía no hay trámites configurados'),
+     node('p',services.length?'Cambie los filtros para encontrar un trámite.':'Cree una categoría y luego diseñe un formulario.'));
+    if(services.length)empty.append(btn('Limpiar filtros',()=>{search.value='';state.value='';category.value='';order.value='name';renderServices();}));
+    outlet.append(empty);return;
    }
-   if(data.canPublish&&item.live)line.append(action('Retirar trámite',()=>operations(()=>invoke('serviceRetire',{id:item.id,revision:item.revision}),async()=>{
-    if(endpoint)await connect(endpoint);await openAdmin('catalog');
-   })));
-   serviceSection.append(line);
+   const wrapper=node('div',null,'admin-table-scroll'),table=node('table',null,'admin-table');
+   const head=node('tr');
+   for(const text of ['Trámite','Categoría','Estado','Revisión','Acciones'])head.append(node('th',text));
+   const tableHead=node('thead');tableHead.append(head);table.append(tableHead);
+   const body=node('tbody');
+   for(const item of items){
+    const tr=node('tr'),name=node('td'),categoryCell=node('td'),stateCell=node('td'),revision=node('td'),buttons=node('td');
+    buttons.className='admin-table-actions';
+    name.append(node('strong',item.draft?.title||item.id),node('small',item.id));
+    categoryCell.textContent=categories.find(x=>x.id===item.draft?.category)?.title||item.draft?.category||'Sin categoría';
+    const chip=node('span',({draft:'Borrador',published:'Publicado',withdrawn:'Retirado'}[item.state]||item.state),'state-label');
+    chip.dataset.state=item.state;stateCell.append(chip);
+    revision.textContent='Versión '+item.revision;
+    buttons.append(btn('Editar trámite',()=>editService(item,data)));
+    const more=node('details',null,'admin-row-more');
+    more.append(node('summary','Más acciones'));
+    const menu=node('div',null,'admin-row-menu');
+    const duplicate=node('form',null,'compact-form');
+    field(duplicate,'Código para duplicar','id','',{required:true});
+    field(duplicate,'Nombre de la copia','title','',{required:true});
+    submit(duplicate,'Duplicar',d=>operations(()=>invoke('serviceDuplicate',{...d,sourceId:item.id,revision:0}),()=>openAdmin('catalog')));
+    const clone=node('details');
+    clone.append(node('summary','Duplicar trámite'),duplicate);menu.append(clone);
+    menu.append(action('Ver versiones',async()=>{
+      const history=await invoke('serviceHistory',{id:item.id}),entries=node('ol');
+      for(const version of history.items)entries.append(node('li','Revisión '+version.revision+' · '+version.state+' · '+new Date(version.at).toLocaleString('es-CO')));
+      menu.querySelector('ol')?.remove();menu.append(entries);
+    }));
+    if(data.canPublish&&item.state==='draft'){
+      const publish=node('form',null,'compact-form');
+      field(publish,'Referencia de aprobación de Salud','reference','',{required:true,max:180});
+      submit(publish,'Publicar trámite',d=>operations(()=>invoke('servicePublish',{...d,id:item.id,revision:item.revision}),async()=>{
+       if(endpoint)await connect(endpoint);await openAdmin('catalog');
+      }));
+      const publishDetails=node('details');publishDetails.append(node('summary','Publicar trámite'),publish);menu.append(publishDetails);
+    }
+    if(data.canPublish&&item.live)menu.append(action('Retirar trámite',()=>operations(()=>invoke('serviceRetire',{id:item.id,revision:item.revision}),async()=>{
+     if(endpoint)await connect(endpoint);await openAdmin('catalog');
+    })));
+    more.append(menu);buttons.append(more);
+    tr.append(name,categoryCell,stateCell,revision,buttons);body.append(tr);
+   }
+   table.append(body);wrapper.append(table);outlet.append(wrapper);
   }
-  manager.append(serviceSection);
+  for(const control of [search,state,category,order])control.addEventListener(control===search?'input':'change',renderServices);
+  renderServices();manager.append(serviceSection);
  }
  function caseList(target,items,staff){
-  const list=node('div',null,'records');
-  const filter=staff?field(target,'Buscar en esta página por referencia o trámite','buscar'):null;
-  target.append(list);
-  const render=()=>{
+  const source=Array.isArray(items)?items:[];
+  const container=node('section',null,'admin-case-browser'),toolbar=node('div',null,'admin-list-filters');
+  const search=field(toolbar,staff?'Buscar radicado o trámite':'Buscar en mis solicitudes','query','',{type:'search'});
+  search.placeholder='Radicado o nombre del trámite';
+  const current=field(toolbar,'Estado','state','',{options:Object.fromEntries([['','Todos los estados'],...Array.from(new Set(source.map(x=>x.status))).sort().map(s=>[s,caseStates[s]||s])])});
+  const order=field(toolbar,'Ordenar por','order','recent',{options:{recent:'Más recientes',old:'Más antiguos',activity:'Último movimiento',name:'Nombre del trámite'}});
+  container.append(toolbar);
+  const count=node('p',null,'admin-collection-count');count.setAttribute('role','status');
+  const list=node('div',null,'admin-case-grid');container.append(count,list);target.append(container);
+  function render(){
+   const visible=selectServiceCases(source,{query:search.value,state:current.value,sort:order.value});
+   count.textContent=visible.length+' de '+source.length+' expedientes en esta página';
    list.replaceChildren();
-   const needle=filter?.value.trim().toLocaleLowerCase('es-CO')||'';
-   const visible=items.filter(x=>(x.radicado+' '+x.title).toLocaleLowerCase('es-CO').includes(needle));
-   if(!visible.length)list.append(node('p','No hay solicitudes de servicios configurados.'));
+   if(!visible.length){
+    const empty=node('div',null,'admin-empty-state');empty.append(node('h4','Sin solicitudes con esos filtros'),
+      node('p','Pruebe otro estado o limpie los filtros para consultar los expedientes de esta página.'));
+    empty.append(btn('Limpiar filtros',()=>{search.value='';current.value='';order.value='recent';render();}));
+    list.append(empty);return;
+   }
    for(const item of visible){
-   const row=node('article',null,'record');
-   row.append(node('strong',item.title),node('p',item.radicado+' · '+(caseStates[item.status]||item.status)),
-    action('Abrir expediente',async()=>{const data=await invoke('serviceCase',{id:item.id});renderCase(row,data,staff);}));
+    const row=node('article',null,'admin-service-case-card');
+    const top=node('div',null,'admin-service-case-top');
+    top.append(node('strong',item.radicado||'Sin radicado'),node('span',caseStates[item.status]||item.status||'Estado por verificar','state-label'));
+    row.append(top,node('h3',item.title||'Trámite configurado'));
+    const created=item.createdAt||item.updatedAt;
+    if(created&&!Number.isNaN(new Date(created).getTime())){
+     row.append(node('p','Actualizado: '+new Date(created).toLocaleDateString('es-CO'),'admin-service-case-date'));
+    }
+    row.append(action('Abrir expediente',async()=>{const data=await invoke('serviceCase',{id:item.id});renderCase(row,data,staff);}));
     list.append(row);
    }
-  };
-  if(filter)filter.oninput=render;
+  }
+  for(const control of [search,current,order])control.addEventListener(control===search?'input':'change',render);
   render();
  }
  function renderCase(target,item,staff){
@@ -635,7 +732,8 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
    manager.replaceChildren(node('h2',title));
    if(module==='catalog')adminCatalog(value);
    else if(module==='cases'){
-    manager.append(node('p','Expedientes de esta página: '+value.items.length));
+    manager.append(node('p','Los filtros y las cifras se aplican a los expedientes cargados en esta página.','admin-scope-note'));
+
     caseList(manager,value.items,true);
     if(value.next)manager.append(btn('Siguiente página',()=>openAdmin('cases',value.next)));
     if(after)manager.append(btn('Volver al inicio',()=>openAdmin('cases')));
@@ -666,7 +764,7 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
  }
  renderCatalog();
  return {connect,tracking,setIntakeAvailability(enabled,status){officialActive=enabled??null;if(status)availabilityText=status;renderHomeCatalog();},setSession(next,nextRole){
-  user=next;role=nextRole;shortcuts.hidden=!role;shortcutCatalog.hidden=!['admin','supervisor'].includes(role);shortcutStaff.hidden=role!=='supervisor';shortcutCases.hidden=!role;
+  user=next;role=nextRole;
   for(const b of menu.querySelectorAll('button')){
    if(b.textContent==='Accesos del personal')b.hidden=role!=='supervisor';
    if(b.textContent==='Catálogo y formularios')b.hidden=!['admin','supervisor'].includes(role);
