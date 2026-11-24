@@ -420,7 +420,6 @@ export function serviceCatalog({demo,navigate,invoke,experience,fixtureData,down
   const categoryEditor=node('div',null,'studio-category-editor');
   const newCategoryName=field(categoryEditor,'Nombre de la nueva categoría','newCategoryName','',{max:70});
   const newCategoryCode=field(categoryEditor,'Código automático de categoría','newCategoryCode','',{max:40});
-  newCategoryCode.pattern='[a-z][a-z0-9-]{1,39}';
   let categoryCodeManual=false;
   newCategoryCode.addEventListener('input',()=>{categoryCodeManual=true;});
   newCategoryName.addEventListener('input',()=>{
