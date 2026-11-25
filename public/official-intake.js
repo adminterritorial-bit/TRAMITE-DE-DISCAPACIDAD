@@ -110,20 +110,33 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
    }
    additional.append(extraGrid);contact.append(additional);
   }
+  const pdfSlots=[];
+  function conditionMatches(spec){
+   return !spec.condition||dynamicInputs.get(spec.condition.field)?.input.value===spec.condition.equals;
+  }
   function applyConditions(){
    for(const {input,spec} of dynamicInputs.values()){
     if(!spec.condition)continue;
-    const dependent=dynamicInputs.get(spec.condition.field)?.input;
-    const visible=!!dependent&&dependent.value===spec.condition.equals;
+    const visible=conditionMatches(spec);
     input.closest('label').hidden=!visible;
     input.disabled=!visible;
     input.required=visible&&spec.required===true;
     if(!visible){if(input.type==='checkbox')input.checked=false;else input.value='';}
    }
+   for(const {group,input,spec} of pdfSlots){
+    if(!spec)continue;
+    const visible=conditionMatches(spec);
+    group.hidden=!visible;
+    input.disabled=!visible;
+    input.required=visible&&spec.required===true;
+    if(!visible&&input.files.length){
+     input.value='';
+     input.dispatchEvent(new Event('change'));
+    }
+   }
   }
   form.addEventListener('change',applyConditions);
   form.addEventListener('input',applyConditions);
-  applyConditions();
   filesPanel.append(el('p',configured?'Adjunta los soportes indicados para este trámite. Máximo 4,5 MB por PDF y 7 MB en total.':
     'Adjunta máximo 4,5 MB por PDF y 7 MB en total.'));
   const fileGrid=el('div',undefined,'intake-filegrid');
@@ -134,9 +147,9 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
    required:configured?mainDoc?.required===true:true});
   const extra=pdfField({label:extraDoc?.label||'Soporte adicional, si aplica',kind:'apoyo',
    required:configured?extraDoc?.required===true:false});
-  const pdfSlots=[];
-  if(!configured||mainDoc){fileGrid.append(history.group);pdfSlots.push({kind:'historia',...history});}
-  if(!configured||extraDoc){fileGrid.append(extra.group);pdfSlots.push({kind:'apoyo',...extra});}
+  if(!configured||mainDoc){fileGrid.append(history.group);pdfSlots.push({kind:'historia',spec:mainDoc,...history});}
+  if(!configured||extraDoc){fileGrid.append(extra.group);pdfSlots.push({kind:'apoyo',spec:extraDoc,...extra});}
+  applyConditions();
   if(pdfSlots.length)filesPanel.append(fileGrid);
   else filesPanel.append(el('p','Este trámite no requiere adjuntar documentos PDF.','ui-service-status'));
   permissions.append(el('p','Lee las condiciones institucionales y selecciona las autorizaciones que apliquen.'));
@@ -210,8 +223,8 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
     ['Correo verificado',account.email,1],['Teléfono',data.get('phone')||'Sin registrar',1],
     ['Zona',data.get('zone'),1],['Presentación',representative.selectedOptions[0].textContent,1],
     ['Ajustes solicitados',data.get('support')||'Ninguno registrado',1],
-    ...(!configured||mainDoc?[[mainDoc?.label||'Soporte médico',history.input.files[0]?.name,2]]:[]),
-    ...(!configured||extraDoc?[[extraDoc?.label||'Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2]]:[]),
+    ...((!configured||mainDoc)&&!history.input.disabled?[[mainDoc?.label||'Soporte médico',history.input.files[0]?.name||'Sin adjuntar',2]]:[]),
+    ...((!configured||extraDoc)&&!extra.input.disabled?[[extraDoc?.label||'Soporte adicional',extra.input.files[0]?.name||'Sin adjuntar',2]]:[]),
     ...Array.from(dynamicInputs.values(),({input,spec})=>[spec.label,
       input.disabled?'No aplica':spec.type==='checkbox'?(input.checked?'Sí':'No'):input.value||'Sin registrar',1]),
     ['Avisos por correo',notify.checked?'Autorizados':'Sin autorización',3],
@@ -226,7 +239,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
   async function validateStep(n){
    const issues=[];
    if(n===2){
-    const attachments=pdfSlots;
+    const attachments=pdfSlots.filter(slot=>!slot.input.disabled);
     for(const item of attachments){
      const file=item.input.files[0];
      if(!file&&!item.input.required)continue;
@@ -255,7 +268,7 @@ export function officialIntakeUI({invoke,getUser,getAuthorized,navigate,labMode}
    busy=true;send.disabled=true;previous.disabled=true;send.textContent='Enviando solicitud…';
    try{
     activity.textContent='Preparando archivos y verificando su integridad.';
-    const attachments=pdfSlots.filter(slot=>slot.input.files[0]);
+    const attachments=pdfSlots.filter(slot=>!slot.input.disabled&&slot.input.files[0]);
     const payloads=await Promise.all(attachments.map(slot=>validatePdf(slot.input.files[0],slot.kind)));
     const fields=Object.fromEntries([...new FormData(form)].filter(([,value])=>typeof value==='string'));
     key??=crypto.randomUUID();

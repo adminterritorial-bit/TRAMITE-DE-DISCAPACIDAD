@@ -119,3 +119,17 @@ test('Supabase accepts successful empty REST writes and void RPC responses',()=>
  status=403;
  assert.throws(()=>ctx.sitsSbCall_('rest/v1/sits_audit_events','post',{},null,true,true),/database_unavailable/);
 });
+
+test('configured intake without documents uses the canonical ledger and disability still requires a PDF',()=>{
+ const {ctx,calls}=context('supabase');
+ const citizen={uid:'fixture',email:'ciudadano@example.invalid'};
+ const request={serviceId:'orientacion-eps',serviceVersion:2,answers:{motivo:'Traslado'},files:[]};
+ ctx.spLimit_=()=>{};
+ ctx.sitsSbCase_=()=>({id:'fixture',status:'received',reference:'QA-EPS',service_id:'orientacion-eps'});
+ const result=ctx.sitsSbDispatch_(citizen,'configuredSubmit',request,'test-token');
+ assert.equal(result.reference,'QA-EPS');
+ assert.equal(calls[0].name,'sits_create_configured_case');
+ assert.deepEqual(calls[0].payload._payload.documentKinds,[]);
+ assert.equal('files' in calls[0].payload._payload,false);
+ assert.throws(()=>ctx.sitsSbDispatch_(citizen,'officialSubmit',{files:[]},'test-token'),/invalid_request/);
+});

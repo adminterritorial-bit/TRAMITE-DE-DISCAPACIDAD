@@ -19,8 +19,8 @@ export function inspectConfiguredIntake(schema){
  if(fields.length>16)warnings.push('El formulario supera el límite de 16 preguntas del backend actual.');
  if(documents.length>2||documents.some(field=>!DOC_KINDS.has(field.fixture)))
   warnings.push('Revisar el número y tipo de soportes compatibles con el almacenamiento actual.');
- if(documents.length&&!documents.some(field=>field.fixture==='historia'&&field.required))
-  warnings.push('Si el trámite requiere PDFs, configurar un soporte principal obligatorio antes de habilitar el circuito actual.');
+ if(documents.some(field=>field.fixture==='apoyo')&&!documents.some(field=>field.fixture==='historia'&&field.required&&!field.condition))
+  warnings.push('Si el trámite requiere PDFs, configurar un soporte principal obligatorio para todos los casos antes de habilitar el circuito actual.');
  if(fields.some(field=>!field.id||!field.label))warnings.push('Completar la etiqueta y código de cada pregunta.');
  return {
   stages:CITIZEN_INTAKE_STAGES.map(stage=>({

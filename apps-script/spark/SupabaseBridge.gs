@@ -99,7 +99,17 @@ function sitsSbCase_(id,token){
  if(rows.length!==1)throw Error('not_found');
  return rows[0];
 }
-function sitsSbView_(row,staff){
+function sitsSbDocumentSpecs_(row){
+ if(!row.service_schema_version||row.service_id==='certificacion-discapacidad')return null;
+ const [version]=sitsSbRows_('sits_service_versions',
+  'select=form_schema&service_id=eq.'+encodeURIComponent(row.service_id)+
+  '&revision=eq.'+encodeURIComponent(row.service_schema_version)+'&limit=1',null,true);
+ const answers=row.service_answers||{};
+ return (version?.form_schema?.fields||[]).filter(field=>field.type==='document'&&
+  (!field.condition||answers[field.condition.field]===field.condition.equals))
+  .map(field=>({kind:field.fixture,label:field.label}));
+}
+function sitsSbView_(row,staff,documentSpecs=null){
  const docs=Array.isArray(row.sits_case_documents)?row.sits_case_documents:[];
  const events=Array.isArray(row.sits_case_events)?row.sits_case_events:[];
  const visible=docs.filter(d=>d.kind!=='certificate');
@@ -109,7 +119,7 @@ function sitsSbView_(row,staff){
   serviceId:row.service_id,serviceVersion:row.service_schema_version||null,
   createdAt:row.created_at,updatedAt:row.updated_at,
   files:visible.map(f=>({kind:f.kind,size:f.bytes})),
-  correctionKind:row.correction_kind,
+  correctionKind:row.correction_kind,documentSpecs,
   certificateAvailable:!!certificate&&['delivered','available','delivery_review','closed'].includes(row.status),
   deliveryMethod:row.delivery_method,
   history:events.slice().sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))
@@ -178,7 +188,7 @@ function sitsSbDispatch_(u,action,d,token){
   // Both services use the same official Supabase ledger and verified Drive
   // storage path. Configured intake is independently disabled by default.
   const configured=action==='configuredSubmit';
-  const files=officialFiles_(d.files||[]);
+  const files=configured&&Array.isArray(d.files)&&d.files.length===0?[]:officialFiles_(d.files);
   const payload=JSON.parse(JSON.stringify(d));delete payload.files;
   if(configured){
    payload.documentKinds=files.map(file=>file.kind);
@@ -222,7 +232,7 @@ function sitsSbDispatch_(u,action,d,token){
  if(!isOwner&&!u.canManage)throw Error('forbidden');
  if(sitsSbTestMode_()&&(c.applicant_name!=='Persona de prueba'||c.document_number!=='TEST001'
    ||!sitsSbTestAccount_(c.owner_email)))throw Error('not_found');
- if(action==='officialRead')return sitsSbView_(c,u.canManage);
+ if(action==='officialRead')return sitsSbView_(c,u.canManage,sitsSbDocumentSpecs_(c));
  if(action==='officialDownload'){
   if(!['historia','apoyo','certificate'].includes(d.kind))throw Error('invalid_request');
   if(!isOwner)instRecent_(u);
@@ -239,7 +249,8 @@ function sitsSbDispatch_(u,action,d,token){
     requested?'Consulta en el portal el soporte solicitado y el motivo de la subsanación.':
      'Hay una nueva actuación disponible en el seguimiento de tu solicitud.');
   }
-  return sitsSbView_(sitsSbCase_(c.id,token),true);
+  const updated=sitsSbCase_(c.id,token);
+  return sitsSbView_(updated,true,sitsSbDocumentSpecs_(updated));
  }
  if(action==='officialCorrect'){
   if(!isOwner||c.status!=='needs_documents'||c.revision!==d.revision)
@@ -274,7 +285,8 @@ function sitsSbDispatch_(u,action,d,token){
     _case_id:c.id,_result:'uncertain',_provider_message_id:null
    },null,true);}catch(_2){}
   }
-  return sitsSbView_(sitsSbCase_(c.id,token),true);
+  const updated=sitsSbCase_(c.id,token);
+  return sitsSbView_(updated,true,sitsSbDocumentSpecs_(updated));
  }
  if(action==='officialVerifyDelivery'){
   if(!u.canManage||c.status!=='delivery_review'||c.revision!==d.revision||d.confirm!==true
@@ -293,7 +305,8 @@ function sitsSbDispatch_(u,action,d,token){
   sitsSbRpc_('sits_drive_delivery_result',{
    _case_id:c.id,_result:'confirmed',_provider_message_id:null
   },null,true);
-  return sitsSbView_(sitsSbCase_(c.id,token),true);
+  const updated=sitsSbCase_(c.id,token);
+  return sitsSbView_(updated,true,sitsSbDocumentSpecs_(updated));
  }
  throw Error('invalid_request');
 }

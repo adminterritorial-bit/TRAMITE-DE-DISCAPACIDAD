@@ -6,7 +6,7 @@ const browser=await chromium.launch();
 const page=await browser.newPage({viewport:{width:390,height:840}});
 try{
  const submissions=[],configuredSubmissions=[];
- const configuredService={id:'orientacion-eps',title:'Orientación en EPS',description:'Gestiona una orientación de EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',version:2,intakeEnabled:true,intakeSchema:{version:2,title:'Orientación en EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',fields:[{id:'motivo',label:'Motivo de la orientación',type:'select',required:true,options:['Afiliación','Traslado']},{id:'soporte',label:'Soporte PDF',type:'document',fixture:'historia',required:true}],states:[{id:'received',label:'Recibida',next:['reviewing']},{id:'reviewing',label:'Revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]}};
+ const configuredService={id:'orientacion-eps',title:'Orientación en EPS',description:'Gestiona una orientación de EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',version:2,intakeEnabled:true,intakeSchema:{version:2,title:'Orientación en EPS',category:'eps-afiliaciones',channel:'Secretaría de Salud',fields:[{id:'motivo',label:'Motivo de la orientación',type:'select',required:true,options:['Afiliación','Traslado']},{id:'soporte',label:'Soporte PDF',type:'document',fixture:'historia',required:true,condition:{field:'motivo',equals:'Afiliación'}}],states:[{id:'received',label:'Recibida',next:['reviewing']},{id:'reviewing',label:'Revisión',next:['closed']},{id:'closed',label:'Cerrada',next:[]}],operators:[]}};
  let acceptingRequests;
  const documents=['processing','privacy','terms','sensitive'].map((kind,i)=>({
   id:kind,kind,title:'Política ficticia '+(i+1),body:'Texto de prueba del asistente.',version:1,hash:String(i+1).repeat(64)
@@ -97,8 +97,7 @@ try{
  await generic.getByLabel('Zona de residencia').selectOption('Cabecera municipal');
  await generic.getByLabel('Motivo de la orientación').selectOption('Traslado');
  await generic.getByRole('button',{name:'Continuar',exact:true}).click();
- await generic.locator('input[name=historia]').setInputFiles({name:'soporte.pdf',mimeType:'application/pdf',buffer:fixture});
- await generic.getByText(/soporte\.pdf ·/).waitFor();
+ assert.equal(await generic.locator('input[name=historia]').isVisible(),false);
  await generic.getByRole('button',{name:'Continuar',exact:true}).click();
  for(const control of await generic.locator('section:not([hidden]) input[required]').all())await control.check();
  await generic.getByRole('button',{name:'Continuar',exact:true}).click();
@@ -109,6 +108,6 @@ try{
  assert.equal(configuredSubmissions[0].serviceId,'orientacion-eps');
  assert.equal(configuredSubmissions[0].serviceVersion,2);
  assert.equal(configuredSubmissions[0].answers.motivo,'Traslado');
- assert.equal(configuredSubmissions[0].files[0].kind,'historia');
+ assert.deepEqual(configuredSubmissions[0].files,[]);
  console.log('SITS Salud: cinco pasos oficiales y trámite configurable simulado aprobados, sin habilitar servicios nuevos en producción.');
 }finally{await browser.close();}
