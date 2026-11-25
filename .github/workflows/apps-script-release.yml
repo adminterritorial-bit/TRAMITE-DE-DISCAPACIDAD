@@ -6,7 +6,18 @@ on:
     paths:
       - "apps-script/spark/**"
       - ".github/workflows/apps-script-release.yml"
+      - "scripts/prepare-spark.mjs"
+  pull_request:
+    paths:
+      - "apps-script/spark/**"
+      - ".github/workflows/apps-script-release.yml"
+      - "scripts/prepare-spark.mjs"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publicar la versión oficial de main
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +35,7 @@ jobs:
         with:
           node-version: "22"
       - name: Validar selectores y lógica de formularios
-        run: node --test tests/catalog-domain.test.mjs tests/admin-workspace.test.mjs
+        run: node --test tests/catalog-domain.test.mjs tests/admin-workspace.test.mjs tests/configured-intake-contract.test.mjs tests/supabase-portal.test.mjs
       - name: Comprobar sintaxis Apps Script V8
         shell: bash
         run: |
@@ -44,7 +55,7 @@ jobs:
 
   release:
     needs: verify
-    if: github.event_name == 'workflow_dispatch' || vars.SITS_AUTO_APPS_SCRIPT_DEPLOY == 'enabled'
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && vars.SITS_AUTO_APPS_SCRIPT_DEPLOY == 'enabled'))
     runs-on: ubuntu-latest
     environment: apps-script-production
     steps:
@@ -72,17 +83,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p release
-          cp apps-script/spark/UnifiedBackend.gs release/Codigo.gs
-          cp apps-script/spark/SparkAuth.gs release/SparkAuth.gs
-          cp apps-script/spark/ServiceCatalog.gs release/ServiceCatalog.gs
-          cp apps-script/spark/SupabaseBridge.gs release/SupabaseBridge.gs
-          cp apps-script/spark/SupabasePortal.gs release/SupabasePortal.gs
-          cp apps-script/spark/appsscript.json release/appsscript.json
+          node scripts/prepare-spark.mjs
+          mv build/spark-release release
           printf "const SITS_RELEASE_COMMIT_='%s';\n" "$GITHUB_SHA" > release/ReleaseVersion.gs
           printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > release/.clasp.json
       - name: Instalar CLI de Google Apps Script
-        run: npm install --global @google/clasp
+        run: npm install --global @google/clasp@3.4.1
       - name: Actualizar versión existente
         env:
           CLASPRC_JSON: ${{ secrets.SITS_CLASPRC_JSON }}
@@ -90,6 +96,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
+          trap 'rm -f "$HOME/.clasprc.json"' EXIT
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
           cd release
@@ -101,7 +109,7 @@ jobs:
         run: |
           node - <<'NODE'
           const url=new URL(process.env.APP_URL);
-          if(url.protocol!=='https:'||!url.hostname.endsWith('.google.com')){
+          if(url.origin!=='https://script.google.com'||!/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url.pathname)){
             throw new Error('Se requiere URL HTTPS de Google Apps Script.');
           }
           url.searchParams.set('probe','sits-supabase-v1');

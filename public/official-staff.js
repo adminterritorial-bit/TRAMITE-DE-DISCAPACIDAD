@@ -319,7 +319,10 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
   }
   if(!events.length)timeline.append(e('li','Sin actuaciones registradas.'));
   history.append(timeline);detail.append(history);
-  const options=NEXT[row.status]||[];
+  const corrections=row.serviceVersion
+   ?(row.documentSpecs||[]).map(({kind,label})=>[kind,label])
+   :[['historia','Historia clínica o soporte médico'],['apoyo','Soporte adicional']];
+  const options=(NEXT[row.status]||[]).filter(status=>status!=='needs_documents'||corrections.length>0);
   if(options.length){
    const block=actionBlock('Actualizar estado','Selecciona la siguiente actuación y registra el motivo para mantener la trazabilidad.');
    block.id='case-next';
@@ -327,7 +330,7 @@ export async function renderOfficialStaffInbox({invoke,validatePdf,sessionUserId
    const select=e('select');select.required=true;select.name='status';select.setAttribute('aria-label','Nuevo estado');
    for(const code of options){const option=e('option',STATES[code]||code);option.value=code;select.append(option);}
    const kind=e('select');kind.setAttribute('aria-label','Soporte requerido');
-   for(const [value,label] of [['historia','Historia clínica o soporte médico'],['apoyo','Soporte adicional']]){
+   for(const [value,label] of corrections){
     const opt=e('option',label);opt.value=value;kind.append(opt);
    }
    const kindLabel=field('Documento que debe corregirse',kind);
